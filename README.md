@@ -1,4 +1,4 @@
-# Свой оверлей для iRacing
+# Overlap — оверлеи для iRacing
 
 Личный локальный оверлей: сервер телеметрии и оверлеи **Relative** и **Standings** в стиле RaceLab.
 Код и вёрстка свои; размеры, цвета и шрифты взяты из разбора в [reverse/RACELAB_REVERSE.md](reverse/RACELAB_REVERSE.md).

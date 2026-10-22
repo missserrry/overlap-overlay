@@ -15,7 +15,7 @@ public class Win {
 }
 "@
 [Win]::SetProcessDPIAware() | Out-Null
-$p = Get-Process electron, 'Svoy Overlay' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Свой оверлей' } | Select-Object -First 1
+$p = Get-Process electron, 'Overlap' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'Overlap' } | Select-Object -First 1
 if (-not $p) { Write-Error 'окно панели не найдено'; exit 1 }
 $h = $p.MainWindowHandle
 $full = New-Object Win+RECT; [Win]::GetWindowRect($h, [ref]$full) | Out-Null

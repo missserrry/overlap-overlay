@@ -2,7 +2,7 @@
   "name": "svoy-overlay",
   "version": "0.1.0",
   "private": true,
-  "description": "Личный оверлей для iRacing: сервер телеметрии + Relative и Standings",
+  "description": "Overlap — личные оверлеи для iRacing: Relative, Standings, Weather, DigiFlag, Radar",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "local.svoy-overlay",
-    "productName": "Svoy Overlay",
+    "productName": "Overlap",
     "directories": { "output": "dist" },
     "files": [
       "src/**", "overlays/**", "package.json",
@@ -20,8 +20,8 @@
       "!node_modules/koffi/build/koffi/!(win32_x64)/**"
     ],
     "asarUnpack": ["node_modules/koffi/**"],
-    "win": { "target": "portable" },
-    "portable": { "artifactName": "SvoyOverlay-${version}-portable.exe" }
+    "win": { "target": "portable", "icon": "overlays/common/brand/icon.ico" },
+    "portable": { "artifactName": "Overlap-${version}-portable.exe" }
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

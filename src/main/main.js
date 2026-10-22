@@ -325,7 +325,8 @@ function openPanel() {
   }
   panel = new BrowserWindow({
     width: 1100, height: 760, minWidth: 900, minHeight: 600,
-    title: 'Свой оверлей',
+    title: 'Overlap',
+    icon: path.join(__dirname, '..', '..', 'overlays', 'common', 'brand', 'icon.png'),
     backgroundColor: '#0E0F11',
     autoHideMenuBar: true,
     // рама одного цвета с навигацией: системный заголовок скрыт, кнопки окна рисуются поверх верхней полосы
@@ -359,20 +360,8 @@ ipcMain.on('panel-open-url', (_e, url) => {
 // ---------- трей ----------
 
 function trayIcon() {
-  // 16×16 BGRA: золотой квадрат с тёмной рамкой — без отдельного файла иконки
-  const size = 16;
-  const buf = Buffer.alloc(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const edge = x < 2 || y < 2 || x > 13 || y > 13;
-      const i = (y * size + x) * 4;
-      buf[i] = edge ? 20 : 17;
-      buf[i + 1] = edge ? 20 : 190;
-      buf[i + 2] = edge ? 22 : 234;
-      buf[i + 3] = 255;
-    }
-  }
-  return nativeImage.createFromBitmap(buf, { width: size, height: size });
+  // значок Overlap (design/make-icon.py → overlays/common/brand/tray.png)
+  return nativeImage.createFromPath(path.join(__dirname, '..', '..', 'overlays', 'common', 'brand', 'tray.png'));
 }
 
 function createTray() {
@@ -386,7 +375,7 @@ function rebuildTrayMenu() {
   const snap = state.snapshot();
   const active = state.layout(snap.active.layoutId);
   const src = { iracing: 'iRacing', demo: 'демо', none: 'нет данных' }[snap.sim.source] || snap.sim.source;
-  tray.setToolTip(`Свой оверлей — ${src}${active ? ' · ' + active.name : ''}`);
+  tray.setToolTip(`Overlap — ${src}${active ? ' · ' + active.name : ''}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Панель управления (Ctrl+Shift+J)', click: openPanel },
     { type: 'separator' },
