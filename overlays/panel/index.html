@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Свой оверлей</title>
+  <link rel="stylesheet" href="/panel/panel.css">
+</head>
+<body>
+  <!-- Рама (навигация + верхняя полоса) одного цвета, контент — утопленная карточка. Дизайн: design/brandbook.md -->
+  <div class="app">
+    <nav class="rail" aria-label="Разделы">
+      <div class="mark" title="Свой оверлей"><span></span><span></span><span></span></div>
+      <div class="rail-items" id="rail">
+        <button class="rail-btn" data-view="overlays" title="Оверлеи"><i class="ico" style="--i:url(/vendor/icons/layers.svg)"></i></button>
+        <button class="rail-btn" data-view="layouts" title="Раскладки"><i class="ico" style="--i:url(/vendor/icons/layout-template.svg)"></i></button>
+        <button class="rail-btn" data-view="liveries" title="Ливреи Trading Paints"><i class="ico" style="--i:url(/vendor/icons/paintbrush.svg)"></i></button>
+        <button class="rail-btn rail-bottom" data-view="settings" title="Настройки"><i class="ico" style="--i:url(/vendor/icons/settings.svg)"></i></button>
+      </div>
+    </nav>
+    <header class="topbar">
+      <h1 id="title"></h1>
+      <div class="status" id="status"></div>
+    </header>
+    <main class="card" id="card"></main>
+  </div>
+  <script type="module" src="/panel/panel.js"></script>
+</body>
+</html>

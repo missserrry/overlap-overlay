@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Standings</title>
+  <link rel="stylesheet" href="/common/overlay.css">
+  <link rel="stylesheet" href="/standings/standings.css">
+</head>
+<body>
+  <div class="swrap fit-root hidden" id="wrap">
+    <div class="bar hfbar" id="hdr"></div>
+    <div class="standings" id="root">
+      <div class="panel left">
+        <div class="bar head" id="spacer"></div>
+        <div id="left"></div>
+      </div>
+      <div class="panel right" id="rightPanel">
+        <div class="bar head cols" id="cols"></div>
+        <div id="right"></div>
+      </div>
+    </div>
+    <div class="bar hfbar" id="foot"></div>
+  </div>
+  <div class="edit-hint">Standings · тяни за края</div>
+  <script type="module" src="/standings/standings.js"></script>
+</body>
+</html>

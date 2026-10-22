@@ -1,0 +1,45 @@
+.standings { position: relative; display: flex; align-items: flex-start; gap: 0.15em; width: 100%; --name-min: 8.5em; }
+.standings .panel { padding-bottom: 0.15em; }
+.standings .left { flex: 1; min-width: 0; }
+.standings .right { flex: none; width: auto; }
+
+/* шапка и подвал на всю ширину над и под таблицей */
+.swrap { display: flex; flex-direction: column; gap: 0.15em; width: 100%; --name-min: 8.5em; }
+.swrap .hfbar { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 0.6em; flex: none; }
+.standings .head .chip { border-radius: 50%; width: 1.1em; height: 1.1em; padding: 0; }
+.hfbar .chip { border-radius: 0.3em; }
+/* высота = высоте левой шапки (1.857em × 0.928), иначе строки колонок разъедутся */
+.standings .cols { font-size: 0.7em; color: var(--text-dim); justify-content: flex-start; gap: 0; height: calc(1.857em * 0.928 / 0.7); }
+.standings .cols .c-h { width: calc(var(--w) / 0.7 + var(--sx, 0px)); flex: none; box-sizing: border-box; white-space: nowrap; text-align: center; }
+.standings .cols .c-h.first { width: calc((var(--w) + 0.4em) / 0.7 + var(--sx, 0px)); padding-left: calc(0.4em / 0.7); }
+
+/* Заголовок класса */
+.standings .class-head {
+  display: flex; align-items: center; gap: 0.5em;
+  height: 1.6em; padding: 0 0.35em;
+  font-size: 0.75em; color: var(--text-dim);
+  border-left: 0.25em solid var(--cls);
+  margin-top: 0.35em;
+  white-space: nowrap; overflow: hidden;
+}
+.standings .class-head .cname { color: var(--cls); font-weight: 700; }
+.standings .class-head-r { height: 1.6em; font-size: 0.75em; margin-top: 0.35em; }
+
+.standings .row { height: 1.928em; }           /* 27px — компактнее, как в эталоне */
+.standings .name { font-size: 1em; }
+.standings .pos { width: 2.1em; background: none; }
+.standings .row.player .pos { background: var(--player-strong); }
+.standings .badge { margin-right: 0.3em; }
+
+.standings .right .row { padding: 0 0.4em; }
+.standings .right .best.fastest { color: var(--purple); }
+.standings .row.out .badge { filter: grayscale(1) brightness(0.55); }
+
+/* при замере естественной ширины правая панель не растянута */
+body.measure .standings .panel.right { --sx: 0px !important; }
+
+/* Разделитель между левой и правой частью: только в режиме редактирования */
+.split-handle { display: none; position: absolute; top: 0; bottom: 0; width: 16px; margin-left: -8px; z-index: 12; cursor: col-resize; }
+body.edit .split-handle { display: block; }
+.split-handle i { position: absolute; left: 7px; top: 8%; bottom: 8%; width: 2px; border-radius: 1px; background: rgb(234, 190, 17); opacity: 0.8; }
+.split-handle:hover i { opacity: 1; width: 4px; left: 6px; }

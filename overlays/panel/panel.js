@@ -1,0 +1,704 @@
+// Панель «Свой оверлей». Состояние живёт в главном процессе; здесь отрисовка и отправка действий.
+// Разделы: Оверлеи (список | настройки | живое превью), Раскладки, Ливреи, Настройки.
+
+const bridge = window.panelBridge;
+const $ = (id) => document.getElementById(id);
+const act = (a) => bridge.action(a);
+
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+const icon = (name, cls = '') => `<i class="ico ${cls}" style="--i:url(/vendor/icons/${name}.svg)"></i>`;
+const sw = (attrs, on) => `<label class="sw"><input type="checkbox" ${attrs} ${on ? 'checked' : ''}><i></i></label>`;
+
+const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', liveries: 'Ливреи', settings: 'Настройки' };
+const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
+const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
+const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
+const TYPE_INFO = {
+  relative: 'Машины рядом с вами на трассе и отрыв до них.',
+  standings: 'Таблица по классам: позиции, отрыв, лучший круг.',
+  digiflag: 'Светодиодная панель флагов: зелёный, жёлтый, SC, синий, белый, красный, клетчатый, чёрный и другие. Мигает, как настоящие.',
+  radar: 'Радар вокруг вашей машины: кто рядом по бортам, кто близко спереди и сзади. Цвет и размер меняются с расстоянием.',
+  weather: 'Температура трассы, её состояние, осадки и ветер с компасом, который вращается вместе с машиной.',
+};
+
+let S = null;          // последнее состояние из главного процесса
+let pending = null;    // состояние, пришедшее во время ввода
+let view = load('panelView', 'overlays');
+let sel = null;        // { layoutId, variation } — какой набор редактируем
+let selOv = null;      // выбранный оверлей
+let selLayout = null;  // выбранная раскладка в разделе «Раскладки»
+let mounted = null;    // какой экран сейчас смонтирован (для постоянного превью и индикатора)
+let lastLayoutShown = null;
+
+function load(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch { /* не критично */ } }
+
+// ---------- состояние ----------
+
+function setState(s) {
+  if (document.activeElement?.matches?.('input[type=range], input[type=text], input[type=number]')) { pending = s; return; }
+  S = s;
+  const layouts = S.cfg.layouts;
+  if (!sel || !layouts.some((l) => l.id === sel.layoutId)) sel = S.panelSelection || { layoutId: S.active.layoutId, variation: 'base' };
+  if (!selLayout || !layouts.some((l) => l.id === selLayout)) selLayout = sel.layoutId;
+  render();
+}
+document.addEventListener('focusout', () => {
+  if (!pending) return;
+  setTimeout(() => { if (pending) { const p = pending; pending = null; setState(p); } }, 0);
+});
+
+const layoutById = (id) => S.cfg.layouts.find((l) => l.id === id);
+function currentSet() {
+  const l = layoutById(sel.layoutId);
+  if (!l) return { layout: null, list: [] };
+  const v = sel.variation;
+  const list = v === 'base' ? l.overlays : l.variations?.[v]?.enabled ? l.variations[v].overlays : l.overlays;
+  return { layout: l, list, variation: v === 'base' || l.variations?.[v]?.enabled ? v : 'base' };
+}
+
+// ---------- каркас ----------
+
+function render() {
+  $('title').textContent = TITLES[view];
+  renderStatus();
+  document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+  if (view === 'overlays') renderOverlays();
+  else if (view === 'layouts') renderLayouts();
+  else if (view === 'liveries') renderLiveries();
+  else renderSettings();
+}
+
+// Подпись движения: индикатор переезжает к выбранному пункту (translateY), а не появляется заново
+function moveIndicator(ind, target, h) {
+  if (!ind) return;
+  if (!target) { ind.style.opacity = 0; return; }
+  const y = target.offsetTop + (target.offsetHeight - h) / 2;
+  ind.style.height = `${h}px`;
+  ind.style.transform = `translateY(${y}px)`;
+  ind.style.opacity = 1;
+}
+
+function renderStatus() {
+  const sim = S.sim;
+  let dot = '', text;
+  if (sim.source === 'iracing' && sim.connected) { dot = 'live'; text = sim.car ? `iRacing · ${sim.car}` : 'iRacing подключён'; }
+  else if (sim.source === 'demo') text = 'iRacing не в сессии · демо';
+  else { dot = 'bad'; text = 'iRacing не запущен'; }
+  const editing = !S.cfg.locked;
+  // связь — просто текст с точкой; видимость — действие; режим окон — сегментированный переключатель
+  $('status').innerHTML = `
+    <span class="conn"><span class="dot ${dot}"></span>${esc(text)}</span>
+    <button class="btn quiet" data-app-toggle="hiddenAll" title="Ctrl+Shift+H">${icon('eye', 'sm')}${S.cfg.hiddenAll ? 'Показать оверлеи' : 'Скрыть оверлеи'}</button>
+    <span class="mode" role="group" aria-label="Режим окон оверлеев" title="Ctrl+Shift+L">
+      <button class="${editing ? '' : 'on'}" data-mode="lock">${icon('lock', 'sm')}Закреплены</button>
+      <button class="${editing ? 'on' : ''}" data-mode="edit">${icon('move', 'sm')}Редактирование</button>
+    </span>`;
+}
+
+// ---------- Оверлеи ----------
+
+function renderOverlays() {
+  const card = $('card');
+  if (mounted !== 'overlays') {
+    card.innerHTML = `
+      <div class="ov-screen">
+        <section class="col"><div class="list"><i class="list-ind" id="listInd"></i><div id="ovList"></div></div></section>
+        <section class="col" id="ovSettings"></section>
+        <section class="preview" id="ovPreview"><div class="stage" id="stage"></div><span class="state-pill" id="statePill"></span><span class="size-tag mono" id="sizeTag"></span></section>
+      </div>`;
+    mounted = 'overlays';
+    lastPreviewKey = null;
+  }
+  const { layout, list, variation } = currentSet();
+  if (selOv !== 'none' && !list.some((o) => o.id === selOv)) selOv = list[0]?.id ?? null;
+  const o = list.find((x) => x.id === selOv) || null;
+
+  // список: что уже в наборе (с переключателем «показывать») и что можно добавить
+  const varNote = variation !== 'base' ? `, ${VAR_LABELS[variation].toLowerCase()}` : '';
+  // тип, который уже есть в наборе, второй раз не предлагаем (копия — через «Дублировать»)
+  const addable = Object.entries(S.types).filter(([t]) => !list.some((x) => x.type === t));
+  $('ovList').innerHTML = `
+    <div class="group">
+      <div class="label"><span>В наборе</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>
+      ${list.length ? list.map((x) => `
+        <div class="row ${x.id === selOv ? 'on' : ''} ${x.enabled ? '' : 'muted'}" data-ov="${x.id}" title="${x.enabled ? 'Показывается' : 'Скрыт — включите переключатель'}">
+          <span class="name">${esc(x.name)}</span>
+          ${sw(`data-ov-enabled="${x.id}" aria-label="Показывать ${esc(x.name)}"`, x.enabled)}
+        </div>`).join('') : '<div class="empty-list">Пока пусто.</div>'}
+    </div>
+    ${addable.length ? `<div class="group">
+      <div class="label">Добавить</div>
+      ${addable.map(([t, m]) => `
+        <div class="row adder" data-add="${t}" title="${esc(TYPE_INFO[t] || '')}">${icon('plus', 'sm')}<span class="name">${esc(m.title)}</span></div>`).join('')}
+    </div>` : ''}`;
+  moveIndicator($('listInd'), document.querySelector(`#ovList .row[data-ov="${selOv}"]`), 34);
+
+  renderOverlaySettings(o, layout, variation);
+  renderPreview(o);
+}
+
+// Строки колонок: «прирост iRating» — вложенный переключатель под iRating, в порядок не входит
+function columnRows(o) {
+  const cat = S.columnCatalog || {};
+  const cols = o.columns || [];
+  const on = (id) => !!cols.find((c) => c.id === id)?.on;
+  const label = (id) => cat[id]?.labelBy?.[o.type] || cat[id]?.label || id;
+  return cols.filter((c) => !cat[c.id]?.sub).map((c) => {
+    const fixed = cat[c.id]?.fixed;
+    const sub = cols.filter((x) => cat[x.id]?.sub === c.id).map((x) =>
+      `<div class="col-sub ${c.on ? '' : 'dim'}"><span>${esc(label(x.id))}</span>${sw(`data-col="${x.id}" ${c.on ? '' : 'disabled'}`, on(x.id))}</div>`).join('');
+    return `<div class="col-item" draggable="true" data-list="columns" data-col-id="${c.id}">
+      <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(label(c.id))}</span>${fixed ? '<span class="col-fixed">всегда</span>' : sw(`data-col="${c.id}" aria-label="${esc(label(c.id))}"`, c.on)}</div>${sub}</div>`;
+  }).join('');
+}
+
+// Шапка и подвал: список пунктов, перетаскивание и переключатели как у колонок; блок раскрывается
+const hfOpen = { header: false, footer: false };
+const HF_TITLES = { header: 'Шапка', footer: 'Подвал' };
+function hfBlock(o, zone) {
+  const cat = S.hfCatalog || {};
+  const list = o[zone] || [];
+  const on = list.filter((c) => c.on).map((c) => cat[c.id]?.label || c.id);
+  const rows = list.map((c) => `<div class="col-item" draggable="true" data-list="${zone}" data-col-id="${c.id}">
+      <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(cat[c.id]?.label || c.id)}</span><span class="col-grp">${esc(cat[c.id]?.group || '')}</span>${sw(`data-hf="${zone}:${c.id}" aria-label="${esc(cat[c.id]?.label || c.id)}"`, c.on)}</div></div>`).join('');
+  return `<div class="block">
+    <div class="label">${HF_TITLES[zone]}</div>
+    <details class="hf-details" data-hf-details="${zone}" ${hfOpen[zone] ? 'open' : ''}>
+      <summary><span class="hf-sum">${on.length ? esc(on.join(' · ')) : 'Пусто — полоса скрыта'}</span>${icon('chevron-down', 'sm')}</summary>
+      <div class="cols-list" style="margin-top:8px">${rows}</div>
+    </details>
+  </div>`;
+}
+
+// Radar: дальность, прозрачность без машин, цифры и цвет класса
+function radarBlock(o) {
+  const range = Math.round(o.radarRange ?? 15), idle = Math.round((o.radarIdle ?? 0.35) * 100);
+  return `<div class="block">
+    <div class="label">Радар</div>
+    <div class="sub-label">Дальность</div>
+    <div class="slider"><input class="range" type="range" min="8" max="40" step="1" value="${range}" data-ov-range="radarRange" aria-label="Дальность"><output>${range} м</output></div>
+    <div class="sub-label" style="margin-top:16px">Прозрачность, когда рядом никого</div>
+    <div class="slider"><input class="range" type="range" min="0" max="100" step="5" value="${idle}" data-ov-range="radarIdle" aria-label="Прозрачность без машин"><output>${idle}%</output></div>
+    <label class="toggle" style="margin-top:16px"><span>Расстояние цифрами</span>${sw('data-radar-dist', o.radarDist !== false)}</label>
+    <label class="toggle" style="margin-top:12px"><span>Цвет класса вместо красного</span>${sw('data-radar-cls', !!o.radarClass)}</label>
+    <p class="hint" style="margin-top:10px">Квадратное окно: вписывается по меньшей стороне. Боковые машины определяет споттер iRacing, дуги — расстояние по трассе.</p>
+  </div>`;
+}
+
+// DigiFlag: вид панели (квадрат или две полосы) и поведение, когда флага нет
+function flagBlock(o) {
+  const lay = o.flagLayout || 'big';
+  const chip = (id, label) => `<button class="chip ${lay === id ? 'on' : ''}" data-flag-layout="${id}" aria-pressed="${lay === id}">${lay === id ? icon('check') : ''}${label}</button>`;
+  return `<div class="block">
+    <div class="label">Вид панели</div>
+    <div class="where" style="grid-template-columns:repeat(2,1fr)">${chip('big', 'Квадрат')}${chip('strip', 'Две полосы')}</div>
+    <label class="toggle" style="margin-top:14px"><span>Прятать, когда флага нет</span>${sw('data-hide-empty', !!o.hideEmpty)}</label>
+    <p class="hint" style="margin-top:10px">Панель вписывается в окно по меньшей стороне: тяните окно — флаг станет больше или меньше. В превью флаги сменяются сами.</p>
+  </div>`;
+}
+
+// Карточки оверлея Weather: переключатели и порядок, как у колонок
+function cardsBlock(o) {
+  const cat = S.weatherCards || {};
+  const rows = (o.cards || []).map((c) => `<div class="col-item" draggable="true" data-list="cards" data-col-id="${c.id}">
+      <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(cat[c.id]?.label || c.id)}</span>${sw(`data-card="${c.id}" aria-label="${esc(cat[c.id]?.label || c.id)}"`, c.on)}</div></div>`).join('');
+  return `<div class="block">
+    <div class="label">Карточки</div>
+    <div class="cols-list">${rows}</div>
+    <p class="hint" style="margin-top:10px">Порядок меняется перетаскиванием. Если окно низкое, нижние карточки скрываются.</p>
+  </div>`;
+}
+
+let lastSettingsId = null;
+function renderOverlaySettings(o, layout, variation) {
+  const box = $('ovSettings');
+  if (!o) {
+    box.innerHTML = '<div class="settings"><p class="hint">Выберите оверлей в наборе или добавьте новый.</p></div>';
+    lastSettingsId = null;
+    return;
+  }
+  const v = o.visibility || {};
+  const bg = Math.round((o.bgOpacity ?? 0.8) * 100);
+  const cols = o.columns || [];
+  const colsOn = cols.filter((c) => c.on).map((c) => c.id);
+  const scaleParam = o.autoScale ? 'auto' : (o.scale ?? 1);
+  const sc = Math.round((o.scale ?? 1) * 100);
+  const url = o.type === 'radar'
+    ? `${location.origin}/radar/?range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}`
+    : o.type === 'digiflag'
+    ? `${location.origin}/digiflag/?layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}`
+    : o.type === 'weather'
+    ? `${location.origin}/weather/?cards=${cardsOf(o)}&scale=${scaleParam}`
+    : `${location.origin}/${o.type}/?cols=${colsOn.join(',')}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${scaleParam}${o.split != null ? `&split=${o.split.toFixed(3)}` : ''}`;
+  const fresh = lastSettingsId !== o.id;
+  lastSettingsId = o.id;
+  const where = (key, label, on, tip = '') => `<button class="chip ${on ? 'on' : ''}" data-vis="${key}" aria-pressed="${on}" title="${tip}">${on ? icon('check') : ''}${label}</button>`;
+  // порядок: где показывать → вид → окно → для трансляции
+  box.innerHTML = `
+    <div class="settings ${fresh ? 'fade' : ''}">
+      <div class="head">
+        <input type="text" id="ovName" data-ov-field="name" value="${esc(o.name)}" spellcheck="false" aria-label="Название">
+        <button class="btn quiet rename" data-rename title="Переименовать">${icon('pencil', 'sm')}</button>
+        <button class="btn quiet" data-ov-close title="Закрыть">${icon('x', 'sm')}</button>
+      </div>
+      <p class="kind">${esc(TYPE_INFO[o.type] || '')}</p>
+      ${o.enabled ? '' : `<div class="state-line"><span title="В игре не показывается"><i class="dot"></i>Выключен</span><button class="btn" data-enable-ov>Включить</button></div>`}
+
+      <div class="block">
+        <div class="label">Где показывать</div>
+        <div class="where">
+          ${where('onTrack', 'Трасса', v.onTrack !== false)}
+          ${where('inGarage', 'Боксы', !!v.inGarage)}
+          ${where('disconnected', 'Без игры', !!v.disconnected, 'Когда iRacing не запущен')}
+        </div>
+      </div>
+
+      ${o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
+        <div class="label">Колонки</div>
+        <div class="cols-list" id="colsList">${columnRows(o)}</div>
+        <p class="hint" style="margin-top:10px">Порядок меняется перетаскиванием. Когда окно узкое, лишние колонки уходят сами — сначала менее важные.</p>
+      </div>
+
+      ${hfBlock(o, 'header')}
+      ${hfBlock(o, 'footer')}`}
+
+      ${(o.type === 'digiflag' || o.type === 'radar') ? '' : `      <div class="block">
+        <div class="label">Масштаб</div>
+        <div class="slider ${o.autoScale ? 'dim' : ''}">
+          <input class="range" type="range" min="50" max="250" step="5" value="${sc}" data-ov-range="scale" ${o.autoScale ? 'disabled' : ''} aria-label="Масштаб">
+          <output>${sc}%</output>
+        </div>
+        <label class="toggle" style="margin-top:12px"><span>Подгонять под ширину окна</span>${sw('data-auto-scale', !!o.autoScale)}</label>
+        <p class="hint" style="margin-top:10px">${o.autoScale ? 'Масштаб следует за шириной окна.' : 'Размер окна меняет только число строк и колонок, масштаб остаётся.'}</p>
+      </div>`}
+
+      ${o.type === 'standings' ? `<div class="block">
+        <div class="label">Левая часть таблицы<button class="btn quiet copy-btn" data-split-auto ${o.split == null ? 'disabled' : ''} title="Вернуть автоматическое распределение"><span>Авто</span></button></div>
+        <div class="slider ${o.split == null ? 'dim' : ''}">
+          <input class="range" type="range" min="20" max="80" step="1" value="${Math.round((o.split ?? 0.5) * 100)}" data-ov-range="split" aria-label="Доля левой части">
+          <output>${o.split == null ? 'авто' : Math.round(o.split * 100) + '%'}</output>
+        </div>
+        <p class="hint" style="margin-top:10px">Можно и мышью: в режиме редактирования между частями появляется разделитель. Двойной щелчок по нему — авто.</p>
+      </div>` : ''}
+
+      ${(o.type === 'digiflag' || o.type === 'radar') ? '' : `      <div class="block">
+        <div class="label">Непрозрачность фона</div>
+        <div class="slider">
+          <input class="range" type="range" min="0" max="100" step="5" value="${bg}" data-ov-range="bgOpacity" aria-label="Непрозрачность фона">
+          <output>${bg}%</output>
+        </div>
+      </div>`}
+
+      <div class="block">
+        <div class="label">Окно</div>
+        <div class="size"><b>${o.width} × ${o.height}</b></div>
+        <p class="hint" style="margin-top:6px">Меняется растягиванием окна в режиме редактирования.</p>
+      </div>
+
+      <div class="block">
+        <div class="label">Для OBS<button class="btn quiet copy-btn" data-copy="${esc(url)}" title="Скопировать адрес">${icon('copy', 'sm')}<span>Копировать</span></button></div>
+        <div class="urlbox"><div class="field mono" title="${esc(url)}">${esc(url.replace(/^https?:\/\//, ''))}</div></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn quiet" data-ov-act="overlay.duplicate">${icon('copy', 'sm')}Дублировать</button>
+        <button class="btn danger" data-ov-act="overlay.remove">${icon('trash-2', 'sm')}Удалить</button>
+      </div>
+    </div>`;
+}
+
+// Превью — живой оверлей в настоящем размере окна; не пересоздаём iframe без нужды
+const cardsOf = (o) => (o.cards || []).filter((c) => c.on).map((c) => c.id).join(',');
+const hfOf = (o, zone) => (o[zone] || []).filter((c) => c.on).map((c) => c.id).join(',');
+const colsOf = (o) => (o.columns || []).filter((c) => c.on).map((c) => c.id).join(',');
+let lastPreviewKey = null;
+function renderPreview(o) {
+  const stage = $('stage'), tag = $('sizeTag');
+  if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
+  const key = `${o.id}|${o.type}`;
+  if (key !== lastPreviewKey) {
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    lastPreviewKey = key;
+  } else {
+    // фон меняем без перезагрузки: оверлей читает --bg
+    const doc = $('pv')?.contentDocument;
+    doc?.documentElement?.style.setProperty('--bg', `rgba(10, 10, 11, ${o.bgOpacity ?? 0.8})`);
+    $('pv')?.contentWindow?.postMessage({ svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+  }
+  const pv = $('pv'), wrap = pv.parentElement;
+  const box = $('ovPreview').getBoundingClientRect();
+  const k = Math.min(1, (box.width - 64) / o.width, (box.height - 64) / o.height);
+  pv.style.width = `${o.width}px`;
+  pv.style.height = `${o.height}px`;
+  pv.style.transform = `scale(${k})`;
+  wrap.style.width = `${Math.round(o.width * k)}px`;
+  wrap.style.height = `${Math.round(o.height * k)}px`;
+  $('ovPreview').classList.toggle('off', !o.enabled);
+  $('statePill').innerHTML = `<i></i>${o.enabled ? 'Включён' : 'Выключен'}`;
+  tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${k < 1 ? ` · ${Math.round(k * 100)}%` : ''}`;
+}
+window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
+
+// ---------- Раскладки ----------
+
+function renderLayouts() {
+  if (mounted !== 'layouts') {
+    $('card').innerHTML = `
+      <div class="pane-split">
+        <section class="col"><div class="list"><i class="list-ind" id="listInd"></i><div id="lyList"></div></div></section>
+        <section class="col" id="lyDetail"></section>
+      </div>`;
+    mounted = 'layouts';
+    lastLayoutShown = null;
+  }
+  const l = layoutById(selLayout) || S.cfg.layouts[0];
+  selLayout = l.id;
+  const isActive = l.id === S.active.layoutId;
+  const why = { auto: 'выбрана автоматически', manual: 'включена вручную', default: 'основная' }[S.active.reason];
+  const f = l.carFilter;
+  const allSessions = l.sessionTypes.includes('all');
+  let values = '';
+  if (f.type === 'car') {
+    values = `<div class="chips" style="margin-top:12px">
+      ${f.values.map((v, i) => `<span class="chip on">${esc(v)}<button class="x" data-remove-car="${i}" aria-label="Убрать">${icon('x', 'sm')}</button></span>`).join('')}
+      <input class="field" id="carInput" type="text" placeholder="Машина, Enter" style="width:200px;height:30px">
+      ${S.sim.connected && S.sim.car && !f.values.includes(S.sim.car) ? `<button class="chip" data-lact="layout.addCurrentCar">${icon('plus', 'sm')}${esc(S.sim.car)}</button>` : ''}
+    </div>`;
+  } else if (f.type === 'category') {
+    values = `<div class="chips" style="margin-top:12px">${S.categories.map((c) => `<button class="chip ${f.values.includes(c) ? 'on' : ''}" data-cat="${c}">${CAT_LABELS[c] || c}</button>`).join('')}</div>`;
+  }
+  const now = isActive ? S.active.variation : null;
+
+  const fresh = lastLayoutShown !== l.id;
+  lastLayoutShown = l.id;
+  $('lyList').innerHTML = `
+        <div class="group">
+          <div class="label">Мои раскладки <button class="btn quiet" data-lact="layout.create" title="Новая раскладка" style="height:24px;padding:0 4px">${icon('plus', 'sm')}</button></div>
+          ${S.cfg.layouts.map((x) => `
+            <div class="row ${x.id === selLayout ? 'on' : ''}" data-layout="${x.id}">
+              <span class="name">${esc(x.name)}</span>
+              ${x.id === S.active.layoutId ? '<span class="label" style="padding:0;letter-spacing:.04em">сейчас</span>' : ''}
+            </div>`).join('')}
+        </div>`;
+  $('lyDetail').innerHTML = `
+      <div class="page ${fresh ? 'fade' : ''}"><div class="page-inner">
+        <div class="settings" style="padding:0">
+          <div class="head"><input type="text" data-layout-field="name" value="${esc(l.name)}" spellcheck="false" aria-label="Название раскладки"></div>
+          <p class="kind">${isActive ? `Активна — ${why}.` : 'Сейчас не активна.'}</p>
+        </div>
+        <div class="actions" style="margin-top:16px">
+          ${isActive ? '' : `<button class="btn primary" data-lact="layout.activate">Включить сейчас</button>`}
+          <button class="btn quiet" data-lact="layout.duplicate">${icon('copy', 'sm')}Дублировать</button>
+          <button class="btn danger" data-lact="layout.delete" ${S.cfg.layouts.length <= 1 ? 'disabled' : ''}>${icon('trash-2', 'sm')}Удалить</button>
+        </div>
+
+        <div class="block">
+          <div class="label">Когда включать</div>
+          <div class="seg">${[['all', 'Все машины'], ['car', 'Выбранные машины'], ['category', 'Категория']]
+            .map(([t, n]) => `<button data-filter-type="${t}" class="${f.type === t ? 'on' : ''}">${n}</button>`).join('')}</div>
+          ${values}
+          <div class="chips" style="margin-top:12px">
+            <button class="chip ${allSessions ? 'on' : ''}" data-session="all">Все сессии</button>
+            ${Object.entries(SESSION_LABELS).map(([k, t]) => `<button class="chip ${!allSessions && l.sessionTypes.includes(k) ? 'on' : ''}" data-session="${k}">${t}</button>`).join('')}
+          </div>
+          <p class="hint" style="margin-top:12px">Если подходит несколько раскладок, побеждает самая точная: машина важнее категории, выбранная сессия важнее «всех».</p>
+        </div>
+        <div class="block toggle" style="padding-top:20px">
+          <span>Основная — когда ничего не подошло</span>${sw('data-default', l.isDefault)}
+        </div>
+
+        <div class="block">
+          <div class="label">Наборы оверлеев</div>
+          <div class="tabs">${Object.entries(VAR_LABELS).map(([k, t]) => {
+            const en = k === 'base' || l.variations?.[k]?.enabled;
+            return `<button class="tab ${en ? '' : ''}" data-edit-var="${k}" style="${en ? '' : 'opacity:.55'}">${k === 'base' ? 'Основной' : t}${now === k ? '<span class="note">сейчас</span>' : ''}</button>`;
+          }).join('')}</div>
+          <p class="hint">Отдельный набор на практику, квалификацию, гонку или споттинг (когда вы не за рулём). Без него используется основной. Нажмите на вкладку, чтобы открыть набор в разделе «Оверлеи».</p>
+          <div class="chips" style="margin-top:12px">
+            ${['practice', 'qualify', 'race', 'spotting'].map((k) => l.variations?.[k]?.enabled
+              ? `<button class="chip on" data-var-off="${k}">${VAR_LABELS[k]} ${icon('x', 'sm')}</button>`
+              : `<button class="chip" data-var-on="${k}">${icon('plus', 'sm')}${VAR_LABELS[k]}</button>`).join('')}
+          </div>
+        </div>
+      </div></div>`;
+  moveIndicator($('listInd'), document.querySelector(`#lyList .row[data-layout="${selLayout}"]`), 36);
+}
+
+// ---------- Ливреи ----------
+
+function renderLiveries() {
+  mounted = 'liveries';
+  const lv = S.liveries;
+  if (!lv) { $('card').innerHTML = ''; return; }
+  const s = lv.settings, st = lv.status;
+  const busy = st.state !== 'idle';
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  const stateText = { idle: 'Ожидание сессии', fetching: 'Запрос списка', downloading: `Загрузка ${st.done} из ${st.total}` }[st.state] || st.state;
+  const oldLog = $('lvLog');
+  const stick = !oldLog || oldLog.scrollTop + oldLog.clientHeight >= oldLog.scrollHeight - 8;
+  const keepScroll = $('lvPage')?.scrollTop || 0;
+  const opt = (k, t, hint) => `<label class="toggle"><span>${t}${hint ? `<br><span class="hint">${hint}</span>` : ''}</span>${sw(`data-lv="${k}"`, s[k])}</label>`;
+
+  $('card').innerHTML = `
+    <div class="page" id="lvPage"><div class="page-inner">
+      <div class="toggle" style="margin-bottom:8px">
+        <span style="font-size:var(--fs-item);font-weight:600">Загружать ливреи Trading Paints</span>${sw('data-lv="enabled"', s.enabled)}
+      </div>
+      <p class="hint lead">Когда в сессии iRacing меняется состав, приложение спрашивает Trading Paints, какие у пилотов ливреи, качает их в Документы\\iRacing\\paint и сразу просит iRacing перерисовать машины. Настройка сохраняется между запусками.</p>
+      ${lv.otherDownloader ? `<div class="warn"><span class="dot"></span><span>Сейчас запущен ${esc(lv.otherDownloader)}. Он качает в те же папки — закройте его или оставьте загрузку здесь выключенной.</span></div>` : ''}
+
+      <div class="block" style="padding-top:0">
+        <div class="label">Что загружать</div>
+        <div class="toggles">
+          ${opt('specMaps', 'Спекулярные карты', 'блеск и металлик, файлы .mip')}
+          ${opt('helmets', 'Шлемы и комбинезоны')}
+          ${opt('decals', 'Слои декалей')}
+          ${opt('myOwn', 'Свою ливрею')}
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">Чистка</div>
+        <div class="toggle"><span>Удалять ливреи, не встречавшиеся дольше</span>
+          <span style="display:flex;align-items:center;gap:8px"><input class="field" style="width:64px;text-align:center" type="number" min="0" max="365" data-lv-num="cleanAfterDays" value="${s.cleanAfterDays}">дней</span></div>
+        <p class="hint" style="margin-top:8px">0 — не удалять. Удаляется только то, что скачало это приложение.</p>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">${esc(stateText)}
+          <span style="display:flex;gap:4px">
+            <button class="btn quiet" data-lv-act="liveries.refresh" ${s.enabled && !busy ? '' : 'disabled'}>${icon('refresh-cw', 'sm')}Обновить</button>
+            <button class="btn quiet" data-lv-act="liveries.openFolder">${icon('folder-open', 'sm')}Папка</button>
+          </span>
+        </div>
+        <div class="progress"><i style="width:${busy ? pct : 0}%"></i></div>
+        <div class="stats"><span>В учёте <b>${lv.skins}</b></span>${st.lastFetch ? `<span>Последний запрос <b>${new Date(st.lastFetch).toLocaleTimeString('ru-RU')}</b></span>` : ''}</div>
+        <div class="log mono" id="lvLog" style="margin-top:16px">${lv.log.length
+          ? lv.log.map((x) => `<div class="${x.level}"><span class="t">${esc(x.t.slice(11))}</span>${esc(x.msg)}</div>`).join('')
+          : '<span class="t">Журнал появится, когда iRacing будет в сессии и загрузка включена.</span>'}</div>
+      </div>
+    </div></div>`;
+  $('lvPage').scrollTop = keepScroll;
+  const log = $('lvLog');
+  if (stick) log.scrollTop = log.scrollHeight;
+}
+
+// ---------- Настройки ----------
+
+function renderSettings() {
+  mounted = 'settings';
+  const c = S.cfg;
+  $('card').innerHTML = `
+    <div class="page fade"><div class="page-inner">
+      <div class="block" style="padding-top:0">
+        <div class="label">Данные</div>
+        <div class="kv">
+          <span>Демо-гонка</span>
+          <select class="field" data-app="demo" style="max-width:280px">
+            ${[['auto', 'Пока iRacing не в сессии'], ['on', 'Всегда'], ['off', 'Никогда']].map(([v, t]) => `<option value="${v}" ${c.demo === v ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <span>Автовыбор раскладки</span>
+          <span>${sw('data-app="autoSwitch"', c.autoSwitch)}</span>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">Горячие клавиши</div>
+        <div class="kv">
+          <span>Редактирование оверлеев</span><span><kbd>Ctrl+Shift+L</kbd></span>
+          <span>Скрыть / показать все</span><span><kbd>Ctrl+Shift+H</kbd></span>
+          <span>Открыть эту панель</span><span><kbd>Ctrl+Shift+J</kbd></span>
+          <span>Двигать без прилипания</span><span><kbd>Shift</kbd> при перетаскивании</span>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">Сервер оверлеев</div>
+        <div class="kv">
+          <span>Адрес</span><span class="mono">${esc(location.origin)}</span>
+        </div>
+        <p class="hint" style="margin-top:12px">Этот адрес открывают оверлеи в окнах и OBS. Работает только на этом компьютере.</p>
+      </div>
+    </div></div>`;
+}
+
+// ---------- события ----------
+
+const ovAction = (type, extra = {}) => act({ type, layoutId: sel.layoutId, variation: currentSet().variation, overlayId: selOv, ...extra });
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, .row, [data-ov]');
+  if (!t || !S) return;
+  const d = t.dataset;
+
+  if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
+  if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
+  if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
+  if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });
+  if (d.copy) { navigator.clipboard?.writeText(d.copy); t.innerHTML = `${icon('check', 'sm')}<span>Скопировано</span>`; setTimeout(() => render(), 1200); return; }
+  if (d.flagLayout) return ovAction('overlay.update', { patch: { flagLayout: d.flagLayout } });
+  if ('splitAuto' in d) return ovAction('overlay.update', { patch: { split: null } });
+  if ('enableOv' in d) return ovAction('overlay.update', { patch: { enabled: true } });
+
+  // Оверлеи
+  if (d.ov && !e.target.closest('.sw')) { selOv = d.ov; return render(); }
+  if (d.add) { selOv = null; }
+  if ('ovClose' in d) { selOv = 'none'; return render(); }
+  if ('rename' in d) { const n = $('ovName'); n?.focus(); n?.select(); return; }
+  if (d.vis) {
+    const o = currentSet().list.find((x) => x.id === selOv);
+    const cur = d.vis === 'onTrack' ? o?.visibility?.onTrack !== false : !!o?.visibility?.[d.vis];
+    return ovAction('overlay.update', { patch: { visibility: { [d.vis]: !cur } } });
+  }
+  if (d.add) { act({ type: 'overlay.add', layoutId: sel.layoutId, variation: currentSet().variation, overlayType: d.add }); return; }
+  if (d.ovAct) {
+    if (d.ovAct === 'overlay.remove' && !confirm('Удалить оверлей из набора?')) return;
+    return ovAction(d.ovAct);
+  }
+
+  // Раскладки
+  if (d.layout) { selLayout = d.layout; return render(); }
+  if (d.lact) {
+    const l = layoutById(selLayout);
+    if (d.lact === 'layout.delete' && !confirm(`Удалить раскладку «${l.name}»?`)) return;
+    if (d.lact === 'layout.create') return act({ type: 'layout.create', name: 'Новая раскладка' });
+    return act({ type: d.lact, id: l.id });
+  }
+  if (d.filterType) { const l = layoutById(selLayout); return act({ type: 'layout.update', id: l.id, patch: { carFilter: { type: d.filterType, values: d.filterType === l.carFilter.type ? l.carFilter.values : [] } } }); }
+  if (d.removeCar != null) { const l = layoutById(selLayout); return act({ type: 'layout.update', id: l.id, patch: { carFilter: { type: 'car', values: l.carFilter.values.filter((_, i) => i !== Number(d.removeCar)) } } }); }
+  if (d.cat) { const l = layoutById(selLayout); const s = new Set(l.carFilter.values); s.has(d.cat) ? s.delete(d.cat) : s.add(d.cat); return act({ type: 'layout.update', id: l.id, patch: { carFilter: { type: 'category', values: [...s] } } }); }
+  if (d.session) {
+    const l = layoutById(selLayout);
+    let types = l.sessionTypes.includes('all') ? [] : [...l.sessionTypes];
+    types = d.session === 'all' ? ['all'] : types.includes(d.session) ? types.filter((x) => x !== d.session) : [...types, d.session];
+    return act({ type: 'layout.update', id: l.id, patch: { sessionTypes: types } });
+  }
+  if (d.editVar) {
+    sel = { layoutId: selLayout, variation: d.editVar };
+    act({ type: 'panel.select', layoutId: selLayout, variation: d.editVar });
+    view = 'overlays'; save('panelView', view); mounted = null; selOv = null;
+    return render();
+  }
+  if (d.varOn) return act({ type: 'variation.enable', layoutId: selLayout, variation: d.varOn });
+  if (d.varOff) return act({ type: 'variation.disable', layoutId: selLayout, variation: d.varOff });
+
+  // Ливреи
+  if (d.lvAct) return act({ type: d.lvAct });
+});
+
+document.addEventListener('change', (e) => {
+  const t = e.target, d = t.dataset;
+  if (!S) return;
+  if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
+  if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
+  if ('radarDist' in d) return ovAction('overlay.update', { patch: { radarDist: t.checked } });
+  if ('radarClass' in d) return ovAction('overlay.update', { patch: { radarClass: t.checked } });
+  if ('hideEmpty' in d) return ovAction('overlay.update', { patch: { hideEmpty: t.checked } });
+  if (d.card) {
+    const o = currentSet().list.find((x) => x.id === selOv);
+    return ovAction('overlay.update', { patch: { cards: o.cards.map((c) => (c.id === d.card ? { ...c, on: t.checked } : c)) } });
+  }
+  if (d.hf) {
+    const [zone, id] = d.hf.split(':');
+    const o = currentSet().list.find((x) => x.id === selOv);
+    return ovAction('overlay.update', { patch: { [zone]: o[zone].map((c) => (c.id === id ? { ...c, on: t.checked } : c)) } });
+  }
+  if (d.col) {
+    const o = currentSet().list.find((x) => x.id === selOv);
+    return ovAction('overlay.update', { patch: { columns: o.columns.map((c) => (c.id === d.col ? { ...c, on: t.checked } : c)) } });
+  }
+  if (d.ovField === 'name') return ovAction('overlay.update', { patch: { name: t.value } });
+  if (d.layoutField === 'name') return act({ type: 'layout.update', id: selLayout, patch: { name: t.value } });
+  if (t.matches('[data-default]') && t.checked) return act({ type: 'layout.update', id: selLayout, patch: { isDefault: true } });
+  if (d.lv) return act({ type: 'liveries.set', patch: { [d.lv]: t.checked } });
+  if (d.lvNum) return act({ type: 'liveries.set', patch: { [d.lvNum]: Number(t.value) } });
+  if (d.app) return act({ type: 'app.set', [d.app]: t.type === 'checkbox' ? t.checked : t.value });
+});
+
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  if (t.dataset.ovRange === 'scale') {
+    t.nextElementSibling.textContent = `${t.value}%`;
+    $('pv')?.contentWindow?.postMessage({ svoyScale: t.value / 100 }, location.origin);
+    return ovAction('overlay.update', { patch: { scale: t.value / 100 } });
+  }
+  if (t.dataset.ovRange === 'radarRange' || t.dataset.ovRange === 'radarIdle') {
+    const isRange = t.dataset.ovRange === 'radarRange';
+    t.nextElementSibling.textContent = isRange ? `${t.value} м` : `${t.value}%`;
+    $('pv')?.contentWindow?.postMessage({ svoyFlag: isRange ? { range: Number(t.value) } : { idle: t.value / 100 } }, location.origin);
+    return ovAction('overlay.update', { patch: isRange ? { radarRange: Number(t.value) } : { radarIdle: t.value / 100 } });
+  }
+  if (t.dataset.ovRange === 'split') {
+    t.nextElementSibling.textContent = `${t.value}%`;
+    $('pv')?.contentWindow?.postMessage({ svoySplit: t.value / 100 }, location.origin);
+    return ovAction('overlay.update', { patch: { split: t.value / 100 } });
+  }
+  if (t.dataset.ovRange !== 'bgOpacity') return;
+  t.nextElementSibling.textContent = `${t.value}%`;
+  const doc = $('pv')?.contentDocument;
+  doc?.documentElement?.style.setProperty('--bg', `rgba(10, 10, 11, ${t.value / 100})`);
+  ovAction('overlay.update', { patch: { bgOpacity: t.value / 100 } });
+});
+
+// Перетаскивание колонок, пунктов шапки и подвала: бросили на другую строку того же списка — встаёт на её место
+let drag = null; // { list, id }
+document.addEventListener('dragstart', (e) => {
+  const it = e.target.closest?.('.col-item');
+  if (!it) return;
+  drag = { list: it.dataset.list || 'columns', id: it.dataset.colId };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', drag.id);
+  requestAnimationFrame(() => it.classList.add('dragging'));
+});
+document.addEventListener('dragover', (e) => {
+  const it = e.target.closest?.('.col-item');
+  if (!drag || !it || (it.dataset.list || 'columns') !== drag.list) return;
+  e.preventDefault();
+  document.querySelectorAll('.col-item.over').forEach((x) => x !== it && x.classList.remove('over'));
+  if (it.dataset.colId !== drag.id) it.classList.add('over');
+});
+document.addEventListener('dragend', () => {
+  drag = null;
+  document.querySelectorAll('.col-item.over, .col-item.dragging').forEach((x) => x.classList.remove('over', 'dragging'));
+});
+document.addEventListener('drop', (e) => {
+  const it = e.target.closest?.('.col-item');
+  if (!drag || !it || !S || (it.dataset.list || 'columns') !== drag.list) return;
+  e.preventDefault();
+  const { list, id } = drag;
+  drag = null;
+  const o = currentSet().list.find((x) => x.id === selOv);
+  const from = o[list].findIndex((c) => c.id === id);
+  const to = o[list].findIndex((c) => c.id === it.dataset.colId);
+  if (from < 0 || to < 0 || from === to) return;
+  const next = [...o[list]];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  ovAction('overlay.update', { patch: { [list]: next } });
+});
+
+// Раскрытие блоков «Шапка» и «Подвал» запоминаем: панель перерисовывается на каждое изменение
+document.addEventListener('toggle', (e) => {
+  const z = e.target.dataset?.hfDetails;
+  if (z) hfOpen[z] = e.target.open;
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (e.key === 'Enter' && t.id === 'carInput' && t.value.trim()) {
+    const l = layoutById(selLayout);
+    act({ type: 'layout.update', id: l.id, patch: { carFilter: { type: 'car', values: [...l.carFilter.values, t.value.trim()] } } });
+    t.value = '';
+    t.blur();
+  } else if (e.key === 'Enter' && t.matches('input[type=text]')) t.blur();
+});
+
+// ---------- старт ----------
+if (bridge) {
+  bridge.onState(setState);
+  bridge.getState().then(setState);
+} else {
+  $('card').innerHTML = '<div class="page"><p class="hint">Панель работает внутри приложения (npm start).</p></div>';
+}

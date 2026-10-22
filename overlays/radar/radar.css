@@ -1,0 +1,10 @@
+/* Радар: рисуется в SVG и всегда квадратный, вписывается в окно по меньшей стороне. */
+html, body { height: 100%; }
+.radarbox { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity 350ms ease; }
+.radarbox svg { display: block; overflow: visible; }
+.radarbox text { font-family: "Montserrat", sans-serif; font-weight: 700; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.55); stroke-width: 2.5px; text-anchor: middle; }
+
+/* Машина сбоку и дуги приближения плавно ездят и гаснут */
+.side, .arc { transition: transform 110ms linear, opacity 160ms linear; }
+.arc ellipse { transition: rx 110ms linear, ry 110ms linear, fill 160ms linear; }
+.side rect { transition: fill 160ms linear; }

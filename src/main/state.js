@@ -1,0 +1,237 @@
+// Состояние и действия над раскладками. Чистая логика без Electron — её вызывает панель управления через IPC.
+const L = require('./layouts');
+
+class LayoutState {
+  constructor(cfg, onChange) {
+    this.cfg = cfg;
+    this.onChange = onChange;
+    this.sim = { source: 'none', connected: false };
+    this.manual = null;            // { layoutId, key } — ручной выбор действует, пока не сменилась машина/сессия
+    this.panelSelection = null;    // { layoutId, variation } — что редактируется в панели
+  }
+
+  get layouts() { return this.cfg.layouts; }
+  layout(id) { return this.layouts.find((l) => l.id === id); }
+
+  simKey() {
+    const s = this.sim;
+    return s.connected ? `${s.car}|${s.category}|${s.session}` : 'disconnected';
+  }
+
+  // Какая раскладка сейчас активна и почему
+  resolve() {
+    const ctx = { car: this.sim.car, category: this.sim.category, session: this.sim.session };
+    if (this.manual && this.manual.key === this.simKey() && this.layout(this.manual.layoutId)) {
+      return { layout: this.layout(this.manual.layoutId), reason: 'manual' };
+    }
+    this.manual = null;
+    if (this.cfg.autoSwitch && this.sim.connected && this.sim.car) {
+      const m = L.findMatchingLayout(this.layouts, ctx);
+      if (m) return { layout: m.layout, reason: 'auto', score: m.score };
+    }
+    const chosen = this.layout(this.cfg.activeLayoutId)
+      || this.layouts.find((l) => l.isDefault)
+      || this.layouts[0];
+    return { layout: chosen, reason: 'default' };
+  }
+
+  // Набор оверлеев, которые должны быть на экране сейчас
+  desiredOverlays() {
+    if (this.cfg.hiddenAll) return [];
+    const editing = !this.cfg.locked;
+    // В режиме редактирования показываем то, что выбрано в панели, — так можно расставить любой вариант
+    if (editing && this.panelSelection && this.layout(this.panelSelection.layoutId)) {
+      const l = this.layout(this.panelSelection.layoutId);
+      return L.overlaysOf(l, this.panelSelection.variation).filter((o) => o.enabled);
+    }
+    const { layout } = this.resolve();
+    const variation = L.activeVariation(layout, this.sim);
+    return L.overlaysOf(layout, variation).filter((o) => o.enabled && (editing || this.visibleNow(o)));
+  }
+
+  visibleNow(o) {
+    const v = o.visibility || {};
+    if (!this.sim.connected) return !!v.disconnected;
+    if (this.sim.source === 'demo') return true;
+    if (this.sim.inGarage) return !!v.inGarage;
+    return v.onTrack !== false;
+  }
+
+  // Где сейчас лежит оверлей с этим id (для сохранения позиции после перетаскивания)
+  findOverlay(id) {
+    const sel = !this.cfg.locked && this.panelSelection ? this.panelSelection : null;
+    const layout = sel ? this.layout(sel.layoutId) : this.resolve().layout;
+    const variation = sel ? sel.variation : L.activeVariation(layout, this.sim);
+    return L.overlaysOf(layout, variation).find((o) => o.id === id) || null;
+  }
+
+  overlayList(layoutId, variation) {
+    const l = this.layout(layoutId);
+    if (!l) return null;
+    if (!variation || variation === 'base') return l.overlays;
+    return l.variations?.[variation]?.enabled ? l.variations[variation].overlays : null;
+  }
+
+  snapshot() {
+    const { save, ...cfg } = this.cfg;
+    const r = this.resolve();
+    return {
+      cfg,
+      sim: this.sim,
+      active: { layoutId: r.layout?.id, reason: r.reason, score: r.score ?? null, variation: L.activeVariation(r.layout, this.sim) },
+      panelSelection: this.panelSelection,
+      types: L.OVERLAY_TYPES,
+      columnCatalog: L.COLUMN_CATALOG,
+      hfCatalog: L.HF_CATALOG,
+      weatherCards: L.WEATHER_CARDS,
+      categories: L.CATEGORIES,
+    };
+  }
+
+  changed(persist = true) {
+    if (persist) this.cfg.save();
+    this.onChange();
+  }
+
+  // ---------- действия из панели ----------
+  apply(a) {
+    const touch = (l) => { l.updatedAt = new Date().toISOString(); };
+    switch (a.type) {
+      case 'app.set': {
+        for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo']) if (k in a) this.cfg[k] = a[k];
+        if ('autoSwitch' in a) this.manual = null;
+        break;
+      }
+      case 'panel.select':
+        this.panelSelection = a.layoutId ? { layoutId: a.layoutId, variation: a.variation || 'base' } : null;
+        return this.changed(false);
+
+      case 'layout.create': {
+        const l = L.createLayout(a.name || 'Новая раскладка', [L.createOverlay('relative', { x: 500, y: 40 })]);
+        this.layouts.push(l);
+        this.panelSelection = { layoutId: l.id, variation: 'base' };
+        break;
+      }
+      case 'layout.duplicate': {
+        const src = this.layout(a.id);
+        if (!src) return;
+        const copy = L.clone(src);
+        copy.id = L.uid('layout');
+        copy.name = `${src.name} (копия)`;
+        copy.isDefault = false;
+        this.layouts.splice(this.layouts.indexOf(src) + 1, 0, copy);
+        this.panelSelection = { layoutId: copy.id, variation: 'base' };
+        break;
+      }
+      case 'layout.delete': {
+        if (this.layouts.length <= 1) return;
+        const i = this.layouts.findIndex((l) => l.id === a.id);
+        if (i < 0) return;
+        const [gone] = this.layouts.splice(i, 1);
+        if (gone.isDefault) this.layouts[0].isDefault = true;
+        if (this.cfg.activeLayoutId === gone.id) this.cfg.activeLayoutId = null;
+        if (this.panelSelection?.layoutId === gone.id) this.panelSelection = { layoutId: this.layouts[0].id, variation: 'base' };
+        break;
+      }
+      case 'layout.update': {
+        const l = this.layout(a.id);
+        if (!l) return;
+        const p = a.patch || {};
+        if (typeof p.name === 'string') l.name = p.name.trim() || l.name;
+        if (p.carFilter) l.carFilter = { type: p.carFilter.type, values: (p.carFilter.values || []).map(String).filter(Boolean) };
+        if (Array.isArray(p.sessionTypes)) l.sessionTypes = p.sessionTypes.length ? p.sessionTypes : ['all'];
+        if (p.isDefault) this.layouts.forEach((x) => { x.isDefault = x === l; });
+        touch(l);
+        break;
+      }
+      case 'layout.activate': {
+        const l = this.layout(a.id);
+        if (!l) return;
+        this.cfg.activeLayoutId = l.id;
+        this.manual = { layoutId: l.id, key: this.simKey() };
+        break;
+      }
+      case 'layout.addCurrentCar': {
+        const l = this.layout(a.id);
+        if (!l || !this.sim.car) return;
+        if (l.carFilter.type !== 'car') l.carFilter = { type: 'car', values: [] };
+        if (!l.carFilter.values.includes(this.sim.car)) l.carFilter.values.push(this.sim.car);
+        touch(l);
+        break;
+      }
+      case 'variation.enable': {
+        const l = this.layout(a.layoutId);
+        if (!l || !L.VARIATIONS.includes(a.variation)) return;
+        l.variations = l.variations || {};
+        // как в Edge: вариант начинается с копии основного набора (те же id — окна не пересоздаются)
+        l.variations[a.variation] = { enabled: true, overlays: L.clone(l.overlays) };
+        this.panelSelection = { layoutId: l.id, variation: a.variation };
+        touch(l);
+        break;
+      }
+      case 'variation.disable': {
+        const l = this.layout(a.layoutId);
+        if (!l?.variations) return;
+        delete l.variations[a.variation];
+        if (this.panelSelection?.variation === a.variation) this.panelSelection.variation = 'base';
+        touch(l);
+        break;
+      }
+      case 'overlay.add': {
+        const list = this.overlayList(a.layoutId, a.variation);
+        if (!list || !L.OVERLAY_TYPES[a.overlayType]) return;
+        const n = list.length;
+        list.push(L.createOverlay(a.overlayType, { x: 80 + n * 30, y: 80 + n * 30 }));
+        break;
+      }
+      case 'overlay.duplicate': {
+        const list = this.overlayList(a.layoutId, a.variation);
+        const src = list?.find((o) => o.id === a.overlayId);
+        if (!src) return;
+        const copy = { ...L.clone(src), id: L.uid(src.type), x: src.x + 30, y: src.y + 30, name: `${src.name} 2` };
+        list.splice(list.indexOf(src) + 1, 0, copy);
+        break;
+      }
+      case 'overlay.remove': {
+        const list = this.overlayList(a.layoutId, a.variation);
+        const i = list?.findIndex((o) => o.id === a.overlayId) ?? -1;
+        if (i < 0) return;
+        list.splice(i, 1);
+        break;
+      }
+      case 'overlay.update': {
+        const list = this.overlayList(a.layoutId, a.variation);
+        const o = list?.find((x) => x.id === a.overlayId);
+        if (!o) return;
+        const p = a.patch || {};
+        if (typeof p.name === 'string') o.name = p.name.trim() || o.name;
+        if (typeof p.enabled === 'boolean') o.enabled = p.enabled;
+        if (Number.isFinite(p.bgOpacity)) o.bgOpacity = Math.min(1, Math.max(0, p.bgOpacity));
+        if (Number.isFinite(p.scale)) o.scale = Math.min(3, Math.max(0.5, p.scale));
+        if (p.split === null) o.split = null;
+        else if (Number.isFinite(p.split)) o.split = Math.min(0.85, Math.max(0.15, p.split));
+        if (typeof p.autoScale === 'boolean') o.autoScale = p.autoScale;
+        if (p.visibility) o.visibility = { ...o.visibility, ...p.visibility };
+        if ((p.flagLayout === 'big' || p.flagLayout === 'strip') && p.flagLayout !== o.flagLayout) {
+          o.flagLayout = p.flagLayout;
+          o.width = Math.round(o.height * (o.flagLayout === 'strip' ? 2 * 4 / 15 + 0.03 : 1));
+        }
+        if (typeof p.hideEmpty === 'boolean') o.hideEmpty = p.hideEmpty;
+        if (Number.isFinite(p.radarRange)) o.radarRange = Math.min(40, Math.max(8, p.radarRange));
+        if (Number.isFinite(p.radarIdle)) o.radarIdle = Math.min(1, Math.max(0, p.radarIdle));
+        if (typeof p.radarDist === 'boolean') o.radarDist = p.radarDist;
+        if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
+        if (Array.isArray(p.cards)) o.cards = L.normalizeCards(o.type, p.cards);
+        if (Array.isArray(p.header)) o.header = L.normalizeHf(o.type, 'header', p.header);
+        if (Array.isArray(p.footer)) o.footer = L.normalizeHf(o.type, 'footer', p.footer);
+        if (Array.isArray(p.columns)) o.columns = L.normalizeColumns(o.type, p.columns);
+        break;
+      }
+      default:
+        return;
+    }
+    this.changed();
+  }
+}
+
+module.exports = { LayoutState };

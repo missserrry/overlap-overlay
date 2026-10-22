@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Проверка подгонки</title>
+  <style>
+    body { margin: 0; padding: 10px; background: #3a4048; font: 12px sans-serif; color: #fff; }
+    .grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+    iframe { border: 1px dashed #9aa; display: block; background: transparent; }
+  </style>
+</head>
+<body>
+  <!-- Отладка: один оверлей в окнах разного размера. /common/fit-test.html?o=standings&s=440x640,300x640 -->
+  <div class="grid" id="grid"></div>
+  <script>
+    const p = new URLSearchParams(location.search);
+    const o = p.get('o') || 'relative';
+    const sizes = (p.get('s') || '520x320,520x190,330x320,230x240').split(',');
+    document.getElementById('grid').innerHTML = sizes.map((s) => {
+      const [w, h] = s.split('x');
+      return `<div>${s}<iframe src="/${o}/" width="${w}" height="${h}"></iframe></div>`;
+    }).join('');
+  </script>
+</body>
+</html>

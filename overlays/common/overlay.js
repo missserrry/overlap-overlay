@@ -1,0 +1,300 @@
+// Общий клиент оверлеев: WebSocket с переподключением, масштаб, режим редактирования, форматтеры.
+
+export function connect(channel, onData) {
+  let ws;
+  const open = () => {
+    ws = new WebSocket(`ws://${location.host}/ws/${channel}`);
+    // Рисуем сразу, без requestAnimationFrame: он засыпает, когда окно перекрыто игрой.
+    // Сервер шлёт ~15 сообщений в секунду, этого достаточно.
+    ws.onmessage = (e) => onData(JSON.parse(e.data));
+    ws.onclose = () => {
+      onData({ data: null });
+      setTimeout(open, 2000);
+    };
+  };
+  open();
+}
+
+// Оверлей подключает обработчик смены колонок (см. columns.js: setColumns)
+// Масштаб: число — фиксированный (окно задаёт только сколько строк и колонок влезет), null — «авто», как раньше:
+// масштаб подгоняется под ширину окна. Источники те же, что у колонок: адрес (?scale=1.25 | auto), настройки приложения, панель.
+let fixedScale = 1;
+const scaleListeners = [];
+export const getFixedScale = () => fixedScale;
+export const onScaleChange = (fn) => scaleListeners.push(fn);
+function deliverScale(v) {
+  const next = v === 'auto' || v === null ? null : Number(v);
+  if (next !== null && !(next > 0)) return;
+  if (next === fixedScale) return;
+  fixedScale = next;
+  scaleListeners.forEach((f) => f());
+}
+
+// Разделитель между частями таблицы (Standings): доля ширины окна под левую часть, null — авто
+let splitValue = null;
+const splitListeners = [];
+export const getSplit = () => splitValue;
+export const onSplit = (fn) => splitListeners.push(fn);
+export function deliverSplit(v) {
+  const next = Number.isFinite(v) && v > 0 && v < 1 ? v : null;
+  if (next === splitValue) return;
+  splitValue = next;
+  splitListeners.forEach((f) => f());
+}
+
+// Шапка и подвал: упорядоченные списки включённых пунктов (см. hf.js). Источники те же: ?hdr=sof,inc&ftr=session,lap, настройки, панель
+let hfHook = null, lastHf = { header: null, footer: null };
+const deliverHf = (zone, ids) => { lastHf = { ...lastHf, [zone]: ids }; hfHook?.(lastHf); };
+export const onHfChange = (fn) => { hfHook = fn; if (lastHf.header || lastHf.footer) fn(lastHf); };
+
+// Карточки оверлея Weather: упорядоченный список включённых id (?cards=trackTemp,wind, настройки, панель)
+let cardsHook = null, lastCards = null;
+const deliverCards = (ids) => { lastCards = ids; cardsHook?.(ids); };
+export const onCardsChange = (fn) => { cardsHook = fn; if (lastCards) fn(lastCards); };
+
+// DigiFlag: вид панели и «прятать, когда флага нет» (?layout=strip&hide=1, настройки, панель)
+let flagOpts = { layout: 'big', hide: false, range: 15, idle: 0.35, dist: true, cls: false };
+const flagListeners = [];
+export const getFlagOpts = () => flagOpts;
+export const onFlagOpts = (fn) => flagListeners.push(fn);
+function deliverFlagOpts(o) {
+  const next = { ...flagOpts, ...o };
+  if (JSON.stringify(next) === JSON.stringify(flagOpts)) return;
+  flagOpts = next;
+  flagListeners.forEach((f) => f());
+}
+
+let colsHook = null, lastCols = null;
+const deliverCols = (ids) => { lastCols = ids; colsHook?.(ids); };
+export const onColumnsChange = (fn) => { colsHook = fn; if (lastCols) fn(lastCols); };
+
+export function setupPage() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('preview')) document.body.classList.add('preview');
+  const bg = parseFloat(params.get('bg'));
+  if (bg >= 0) setBgOpacity(bg);
+  // колонки: из адреса (OBS, превью) → из настроек приложения → сообщением от панели (живое превью)
+  if (params.has('layout')) deliverFlagOpts({ layout: params.get('layout') === 'strip' ? 'strip' : 'big' });
+  if (params.has('hide')) deliverFlagOpts({ hide: params.get('hide') === '1' });
+  if (params.has('range')) deliverFlagOpts({ range: parseFloat(params.get('range')) || 15 });
+  if (params.has('idle')) deliverFlagOpts({ idle: parseFloat(params.get('idle')) });
+  if (params.has('dist')) deliverFlagOpts({ dist: params.get('dist') === '1' });
+  if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
+  if (params.has('cards')) deliverCards(params.get('cards').split(',').filter(Boolean));
+  if (params.has('hdr')) deliverHf('header', params.get('hdr').split(',').filter(Boolean));
+  if (params.has('ftr')) deliverHf('footer', params.get('ftr').split(',').filter(Boolean));
+  if (params.has('scale')) deliverScale(params.get('scale'));
+  if (params.has('split')) deliverSplit(parseFloat(params.get('split')));
+  const fromUrl = params.get('cols');
+  if (fromUrl != null) deliverCols(fromUrl.split(',').filter(Boolean));
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin) return;
+    if (Array.isArray(e.data?.svoyColumns)) deliverCols(e.data.svoyColumns);
+    if (e.data && 'svoyScale' in e.data) deliverScale(e.data.svoyScale);
+    if (e.data?.svoyFlag) deliverFlagOpts(e.data.svoyFlag);
+    if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
+    if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
+    if (Array.isArray(e.data?.svoyFtr)) deliverHf('footer', e.data.svoyFtr);
+    if (e.data && 'svoySplit' in e.data) deliverSplit(e.data.svoySplit);
+  });
+
+  // Мост из preload Electron (если открыто не в Electron — его просто нет)
+  const bridge = window.overlayBridge;
+  if (bridge) {
+    bridge.onSettings((s) => {
+      document.body.classList.toggle('edit', !!s.editing);
+      setBgOpacity(s.bgOpacity);
+      const hint = document.querySelector('.edit-hint');
+      if (hint && s.name) hint.textContent = `${s.name} · тяни за края`;
+      if (s.flagLayout && !params.has('layout')) deliverFlagOpts({ layout: s.flagLayout });
+      if (s.radar && !params.has('range')) deliverFlagOpts(s.radar);
+      if ('hideEmpty' in s && !params.has('hide')) deliverFlagOpts({ hide: !!s.hideEmpty });
+      if (Array.isArray(s.cards) && s.cards.length && !params.has('cards')) deliverCards(s.cards.filter((c) => c.on).map((c) => c.id));
+      if (Array.isArray(s.header) && !params.has('hdr')) deliverHf('header', s.header.filter((c) => c.on).map((c) => c.id));
+      if (Array.isArray(s.footer) && !params.has('ftr')) deliverHf('footer', s.footer.filter((c) => c.on).map((c) => c.id));
+      if ('scale' in s && !params.has('scale')) deliverScale(s.scale);
+      if ('split' in s && !params.has('split')) deliverSplit(s.split);
+      if (Array.isArray(s.columns) && !params.has('cols')) deliverCols(s.columns.filter((c) => c.on).map((c) => c.id));
+    });
+    addResizeHandles(bridge);
+  }
+  return params;
+}
+
+// ---------- перемещение и растягивание (режим редактирования) ----------
+// Как в Laki Overlay: за любое место окно двигается, за правый край, низ и правый нижний угол
+// (полоса 18 px) — растягивается. Курсор ведёт главный процесс (там же прилипание к краям),
+// страница только сообщает, что взяли, отпустили и зажат ли Shift (Shift — без прилипания).
+
+const GRIPS = ['e', 's', 'se'];
+
+function addResizeHandles(bridge) {
+  const start = (e, mode, el) => {
+    if (e.button !== 0 || !document.body.classList.contains('edit')) return;
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    bridge.dragStart(mode);
+    bridge.setShift(e.shiftKey);
+    let shift = e.shiftKey;
+    const move = (ev) => { if (ev.shiftKey !== shift) bridge.setShift(shift = ev.shiftKey); };
+    const end = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', end);
+      el.removeEventListener('lostpointercapture', end);
+      bridge.dragEnd();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('lostpointercapture', end);
+  };
+  for (const edge of GRIPS) {
+    const h = document.createElement('div');
+    h.className = `rz rz-${edge}`;
+    h.addEventListener('pointerdown', (e) => { e.stopPropagation(); start(e, edge, h); });
+    document.body.appendChild(h);
+  }
+  document.documentElement.addEventListener('pointerdown', (e) => start(e, 'move', document.documentElement));
+}
+
+// ---------- подгонка под размер окна ----------
+// Как картинка: ширина окна задаёт масштаб, высота — сколько строк влезет.
+// Когда масштаб упирается в минимум, переходим на следующий «уровень» — без менее важных колонок.
+//
+//   levels:  массив уровней от полного к минимальному (объекты-флаги колонок)
+//   render(level, rows) — нарисовать содержимое; rows — сколько строк данных показать
+//   key()    — «форма» данных, от которой зависит естественная ширина (например, мультикласс или нет)
+
+// minScale 0.75 ≈ 10.5px текста — мельче уже плохо читается, поэтому дальше прячем колонки
+export function createFitter({ root, levels, render, key = () => '', after = null, minScale = 0.75, maxScale = 3.5, minRows = 2 }) {
+  const cache = new Map();
+  let memo = null, epoch = 0;
+  const rootStyle = document.documentElement.style;
+
+  // Естественные размеры уровня при масштабе 1: ширина, высота «обвязки» и одной строки
+  function measure(levelIdx) {
+    const k = `${levelIdx}|${key()}`;
+    if (cache.has(k)) return cache.get(k);
+    rootStyle.setProperty('--scale', 1);
+    document.body.classList.add('measure');
+    // Высоту строки берём на заметном числе строк: на трёх-четырёх Standings ещё упирается в минимум по классам
+    // (лидеры других классов), и разница между n и n+1 строкой выходит нулевой.
+    const sample = (n) => { render(levels[levelIdx], n); return root.offsetHeight; };
+    let n = minRows + 8, ha = sample(n);
+    const width = root.scrollWidth;
+    let row = sample(n + 1) - ha;
+    if (row < 4) { n = minRows; ha = sample(n); row = Math.max(sample(n + 1) - ha, 1); }
+    document.body.classList.remove('measure');
+    const m = { width, row, chrome: Math.max(ha - row * n, 0) };
+    if (width > 0) cache.set(k, m);
+    return m;
+  }
+
+  function fitInner() {
+    const W = window.innerWidth, H = window.innerHeight;
+    const fixed = fixedScale;
+    let idx = 0, m = measure(0), s;
+    if (fixed != null) {
+      // масштаб задан: окно решает, сколько колонок и строк поместится
+      s = fixed;
+      while (m.width * s > W && idx < levels.length - 1) m = measure(++idx);
+      // даже минимальный набор колонок не помещается — не обрезаем, а уменьшаем масштаб
+      if (m.width * s > W) s = Math.max(W / m.width, minScale * 0.7);
+    } else {
+      s = W / m.width;
+      while (s < minScale && idx < levels.length - 1) {
+        idx++;
+        m = measure(idx);
+        s = W / m.width;
+      }
+      // по высоте должно влезать хотя бы minRows строк — иначе уменьшаем масштаб
+      const sByHeight = H / (m.chrome + m.row * minRows);
+      s = Math.max(Math.min(s, sByHeight, maxScale), Math.min(minScale, sByHeight));
+    }
+    rootStyle.setProperty('--scale', s.toFixed(4));
+
+    // Данные приходят ~15 раз в секунду, а размер окна и колонки почти не меняются: тогда число строк то же,
+    // и хватает одной отрисовки (проверяем только, что не вылезли за высоту).
+    const sig = `${W}|${H}|${s.toFixed(4)}|${idx}|${key()}|${epoch}`;
+    if (memo && memo.sig === sig) {
+      render(levels[idx], memo.rows);
+      if (root.offsetHeight <= H + 0.5) return { level: idx, scale: s, rows: memo.rows };
+    }
+
+    // Оценка по замеру приблизительная (заголовки классов, разделители) — доводим по факту бинарным поиском:
+    // самое большое число строк, при котором содержимое не выше окна.
+    const est = Math.max(Math.floor((H - m.chrome * s) / (m.row * s)), 1);
+    const fits = (n) => { render(levels[idx], n); return root.offsetHeight <= H + 0.5; };
+    let lo = 1, hi = est + 3;
+    if (fits(est)) lo = est; else hi = est - 1;
+    if (lo === est) { while (lo < hi && fits(lo + 1)) lo++; }
+    else { while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (fits(mid)) lo = mid; else hi = mid - 1; } }
+    const rows = lo;
+    render(levels[idx], rows);
+    memo = { sig, rows };
+    return { level: idx, scale: s, rows };
+  }
+
+  // after(result) — довести раскладку после подгонки (например, распределить лишнюю ширину между панелями)
+  function fit() { const r = fitInner(); after?.(r); return r; }
+
+  window.addEventListener('resize', () => fit.last && fit());
+  scaleListeners.push(() => fit.last && fit());
+  document.fonts?.ready.then(() => { cache.clear(); epoch++; if (fit.last) fit(); });
+  return {
+    fit() { fit.last = true; return fit(); },
+    invalidate() { cache.clear(); epoch++; },
+  };
+}
+
+function setBgOpacity(a) {
+  if (a == null) return;
+  document.documentElement.style.setProperty('--bg', `rgba(10, 10, 11, ${a})`);
+}
+
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+
+export function fmtIrating(ir) {
+  if (!ir || ir <= 0) return '–';
+  return ir >= 1000 ? (ir / 1000).toFixed(1) + 'k' : String(ir);
+}
+
+// 1234.5 -> "00:20:34"
+export function fmtClock(sec) {
+  if (sec == null || sec < 0) return '--:--:--';
+  const s = Math.floor(sec);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return [h, m, r].map((x) => String(x).padStart(2, '0')).join(':');
+}
+
+// 2700 -> "00:45m"
+export function fmtDuration(sec) {
+  if (sec == null) return '∞';
+  const m = Math.round(sec / 60);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}m`;
+}
+
+// 98.0217 -> "01:38.021"
+export function fmtLap(sec) {
+  if (!sec || sec <= 0) return '--:--.---';
+  const m = Math.floor(sec / 60);
+  const s = sec - m * 60;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
+}
+
+export const ARROW_UP = '<svg viewBox="0 0 10 10"><path d="M1 7 L5 2.5 L9 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+export const ARROW_DOWN = '<svg viewBox="0 0 10 10"><path d="M1 3 L5 7.5 L9 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// showDelta: Relative показывает колонку дельты всегда (даже пустую), чтобы плашки были одной ширины
+export function iratingBadge(ir, delta, showDelta = delta != null) {
+  if (!showDelta) return `<span class="badge">${fmtIrating(ir)}</span>`;
+  let d = '';
+  if (delta) d = `${delta > 0 ? ARROW_UP : ARROW_DOWN}${Math.abs(delta)}`;
+  const cls = delta > 0 ? 'gain' : delta < 0 ? 'lose' : '';
+  return `<span class="badge with-delta">${fmtIrating(ir)}<span class="delta ${cls}">${d}</span></span>`;
+}
+
+export function licenseBadge(lic) {
+  if (!lic) return '';
+  return `<span class="lic" style="--lic:${esc(lic.bgColor)};--lic-dark:${esc(lic.darkBgColor)}"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
+}

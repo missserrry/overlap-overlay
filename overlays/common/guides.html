@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Направляющие</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; pointer-events: none; }
+    .g { position: absolute; border-radius: 1px; box-shadow: 0 0 6px currentColor; }
+  </style>
+</head>
+<body>
+  <!-- Прозрачное окно поверх монитора: линии прилипания, пока оверлей тянут или двигают -->
+  <script>
+    window.overlayBridge?.onGuides(({ origin, guides }) => {
+      document.body.innerHTML = guides.map((g) => {
+        const x = Math.min(g.x1, g.x2) - origin.x, y = Math.min(g.y1, g.y2) - origin.y;
+        const w = Math.max(Math.abs(g.x2 - g.x1), 2), h = Math.max(Math.abs(g.y2 - g.y1), 2);
+        return `<div class="g" style="left:${x - (w === 2 ? 1 : 0)}px;top:${y - (h === 2 ? 1 : 0)}px;width:${w}px;height:${h}px;background:${g.color};color:${g.color}"></div>`;
+      }).join('');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.claude/
+# материалы разбора чужих программ и тяжёлые рендеры дизайн-петли
+reverse/
+design/renders/
+design/critic/
+design/refs-used/
+design/bar/

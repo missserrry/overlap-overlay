@@ -1,0 +1,5 @@
+.relative { --name-min: 8em; }
+.relative .head { border-bottom: 1px solid var(--border); }
+.relative .foot { border-top: 1px solid var(--border); }
+.relative .rows { padding: 0.15em 0; }
+.relative .foot .group { min-width: 0; white-space: nowrap; }
