@@ -12,7 +12,7 @@ const GROUPS = [
       { key: 'primary', label: 'Основной цвет', hint: 'Вы в таблице, рамки, подсветка', def: '#EABE11', types: ALL },
       { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps', 'fuel'] },
       { key: 'text', label: 'Текст', def: '#FFFFFF', types: ALL },
-      { key: 'textDim', label: 'Приглушённый текст', def: '#8A8A8F', types: ALL },
+      { key: 'textDim', label: 'Подписи', def: '#8A8A8F', types: ALL },
       { key: 'bg', label: 'Фон оверлея', hint: 'Прозрачность — в настройках оверлея', def: '#0A0A0B', types: ALL },
     ],
   },

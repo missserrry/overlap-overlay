@@ -14,6 +14,8 @@ const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', pale
 const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
+// Оверлеи по назначению: так проще найти нужный (в группе не больше пяти)
+const OV_GROUPS = [['Таблицы', ['relative', 'standings']], ['Пилотирование', ['dash', 'laps', 'sectors', 'fuel', 'pitlimit']], ['Окружение', ['radar', 'traffic', 'rejoin', 'weather', 'digiflag']]];
 const TYPE_INFO = {
   relative: 'Машины рядом с вами на трассе и отрыв до них.',
   standings: 'Таблица по классам: позиции, отрыв, лучший круг.',
@@ -141,31 +143,59 @@ function renderOverlays() {
   const addable = Object.entries(S.types).filter(([t]) => !list.some((x) => x.type === t));
   $('ovList').innerHTML = `
     <div class="group">
-      <div class="label"><span>В наборе</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>
-      ${list.length ? list.map((x) => `
+      <div class="label"><span>Раскладка</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>
+      ${list.length ? OV_GROUPS.map(([gt, types]) => {
+        const items = list.filter((x) => types.includes(x.type));
+        return items.length ? `<div class="sublabel">${gt}</div>${items.map((x) => `
         <div class="row ${x.id === selOv ? 'on' : ''} ${x.enabled ? '' : 'muted'}" data-ov="${x.id}" title="${x.enabled ? 'Показывается' : 'Скрыт — включите переключатель'}">
           <span class="name">${esc(x.name)}</span>
           ${sw(`data-ov-enabled="${x.id}" aria-label="Показывать ${esc(x.name)}"`, x.enabled)}
-        </div>`).join('') : '<div class="empty-list">Пока пусто.</div>'}
+        </div>`).join('')}` : '';
+      }).join('') : '<div class="empty-list">Пока пусто.</div>'}
     </div>
     ${addable.length ? `<div class="group">
       <div class="label">Добавить</div>
       ${addable.map(([t, m]) => `
         <div class="row adder" data-add="${t}" title="${esc(TYPE_INFO[t] || '')}">${icon('plus', 'sm')}<span class="name">${esc(m.title)}</span></div>`).join('')}
     </div>` : ''}`;
-  moveIndicator($('listInd'), document.querySelector(`#ovList .row[data-ov="${selOv}"]`), 34);
+  const placeInd = () => moveIndicator($('listInd'), document.querySelector(`#ovList .row[data-ov="${selOv}"]`), 34);
+  placeInd();
+  requestAnimationFrame(placeInd);
+  document.fonts?.ready.then(placeInd);
 
   renderOverlaySettings(o, layout, variation);
   renderPreview(o);
 }
 
+// Вид таблицы (Relative, Standings): сначала то, что включено, ниже расширенное в закрытых блоках
+function tableView(o) {
+  const cat = S.columnCatalog || {};
+  const cols = (o.columns || []).filter((c) => !cat[c.id]?.sub);
+  const onCount = cols.filter((c) => c.on).length;
+  const rowsOn = columnRows(o, true), rowsOff = columnRows(o, false);
+  const offCount = cols.length - onCount;
+  return `<div class="block">
+        <div class="label">Колонки</div>
+        <div class="cols-list" id="colsList">${rowsOn}</div>
+        ${offCount ? `<details class="hf-details" data-cfg-details="cols:more" style="margin-top:10px" ${cfgOpen['cols:more'] ? 'open' : ''}>
+          <summary><span class="hf-sum">Ещё поля (${offCount})</span>${icon('chevron-down', 'sm')}</summary>
+          <div class="cols-list" style="margin-top:8px">${rowsOff}</div>
+        </details>` : ''}
+        <p class="hint" style="margin-top:8px">Порядок меняется перетаскиванием. В узком окне лишние колонки уходят сами.</p>
+      </div>
+      ${o.type === 'relative' ? relBlock(o) : ''}
+      ${hfBlock(o, 'header')}
+      ${hfBlock(o, 'footer')}
+      ${sizesBlock(o)}`;
+}
+
 // Строки колонок: «прирост iRating» — вложенный переключатель под iRating, в порядок не входит
-function columnRows(o) {
+function columnRows(o, showOn = null) {
   const cat = S.columnCatalog || {};
   const cols = o.columns || [];
   const on = (id) => !!cols.find((c) => c.id === id)?.on;
   const label = (id) => cat[id]?.labelBy?.[o.type] || cat[id]?.label || id;
-  return cols.filter((c) => !cat[c.id]?.sub).map((c) => {
+  return cols.filter((c) => !cat[c.id]?.sub && (showOn == null || !!c.on === showOn)).map((c) => {
     const fixed = cat[c.id]?.fixed;
     const sub = cols.filter((x) => cat[x.id]?.sub === c.id).map((x) =>
       `<div class="col-sub ${c.on ? '' : 'dim'}"><span>${esc(label(x.id))}</span>${sw(`data-col="${x.id}" ${c.on ? '' : 'disabled'}`, on(x.id))}</div>`).join('');
@@ -184,9 +214,8 @@ function hfBlock(o, zone, title = HF_TITLES[zone]) {
   const rows = list.map((c) => `<div class="col-item" draggable="true" data-list="${zone}" data-col-id="${c.id}">
       <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(cat[c.id]?.label || c.id)}</span><span class="col-grp">${esc(cat[c.id]?.group || '')}</span>${sw(`data-hf="${zone}:${c.id}" aria-label="${esc(cat[c.id]?.label || c.id)}"`, c.on)}</div></div>`).join('');
   return `<div class="block">
-    <div class="label">${title}</div>
     <details class="hf-details" data-hf-details="${zone}" ${hfOpen[zone] ? 'open' : ''}>
-      <summary><span class="hf-sum">${on.length ? esc(on.join(' · ')) : 'Пусто — полоса скрыта'}</span>${icon('chevron-down', 'sm')}</summary>
+      <summary><span class="hf-sum" style="font-weight:600">${title}</span><span class="sum-n">${on.length ? esc(on.join(' · ')) : 'пусто'}</span>${icon('chevron-down', 'sm')}</summary>
       <div class="cols-list" style="margin-top:8px">${rows}</div>
     </details>
   </div>`;
@@ -194,7 +223,7 @@ function hfBlock(o, zone, title = HF_TITLES[zone]) {
 
 // Настройки по схеме из главного процесса (Dash, Sectors): группы раскрываются, элементы — переключатель, ползунок, выбор.
 // Каждый элемент помнит, в каком поле оверлея лежит (data-cfg) и под каким ключом (data-k).
-const cfgOpen = { 'dash:Что показывать': true, 'sectors:Секторы': true, 'laps:Что показывать': true, 'rejoin:Когда показывать': true, 'rejoin:Сигнал': true, 'fuel:Расчёт': true, 'fuel:Что показывать': true, 'rel:Классы и круговые': true, 'traffic:Что показывать': true, 'traffic:Когда': true, 'pitlimit:Поведение': true, 'pitlimit:Вид': true };
+const cfgOpen = { 'dash:Что показывать': true, 'sectors:Секторы': true, 'laps:Что показывать': true, 'rejoin:Когда показывать': true, 'fuel:Расчёт': true, 'traffic:Что показывать': true, 'pitlimit:Поведение': true, 'colors:Основные': true };
 function schemaBlock(o, field, schema) {
   const v = o[field] || {};
   const ctl = (it) => {
@@ -206,7 +235,7 @@ function schemaBlock(o, field, schema) {
   };
   return (schema || []).map((g) => `<div class="block">
     <details class="hf-details" data-cfg-details="${field}:${esc(g.group)}" ${cfgOpen[`${field}:${g.group}`] ? 'open' : ''}>
-      <summary><span class="hf-sum" style="font-weight:600">${esc(g.group)}</span>${icon('chevron-down', 'sm')}</summary>
+      <summary><span class="hf-sum" style="font-weight:600">${esc(g.group)}</span><span class="sum-n">${g.items.length}</span>${icon('chevron-down', 'sm')}</summary>
       <div style="margin-top:4px">${g.items.map(ctl).join('')}</div>
     </details>
   </div>`).join('');
@@ -237,18 +266,23 @@ function sizesBlock(o) {
   </div>`;
 }
 
-// Подробные цвета оверлея: те же цвета, что в «Палитре», но рядом с самим оверлеем
+// Подробные цвета оверлея: те же цвета, что в «Палитре», но рядом с самим оверлеем; группы свёрнуты, открыта первая
 function colorsBlock(o) {
   const own = palOwn(o.type);
   const groups = palTokens(o.type);
   return `<div class="block">
-    <details class="hf-details" data-cfg-details="colors:Цвета" ${cfgOpen['colors:Цвета'] ? 'open' : ''}>
-      <summary><span class="hf-sum" style="font-weight:600">Цвета</span>${icon('chevron-down', 'sm')}</summary>
-      <p class="hint" style="margin-top:8px">Цвета только для ${esc(S.types[o.type].title)}. Что не изменено здесь, берётся из общей палитры.</p>
-      ${groups.map((g) => `<div class="sub-label pal-group">${esc(g.title)}</div>${g.tokens.map((t) => palField(t, o.type)).join('')}`).join('')}
-      <div class="actions" style="margin:14px 0 0"><button class="btn quiet" data-pal-reset-sc="${o.type}" ${Object.keys(own).length ? '' : 'disabled'}>${icon('rotate-ccw', 'sm')}Сбросить цвета оверлея</button></div>
-    </details>
-  </div>`;
+    <p class="hint">Цвета только для ${esc(S.types[o.type].title)}. Что не изменено здесь, берётся из общей палитры.</p>
+  </div>
+  ${groups.map((g, i) => {
+    const key = `colors:${g.title}`;
+    return `<div class="block" style="padding-top:${i ? 12 : 4}px">
+      <details class="hf-details" data-cfg-details="${esc(key)}" ${cfgOpen[key] ? 'open' : ''}>
+        <summary><span class="hf-sum">${esc(g.title)}</span><span class="sum-n">${g.tokens.filter((t) => own[t.key]).length ? `изменено ${g.tokens.filter((t) => own[t.key]).length}` : plural(g.tokens.length, ['цвет', 'цвета', 'цветов'])}</span>${icon('chevron-down', 'sm')}</summary>
+        <div style="margin-top:4px">${g.tokens.map((t) => palField(t, o.type)).join('')}</div>
+      </details>
+    </div>`;
+  }).join('')}
+  <div class="actions" style="margin-top:20px"><button class="btn quiet" data-pal-reset-sc="${o.type}" ${Object.keys(own).length ? '' : 'disabled'}>${icon('rotate-ccw', 'sm')}Сбросить цвета оверлея</button></div>`;
 }
 
 const pitlimitBlock = (o) => schemaBlock(o, 'pitlimit', S.pitlimitSchema);
@@ -292,6 +326,8 @@ function cardsBlock(o) {
   </div>`;
 }
 
+let ovTab = load('ovTab', 'main');   // вкладка настроек оверлея: main | view | colors
+const OV_TABS = [['main', 'Основное'], ['view', 'Вид'], ['colors', 'Цвета']];
 let lastSettingsId = null;
 function renderOverlaySettings(o, layout, variation) {
   const box = $('ovSettings');
@@ -330,7 +366,53 @@ function renderOverlaySettings(o, layout, variation) {
   const fresh = lastSettingsId !== o.id;
   lastSettingsId = o.id;
   const where = (key, label, on, tip = '') => `<button class="chip ${on ? 'on' : ''}" data-vis="${key}" aria-pressed="${on}" title="${tip}">${on ? icon('check') : ''}${label}</button>`;
-  // порядок: где показывать → вид → окно → для трансляции
+  const NOSCALE = ['digiflag', 'radar', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic'].includes(o.type);
+  const bWhere = `<div class="block">
+        <div class="label">Где показывать</div>
+        <div class="where">
+          ${where('onTrack', 'За рулём', v.onTrack !== false, 'Вы в машине на трассе, включая питлейн')}
+          ${where('inGarage', 'Гараж', !!v.inGarage, 'Вы на экране гаража')}
+          ${where('disconnected', 'Без игры', !!v.disconnected, 'Когда iRacing не запущен (демо тоже считается «без игры»)')}
+        </div>
+      </div>`;
+  const bScale = NOSCALE ? '' : `<div class="block">
+        <div class="label">Масштаб</div>
+        <div class="slider ${o.autoScale ? 'dim' : ''}">
+          <input class="range" type="range" min="50" max="250" step="5" value="${sc}" data-ov-range="scale" ${o.autoScale ? 'disabled' : ''} aria-label="Масштаб">
+          <output>${sc}%</output>
+        </div>
+        <label class="toggle" style="margin-top:12px"><span>Подгонять под ширину окна</span>${sw('data-auto-scale', !!o.autoScale)}</label>
+      </div>`;
+  const bBg = (o.type === 'digiflag' || o.type === 'radar') ? '' : `<div class="block">
+        <div class="label">Непрозрачность фона</div>
+        <div class="slider">
+          <input class="range" type="range" min="0" max="100" step="5" value="${bg}" data-ov-range="bgOpacity" aria-label="Непрозрачность фона">
+          <output>${bg}%</output>
+        </div>
+      </div>`;
+  const bSplit = o.type === 'standings' ? `<div class="block">
+        <div class="label">Левая часть таблицы<button class="btn quiet copy-btn" data-split-auto ${o.split == null ? 'disabled' : ''} title="Вернуть автоматическое распределение"><span>Авто</span></button></div>
+        <div class="slider ${o.split == null ? 'dim' : ''}">
+          <input class="range" type="range" min="20" max="80" step="1" value="${Math.round((o.split ?? 0.5) * 100)}" data-ov-range="split" aria-label="Доля левой части">
+          <output>${o.split == null ? 'авто' : Math.round(o.split * 100) + '%'}</output>
+        </div>
+      </div>` : '';
+  const bWin = `<div class="block">
+        <details class="hf-details" data-cfg-details="win:obs" ${cfgOpen['win:obs'] ? 'open' : ''}>
+          <summary><span class="hf-sum">Окно и OBS</span><span class="sum-n">${o.width}×${o.height}</span>${icon('chevron-down', 'sm')}</summary>
+          <p class="hint" style="margin-top:8px">Окно ${o.width} × ${o.height}. Размер меняется растягиванием в режиме редактирования.</p>
+          <div class="label" style="margin-top:12px">Адрес для OBS<button class="btn quiet copy-btn" data-copy="${esc(url)}" title="Скопировать адрес">${icon('copy', 'sm')}<span>Копировать</span></button></div>
+          <div class="urlbox"><div class="field mono" title="${esc(url)}">${esc(url.replace(/^https?:\/\//, ''))}</div></div>
+        </details>
+      </div>`;
+  const bActions = `<div class="actions">
+        <button class="btn quiet" data-ov-act="overlay.duplicate">${icon('copy', 'sm')}Дублировать</button>
+        <button class="btn danger" data-ov-act="overlay.remove">${icon('trash-2', 'sm')}Удалить</button>
+      </div>`;
+  if (!OV_TABS.some(([k]) => k === ovTab)) ovTab = 'main';
+  const pane = ovTab === 'main' ? bWhere + bScale + bBg + bSplit + bWin + bActions
+    : ovTab === 'view' ? (o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
+    : colorsBlock(o);
   box.innerHTML = `
     <div class="settings ${fresh ? 'fade' : ''}">
       <div class="head">
@@ -340,70 +422,8 @@ function renderOverlaySettings(o, layout, variation) {
       </div>
       <p class="kind">${esc(TYPE_INFO[o.type] || '')}</p>
       ${o.enabled ? '' : `<div class="state-line"><span title="В игре не показывается"><i class="dot"></i>Выключен</span><button class="btn" data-enable-ov>Включить</button></div>`}
-
-      <div class="block">
-        <div class="label">Где показывать</div>
-        <div class="where">
-          ${where('onTrack', 'За рулём', v.onTrack !== false, 'Вы в машине на трассе, включая питлейн')}
-          ${where('inGarage', 'Гараж', !!v.inGarage, 'Вы на экране гаража')}
-          ${where('disconnected', 'Без игры', !!v.disconnected, 'Когда iRacing не запущен (демо тоже считается «без игры»)')}
-        </div>
-      </div>
-
-      ${o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
-        <div class="label">Колонки</div>
-        <div class="cols-list" id="colsList">${columnRows(o)}</div>
-        <p class="hint" style="margin-top:10px">Порядок меняется перетаскиванием. Когда окно узкое, лишние колонки уходят сами — сначала менее важные.</p>
-      </div>
-
-      ${o.type === 'relative' ? relBlock(o) : ''}
-      ${hfBlock(o, 'header')}
-      ${hfBlock(o, 'footer')}
-      ${sizesBlock(o)}
-      ${colorsBlock(o)}`}
-
-      ${(o.type === 'digiflag' || o.type === 'radar' || o.type === 'sectors' || o.type === 'laps' || o.type === 'rejoin' || o.type === 'fuel' || o.type === 'pitlimit' || o.type === 'traffic') ? '' : `      <div class="block">
-        <div class="label">Масштаб</div>
-        <div class="slider ${o.autoScale ? 'dim' : ''}">
-          <input class="range" type="range" min="50" max="250" step="5" value="${sc}" data-ov-range="scale" ${o.autoScale ? 'disabled' : ''} aria-label="Масштаб">
-          <output>${sc}%</output>
-        </div>
-        <label class="toggle" style="margin-top:12px"><span>Подгонять под ширину окна</span>${sw('data-auto-scale', !!o.autoScale)}</label>
-        <p class="hint" style="margin-top:10px">${o.autoScale ? 'Масштаб следует за шириной окна.' : 'Размер окна меняет только число строк и колонок, масштаб остаётся.'}</p>
-      </div>`}
-
-      ${o.type === 'standings' ? `<div class="block">
-        <div class="label">Левая часть таблицы<button class="btn quiet copy-btn" data-split-auto ${o.split == null ? 'disabled' : ''} title="Вернуть автоматическое распределение"><span>Авто</span></button></div>
-        <div class="slider ${o.split == null ? 'dim' : ''}">
-          <input class="range" type="range" min="20" max="80" step="1" value="${Math.round((o.split ?? 0.5) * 100)}" data-ov-range="split" aria-label="Доля левой части">
-          <output>${o.split == null ? 'авто' : Math.round(o.split * 100) + '%'}</output>
-        </div>
-        <p class="hint" style="margin-top:10px">Можно и мышью: в режиме редактирования между частями появляется разделитель. Двойной щелчок по нему — авто.</p>
-      </div>` : ''}
-
-      ${(o.type === 'digiflag' || o.type === 'radar') ? '' : `      <div class="block">
-        <div class="label">Непрозрачность фона</div>
-        <div class="slider">
-          <input class="range" type="range" min="0" max="100" step="5" value="${bg}" data-ov-range="bgOpacity" aria-label="Непрозрачность фона">
-          <output>${bg}%</output>
-        </div>
-      </div>`}
-
-      <div class="block">
-        <div class="label">Окно</div>
-        <div class="size"><b>${o.width} × ${o.height}</b></div>
-        <p class="hint" style="margin-top:6px">Меняется растягиванием окна в режиме редактирования.</p>
-      </div>
-
-      <div class="block">
-        <div class="label">Для OBS<button class="btn quiet copy-btn" data-copy="${esc(url)}" title="Скопировать адрес">${icon('copy', 'sm')}<span>Копировать</span></button></div>
-        <div class="urlbox"><div class="field mono" title="${esc(url)}">${esc(url.replace(/^https?:\/\//, ''))}</div></div>
-      </div>
-
-      <div class="actions">
-        <button class="btn quiet" data-ov-act="overlay.duplicate">${icon('copy', 'sm')}Дублировать</button>
-        <button class="btn danger" data-ov-act="overlay.remove">${icon('trash-2', 'sm')}Удалить</button>
-      </div>
+      <div class="tabs ovtabs" role="tablist">${OV_TABS.map(([k, t]) => `<button class="tab ${k === ovTab ? 'on' : ''}" role="tab" aria-selected="${k === ovTab}" data-ov-tab="${k}">${t}</button>`).join('')}</div>
+      ${pane}
     </div>`;
 }
 
@@ -434,7 +454,7 @@ function renderPreview(o) {
   wrap.style.width = `${Math.round(o.width * k)}px`;
   wrap.style.height = `${Math.round(o.height * k)}px`;
   $('ovPreview').classList.toggle('off', !o.enabled);
-  $('statePill').innerHTML = `<i></i>${o.enabled ? 'Включён' : 'Выключен'}`;
+  $('statePill').innerHTML = o.enabled ? '' : '<i></i>Выключен';
   tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${k < 1 ? ` · ${Math.round(k * 100)}%` : ''}`;
 }
 window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
@@ -587,9 +607,12 @@ function updatesBlock() {
       </div>
       <div class="sep"></div>
       <div class="block">
-        <div class="label">Что нового</div>
+        <details class="hf-details" data-cfg-details="whatsnew:list" ${cfgOpen['whatsnew:list'] ? 'open' : ''}>
+        <summary><span class="hf-sum">Что нового (${rel.length} ${rel.length === 1 ? 'релиз' : 'релизов'})</span>${icon('chevron-down', 'sm')}</summary>
+        <div style="margin-top:8px"></div>
         ${rel.length ? rel.map((r, i) => `<details class="rel" ${i === 0 ? 'open' : ''}><summary><span class="rel-v">${esc(r.version)}</span><span class="rel-d">${esc(fmtDate(r.date))}</span>${icon('chevron-down', 'sm')}</summary><div class="rel-body">${mdHtml(r.body) || '<p class="hint">Без описания.</p>'}</div></details>`).join('')
           : `<p class="hint">${u.releasesError ? `Не удалось загрузить список: ${esc(u.releasesError)}` : 'Загружаю список релизов с GitHub…'}</p>`}
+        </details>
       </div>
       <div class="sep"></div>`;
 }
@@ -630,6 +653,7 @@ function palField(t, scope) {
 }
 
 const TABLE_TYPES = ['relative', 'standings'];
+const plural = (n, w) => `${n} ${w[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`;
 let palPreviewKey = null;
 function renderPalette() {
   const card = $('card');
@@ -653,11 +677,11 @@ function renderPalette() {
     <div class="group">
       <div class="label">Палитра для</div>
       <div class="row ${scope === 'all' ? 'on' : ''}" data-pal-scope="all"><span class="name">Все оверлеи</span></div>
-      ${types.map(([t, m]) => `<div class="row ${scope === t ? 'on' : ''}" data-pal-scope="${t}"><span class="name">${esc(m.title)}</span>${dotOf(t)}</div>`).join('')}
+      ${OV_GROUPS.map(([gt, ids]) => `<div class="sublabel">${gt}</div>${ids.filter((t) => S.types[t]).map((t) => `<div class="row ${scope === t ? 'on' : ''}" data-pal-scope="${t}"><span class="name">${esc(S.types[t].title)}</span>${dotOf(t)}</div>`).join('')}`).join('')}
     </div>`;
 
   const allTokens = S.paletteGroups.flatMap((g) => g.tokens);
-  const quick = ['primary', 'accent'].map((k) => allTokens.find((t) => t.key === k)).filter((t) => scope === 'all' || t.types.includes(scope));
+  const quick = scope === 'all' ? ['primary', 'accent'].map((k) => allTokens.find((t) => t.key === k)) : [];
   const relevant = (k) => scope === 'all' || allTokens.some((t) => t.key === k && t.types.includes(scope));
   const presetOn = (p) => sameValues(Object.fromEntries(Object.entries(p.values).filter(([k]) => relevant(k))), own);
   const swatch = (p) => ['primary', 'accent', 'bg', 'good'].map((k) => `<i style="background:${p.values[k] || allTokens.find((t) => t.key === k).def}"></i>`).join('');
@@ -668,14 +692,14 @@ function renderPalette() {
       <div class="head"><span class="pal-title">${scope === 'all' ? 'Все оверлеи' : esc(S.types[scope].title)}</span></div>
       <p class="kind">${scope === 'all' ? 'Общие цвета для всех оверлеев. Если у оверлея есть своя палитра — она важнее.' : 'Своя палитра этого оверлея. Что не изменено здесь — берётся из общей палитры.'}</p>
 
-      <div class="block"><div class="label">Быстрая настройка</div>${quick.map((t) => palField(t, scope)).join('')}</div>
+      ${quick.length ? `<div class="block"><div class="label">Быстрая настройка</div>${quick.map((t) => palField(t, scope)).join('')}</div>` : ''}
 
       <div class="block"><div class="label">Готовые палитры</div>
         <div class="pal-presets">${S.palettePresets.map((p) => `<button class="pal-preset ${presetOn(p) ? 'on' : ''}" data-pal-preset="${p.id}"><span class="pal-sw">${swatch(p)}</span><span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>
 
-      <div class="block"><div class="label">Расширенная настройка</div>
-        ${TABLE_TYPES.includes(scope) ? `<p class="hint">Подробные цвета этого оверлея (имя, лицензии, отрыв и другие) теперь в его настройках, вкладка «Цвета» рядом с размерами.</p><div class="actions" style="margin:12px 0 0"><button class="btn" data-pal-open="${scope}">${icon('external-link', 'sm')}Открыть настройки ${esc(S.types[scope].title)}</button></div>` : groups.map((g) => {
+      <div class="block"><div class="label">${scope === 'all' ? 'Общие цвета' : 'Подробная настройка'}</div>
+        ${scope !== 'all' ? `<p class="hint">Подробные цвета этого оверлея теперь в его настройках, вкладка «Цвета».</p><div class="actions" style="margin:12px 0 0"><button class="btn" data-pal-open="${scope}">${icon('external-link', 'sm')}Открыть настройки ${esc(S.types[scope].title)}</button></div>` : groups.slice(0, 1).map((g) => {
           const rest = g.tokens.filter((t) => !quick.includes(t));
           return rest.length ? `<div class="sub-label pal-group">${esc(g.title)}</div>${rest.map((t) => palField(t, scope)).join('')}` : '';
         }).join('')}
@@ -876,6 +900,11 @@ function renderSettings() {
           <span>Показывать только когда iRacing в фокусе</span>
           <span>${sw('data-app="onlyWhenFocused"', c.onlyWhenFocused !== false)}</span>
         </div>
+        <details class="hf-details" data-cfg-details="obs:server" style="margin-top:14px" ${cfgOpen['obs:server'] ? 'open' : ''}>
+          <summary><span class="hf-sum">Для OBS и браузера</span><span class="sum-n">адрес</span>${icon('chevron-down', 'sm')}</summary>
+          <div class="kv" style="margin-top:10px"><span>Адрес</span><span class="mono">${esc(location.origin)}</span></div>
+          <p class="hint" style="margin-top:10px">Этот адрес открывают оверлеи в окнах и OBS. Работает только на этом компьютере.</p>
+        </details>
       </div>
       <div class="sep"></div>
       <div class="block">
@@ -901,14 +930,6 @@ function renderSettings() {
           <span>Подробные логи</span><span>${sw('data-diag-verbose', !!S.diag?.verbose)}</span>
           <span>Папка логов</span><span class="mono" style="word-break:break-all">${esc(S.diag?.dir || '')}</span>
         </div>
-      </div>
-      <div class="sep"></div>
-      <div class="block">
-        <div class="label">Сервер оверлеев</div>
-        <div class="kv">
-          <span>Адрес</span><span class="mono">${esc(location.origin)}</span>
-        </div>
-        <p class="hint" style="margin-top:12px">Этот адрес открывают оверлеи в окнах и OBS. Работает только на этом компьютере.</p>
       </div>
     </div></div>`;
 }
@@ -937,10 +958,11 @@ document.addEventListener('click', (e) => {
   if (d.update) return act({ type: d.update });
   if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
   if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
+  if (d.ovTab) { ovTab = d.ovTab; save('ovTab', ovTab); return render(); }
   if ('sizesReset' in d) return ovAction('overlay.update', { patch: { sizes: null } });
   if (d.palResetSc) return act({ type: 'palette.reset', scope: d.palResetSc });
   if (d.palOpen) {
-    view = 'overlays'; save('panelView', view); mounted = null;
+    view = 'overlays'; save('panelView', view); mounted = null; ovTab = 'colors'; save('ovTab', ovTab);
     const target = currentSet().list.find((x) => x.type === d.palOpen);
     if (target) selOv = target.id;
     return render();

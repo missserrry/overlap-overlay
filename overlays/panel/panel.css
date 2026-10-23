@@ -373,3 +373,26 @@ details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
 .pop-notes { min-height: 0; overflow-y: auto; margin-top: 6px; padding-right: 6px; }
 .upd-bar { height: 4px; border-radius: 2px; background: var(--raised); margin-top: 12px; overflow: hidden; }
 .upd-bar i { display: block; height: 100%; background: var(--accent); transition: width 200ms; }
+
+/* Редакция 2: вкладки настроек оверлея, подписи групп списка */
+.ovtabs { margin: 18px 0 8px; gap: 18px; }
+.ovtabs .tab { height: 34px; font-size: var(--fs-body); }
+.group .sublabel { padding: 14px 10px 4px 12px; font-size: var(--fs-label); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.group .sublabel:first-of-type { padding-top: 6px; }
+
+/* Строка цвета: сетка, чтобы подпись не наезжала на образец при узкой колонке */
+.pal-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px 68px 28px; align-items: center; gap: 8px; }
+.pal-name { overflow-wrap: break-word; line-height: 1.25; }
+.pal-hex { width: 100%; box-sizing: border-box; padding: 0 6px; }
+.pal-row .btn { min-width: 0; padding: 0; width: 28px; justify-content: center; }
+
+/* Цели нажатия не ниже 32 px (закон Фиттса); счётчик в закрытых блоках */
+.btn, .chip, .rename { min-height: 32px; }
+.chip { border: 1px solid var(--line-strong, rgba(255, 255, 255, 0.14)); }
+.sw { position: relative; }
+.sw::after { content: ""; position: absolute; inset: -8px -4px; }
+.sum-n { margin-left: auto; margin-right: 8px; color: var(--muted); font-size: var(--fs-label); }
+.state-pill:empty { display: none; }
+.mode button { min-height: 32px; }
+
+.sum-n { min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
