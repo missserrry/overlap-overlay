@@ -14,6 +14,7 @@ const OVERLAY_TYPES = {
   sectors: { title: 'Sectors', width: 640, height: 70 },
   laps: { title: 'Laps', width: 320, height: 200 },
   rejoin: { title: 'Rejoin', width: 320, height: 170 },
+  fuel: { title: 'Fuel', width: 320, height: 230 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -224,6 +225,22 @@ const REJOIN_SCHEMA = [
 const REJOIN_ITEMS = REJOIN_SCHEMA.flatMap((g) => g.items);
 const normalizeRejoin = (cur, patch) => normalizeSchema(REJOIN_ITEMS, cur, patch);
 
+// Настройки Fuel Calculator
+const FUEL_SCHEMA = [
+  { group: 'Расчёт', items: [
+    range('margin', 'Запас сверху, кругов', 0.5, 0, 3, 0.5),
+    range('planLaps', 'Если дистанции нет (практика) считать на кругов', 10, 1, 60, 1),
+    select('units', 'Единицы', 'auto', [['auto', 'Как в игре'], ['l', 'Литры'], ['gal', 'Галлоны']]),
+  ] },
+  { group: 'Что показывать', items: [
+    bool('blocks.bar', 'Полоса бака', true),
+    bool('blocks.stats', 'Расход, хватит на, до финиша', true),
+    bool('blocks.pit', 'Выбранное в меню боксов', true),
+  ] },
+];
+const FUEL_ITEMS = FUEL_SCHEMA.flatMap((g) => g.items);
+const normalizeFuel = (cur, patch) => normalizeSchema(FUEL_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -246,6 +263,7 @@ function createOverlay(type, at = {}) {
     sectors: normalizeSectors(),
     laps: normalizeLaps(),
     rejoin: normalizeRejoin(),
+    fuel: normalizeFuel(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -357,5 +375,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel,
 };
