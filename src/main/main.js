@@ -110,7 +110,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, diag: { dir: logger.redact(logger.getDir() || ''), note: diagNote, verbose: !!cfg.verboseLog } };
+  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -404,7 +404,8 @@ function report() {
 }
 function applyDiagAction(a) {
   if (a.type === 'diag.openFolder') {
-    shell.openPath(logger.getDir());
+    require('fs').mkdirSync(logger.getDir(), { recursive: true });
+    shell.openPath(logger.getDir()).then((err) => { if (err) { diagNote = `Не удалось открыть папку: ${err}`; sendPanelState(); } });
     diagNote = null;
   } else if (a.type === 'diag.copyReport') {
     clipboard.writeText(report());
