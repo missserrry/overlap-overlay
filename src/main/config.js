@@ -11,6 +11,8 @@ const DEFAULTS = {
   locked: true,            // оверлеи закреплены (клики проходят в игру)
   hiddenAll: false,
   onlyWhenFocused: true,   // оверлеи видны, только когда на переднем плане iRacing
+  autoUpdate: true,        // проверять обновления сами
+  lastSeenVersion: null,   // для окна «Что нового» после обновления
   verboseLog: false,       // подробные логи (для поиска сложных поломок)
   activeLayoutId: null,    // выбранная вручную (если автопереключение выключено или ничего не подошло)
   palette: null,           // цвета оверлеев (см. palette.js)

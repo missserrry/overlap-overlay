@@ -10,6 +10,7 @@ const { startServer } = require('../server/server');
 const config = require('./config');
 const P = require('./palette');
 const { hideFromAltTab } = require('./winstyle');
+const updater = require('./updater');
 const { LayoutState } = require('./state');
 const snapper = require('./snapper');
 const { execFile } = require('child_process');
@@ -57,7 +58,10 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => openPanel());
 
 app.whenReady().then(async () => {
+  // на чистой установке «Что нового» не показываем: версию помечаем увиденной сразу
+  const firstRun = !require('fs').existsSync(path.join(app.getPath('userData'), 'config.json'));
   cfg = config.load(app.getPath('userData'));
+  if (firstRun) cfg.lastSeenVersion = app.getVersion();
   logger.setVerbose(cfg.verboseLog);
   console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
@@ -84,6 +88,7 @@ app.whenReady().then(async () => {
   server.onSession((session, numbers) => liveries.onSession(session, numbers));
   watchOtherDownloaders();
 
+  updater.init(sendPanelStateSoon, () => cfg.autoUpdate !== false);
   createTray();
   const shortcuts = {
     'CommandOrControl+Shift+L': () => state.apply({ type: 'app.set', locked: !cfg.locked }),
@@ -111,7 +116,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
+  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -430,7 +435,10 @@ function applyDiagAction(a) {
 ipcMain.handle('panel-get-state', () => panelState());
 ipcMain.on('panel-action', (_e, action) => {
   try {
-    if (String(action?.type).startsWith('liveries.')) applyLiveryAction(action);
+    if (action?.type === 'update.check') updater.check();
+    else if (action?.type === 'update.download') updater.download();
+    else if (action?.type === 'update.install') updater.install();
+    else if (String(action?.type).startsWith('liveries.')) applyLiveryAction(action);
     else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
     else state.apply(action);
   } catch (e) {
@@ -438,7 +446,7 @@ ipcMain.on('panel-action', (_e, action) => {
   }
 });
 ipcMain.on('panel-open-url', (_e, url) => {
-  if (/^http:\/\/127\.0\.0\.1:\d+\//.test(url)) shell.openExternal(url);
+  if (/^http:\/\/127\.0\.0\.1:\d+\//.test(url) || String(url).startsWith('https://github.com/plotnikovgerman26-cell/overlap-overlay/')) shell.openExternal(url);
 });
 
 // ---------- трей ----------

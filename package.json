@@ -1,6 +1,6 @@
 {
   "name": "svoy-overlay",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": true,
   "description": "Overlap — личные оверлеи для iRacing: Relative, Standings, Weather, DigiFlag, Radar, Dash, Sectors",
   "main": "src/main/main.js",
@@ -8,23 +8,37 @@
     "start": "electron .",
     "server": "node scripts/dev-server.js",
     "demo": "node scripts/dev-server.js --demo",
-    "dist": "electron-builder --win nsis portable --x64"
+    "dist": "electron-builder --win nsis portable --x64 --publish never"
   },
   "build": {
     "appId": "local.overlap",
     "productName": "Overlap",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "files": [
-      "src/**", "overlays/**", "package.json",
-      "!design/**", "!reverse/**", "!scripts/**",
+      "src/**",
+      "overlays/**",
+      "package.json",
+      "!design/**",
+      "!reverse/**",
+      "!scripts/**",
       "!node_modules/koffi/build/koffi/!(win32_x64)/**"
     ],
-    "asarUnpack": ["node_modules/koffi/**"],
-    "win": { "target": ["nsis", "portable"], "icon": "overlays/common/brand/icon.ico" },
+    "asarUnpack": [
+      "node_modules/koffi/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "overlays/common/brand/icon.ico"
+    },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "createDesktopShortcut": true,
@@ -32,14 +46,29 @@
       "shortcutName": "Overlap",
       "installerIcon": "overlays/common/brand/icon.ico",
       "uninstallerIcon": "overlays/common/brand/icon.ico",
-      "artifactName": "Overlap-Setup-${version}.exe"
+      "artifactName": "Overlap-Setup-${version}.exe",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "language": "1049",
+      "menuCategory": false
     },
-    "portable": { "artifactName": "Overlap-${version}-portable.exe" }
+    "portable": {
+      "artifactName": "Overlap-${version}-portable.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "plotnikovgerman26-cell",
+        "repo": "overlap-overlay"
+      }
+    ]
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/montserrat": "^5.3.0",
+    "electron-updater": "^6.8.9",
     "fast-xml-parser": "^5.11.2",
     "js-yaml": "^4.3.2",
     "koffi": "^2.16.3",

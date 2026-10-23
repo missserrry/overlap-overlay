@@ -333,3 +333,25 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: var(--fs-body); paddi
 .pal-sw i { flex: 1; }
 .pal-types { position: absolute; top: 14px; left: 16px; z-index: 1; }
 .seg button.on { background: var(--card); color: var(--text); }
+
+/* ---------- Обновления и «Что нового» ---------- */
+.btn.upd { background: var(--accent); color: #15171A; font-weight: 600; }
+.btn.upd:hover { background: var(--accent); filter: brightness(1.06); }
+.upd-note { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+details.rel { border-top: 1px solid var(--line); padding: 4px 0; }
+details.rel summary { display: flex; align-items: center; gap: 12px; height: 36px; cursor: pointer; list-style: none; }
+details.rel summary::-webkit-details-marker { display: none; }
+details.rel summary .ico:last-child { margin-left: auto; transition: transform 160ms; }
+details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
+.rel-v { font-weight: 600; font-family: "JetBrains Mono", monospace; }
+.rel-d { color: var(--muted); }
+.rel-body { color: var(--text); line-height: 1.5; padding-bottom: 12px; }
+.rel-body h4 { margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.rel-body p { margin: 6px 0; }
+.rel-body ul { margin: 6px 0; padding-left: 18px; }
+.rel-body li { margin: 3px 0; }
+.rel-body code { font-family: "JetBrains Mono", monospace; font-size: 12px; background: var(--raised); padding: 1px 5px; border-radius: 4px; }
+.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); }
+.modal-box { width: min(520px, calc(100vw - 48px)); max-height: calc(100vh - 96px); overflow-y: auto; padding: 24px 28px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+.modal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.modal-head h2 { margin: 0; font-size: 18px; }

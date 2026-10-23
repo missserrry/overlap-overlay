@@ -48,6 +48,7 @@ function setState(s) {
     return;
   }
   S = s;
+  maybeWhatsNew();
   const layouts = S.cfg.layouts;
   if (!sel || !layouts.some((l) => l.id === sel.layoutId)) sel = S.panelSelection || { layoutId: S.active.layoutId, variation: 'base' };
   if (!selLayout || !layouts.some((l) => l.id === selLayout)) selLayout = sel.layoutId;
@@ -99,6 +100,7 @@ function renderStatus() {
   const editing = !S.cfg.locked;
   // связь — просто текст с точкой; видимость — действие; режим окон — сегментированный переключатель
   $('status').innerHTML = `
+    ${updateButton()}
     <span class="conn"><span class="dot ${dot}"></span>${esc(text)}</span>
     <button class="btn quiet" data-app-toggle="hiddenAll" title="Ctrl+Shift+H">${icon('eye', 'sm')}${S.cfg.hiddenAll ? 'Показать оверлеи' : 'Скрыть оверлеи'}</button>
     <span class="mode" role="group" aria-label="Режим окон оверлеев" title="Ctrl+Shift+L">
@@ -383,6 +385,106 @@ function renderPreview(o) {
 }
 window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
 
+// ---------- Обновления и «Что нового» ----------
+// Описание релиза с GitHub (Markdown): заголовки, жирные строки-подзаголовки, списки, `код`
+function mdHtml(src) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>');
+  const isMd = (l) => /^([-*]\s|#{1,4}\s|\*\*)/.test(l);
+  const out = [];
+  for (const block of String(src || '').replace(/\r/g, '').split(/\n\s*\n/)) {
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (!lines.some(isMd)) {
+      // простой текст без разметки: одна короткая строка — подзаголовок, несколько строк — список
+      if (lines.length === 1) out.push(lines[0].length <= 48 && !/[.:]$/.test(lines[0]) ? `<h4>${inline(lines[0])}</h4>` : `<p>${inline(lines[0])}</p>`);
+      else out.push(`<ul>${lines.map((l) => `<li>${inline(l)}</li>`).join('')}</ul>`);
+      continue;
+    }
+    let list = false;
+    for (const line of lines) {
+      const li = line.match(/^[-*]\s+(.*)/);
+      if (li) { if (!list) { out.push('<ul>'); list = true; } out.push(`<li>${inline(li[1])}</li>`); continue; }
+      if (list) { out.push('</ul>'); list = false; }
+      const h = line.match(/^#{1,4}\s+(.*)/) || line.match(/^\*\*([^*]+)\*\*:?$/);
+      out.push(h ? `<h4>${inline(h[1])}</h4>` : `<p>${inline(line)}</p>`);
+    }
+    if (list) out.push('</ul>');
+  }
+  return out.join('');
+}
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return ''; } };
+
+// Кнопка в верхней полосе: показывает, что есть обновление, и ведёт по шагам скачать → перезапустить
+function updateButton() {
+  const u = S.update;
+  if (!u) return '';
+  if (u.status === 'available') return u.canAuto
+    ? `<button class="btn upd" data-update="update.download" title="Скачать и установить">${icon('download', 'sm')}Доступна ${esc(u.version)} — обновить</button>`
+    : `<button class="btn upd" data-update-url="${esc(u.url || '')}">${icon('download', 'sm')}Доступна ${esc(u.version)}</button>`;
+  if (u.status === 'manual') return `<button class="btn upd" data-update-url="${esc(u.url || '')}" title="Открыть страницу релиза">${icon('download', 'sm')}Доступна ${esc(u.version)}</button>`;
+  if (u.status === 'downloading') return `<span class="upd-note">${icon('download', 'sm')}Загрузка ${u.progress}%</span>`;
+  if (u.status === 'ready') return `<button class="btn upd" data-update="update.install" title="Установка займёт несколько секунд">${icon('refresh-cw', 'sm')}Перезапустить и обновить</button>`;
+  return '';
+}
+
+function updateStatusText() {
+  const u = S.update;
+  if (!u) return '';
+  const when = u.checkedAt ? ` Проверено в ${new Date(u.checkedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.` : '';
+  switch (u.status) {
+    case 'checking': return 'Проверяю…';
+    case 'available': return `Доступна версия ${u.version}.`;
+    case 'manual': return `Доступна версия ${u.version}. Эта сборка не обновляется сама — скачайте новую со страницы релиза.`;
+    case 'downloading': return `Загрузка ${u.progress}%…`;
+    case 'ready': return `Версия ${u.version} загружена. Установится при перезапуске (или при закрытии приложения).`;
+    case 'error': return `Не удалось проверить: ${u.error || 'ошибка сети'}`;
+    case 'none': return `У вас последняя версия.${when}`;
+    default: return '';
+  }
+}
+
+function updatesBlock() {
+  const u = S.update || {};
+  const busy = ['checking', 'downloading'].includes(u.status);
+  const action = u.status === 'available' && u.canAuto ? `<button class="btn primary" data-update="update.download">${icon('download', 'sm')}Скачать ${esc(u.version)}</button>`
+    : u.status === 'ready' ? `<button class="btn primary" data-update="update.install">${icon('refresh-cw', 'sm')}Перезапустить и обновить</button>`
+    : (u.status === 'manual' || (u.status === 'available' && !u.canAuto)) ? `<button class="btn primary" data-update-url="${esc(u.url || '')}">${icon('external-link', 'sm')}Страница релиза</button>`
+    : `<button class="btn" data-update="update.check" ${busy ? 'disabled' : ''}>${icon('refresh-cw', 'sm')}Проверить обновления</button>`;
+  const rel = (u.releases || []).slice(0, 8);
+  return `
+      <div class="block" style="padding-top:0">
+        <div class="label">Обновления</div>
+        <div class="kv">
+          <span>Установлена версия</span><span class="mono">${esc(u.current || '')}</span>
+          <span>Проверять автоматически</span><span>${sw('data-app="autoUpdate"', S.cfg.autoUpdate !== false)}</span>
+        </div>
+        <div class="actions" style="margin-top:14px;margin-left:0">${action}</div>
+        <p class="hint" style="margin-top:12px">${esc(updateStatusText())}</p>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">Что нового</div>
+        ${rel.length ? rel.map((r, i) => `<details class="rel" ${i === 0 ? 'open' : ''}><summary><span class="rel-v">${esc(r.version)}</span><span class="rel-d">${esc(fmtDate(r.date))}</span>${icon('chevron-down', 'sm')}</summary><div class="rel-body">${mdHtml(r.body) || '<p class="hint">Без описания.</p>'}</div></details>`).join('')
+          : `<p class="hint">${u.releasesError ? `Не удалось загрузить список: ${esc(u.releasesError)}` : 'Загружаю список релизов с GitHub…'}</p>`}
+      </div>
+      <div class="sep"></div>`;
+}
+
+// Окно «Что нового» после обновления: один раз для каждой установленной версии
+function maybeWhatsNew() {
+  const u = S.update;
+  if (!u || document.getElementById('whatsNew')) return;
+  const seen = S.cfg.lastSeenVersion;
+  if (!seen || seen === u.current) return;
+  const r = (u.releases || []).find((x) => x.version === u.current);
+  if (!r) return; // описание ещё не загрузилось; попробуем при следующем обновлении состояния
+  const el = document.createElement('div');
+  el.id = 'whatsNew';
+  el.className = 'modal';
+  el.innerHTML = `<div class="modal-box" role="dialog" aria-label="Что нового"><div class="modal-head"><h2>Что нового в ${esc(u.current)}</h2><span class="rel-d">${esc(fmtDate(r.date))}</span></div><div class="rel-body">${mdHtml(r.body) || '<p class="hint">Без описания.</p>'}</div><div class="actions" style="margin:20px 0 0"><button class="btn primary" data-whats-new-ok>Понятно</button></div></div>`;
+  document.body.appendChild(el);
+}
+
 // ---------- Палитра ----------
 let palScope = load('palScope', 'all');   // 'all' или тип оверлея
 let palPrev = load('palPrev', 'relative'); // какой оверлей показан в превью, когда выбран «Все»
@@ -636,7 +738,8 @@ function renderSettings() {
   const c = S.cfg;
   $('card').innerHTML = `
     <div class="page fade"><div class="page-inner">
-      <div class="block" style="padding-top:0">
+      ${updatesBlock()}
+      <div class="block">
         <div class="label">Данные</div>
         <div class="kv">
           <span>Демо-гонка</span>
@@ -694,6 +797,9 @@ document.addEventListener('click', (e) => {
   if (!t || !S) return;
   const d = t.dataset;
 
+  if (d.update) return act({ type: d.update });
+  if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
+  if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
   if (d.palScope) { palScope = d.palScope; save('palScope', palScope); return render(); }
   if (d.palPrev) { palPrev = d.palPrev; save('palPrev', palPrev); return render(); }
   if (d.palPreset) return act({ type: 'palette.preset', scope: palScope, id: d.palPreset });
