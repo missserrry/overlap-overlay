@@ -243,6 +243,8 @@ class LayoutState {
         if (typeof p.radarDist === 'boolean') o.radarDist = p.radarDist;
         if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
+        if (p.sizes === null) o.sizes = {};
+        else if (p.sizes && typeof p.sizes === 'object') o.sizes = L.normalizeSizes(o.sizes, p.sizes);
         if (p.pitlimit && typeof p.pitlimit === 'object') o.pitlimit = L.normalizePitlimit(o.pitlimit, p.pitlimit);
         if (p.fuel && typeof p.fuel === 'object') o.fuel = L.normalizeFuel(o.fuel, p.fuel);
         if (p.rejoin && typeof p.rejoin === 'object') o.rejoin = L.normalizeRejoin(o.rejoin, p.rejoin);

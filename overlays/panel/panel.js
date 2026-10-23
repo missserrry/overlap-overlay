@@ -47,6 +47,11 @@ function setState(s) {
     pending = s;
     // цвет тянут пальцем: поля не пересоздаём, но превью обновляем сразу
     if (view === 'palette' && mounted === 'palette') { S = s; renderPalPreview(); }
+    else if (view === 'overlays' && mounted === 'overlays') {
+      S = s;
+      const cur = currentSet().list.find((x) => x.id === selOv);
+      if (cur) $('pv')?.contentWindow?.postMessage({ svoyPalette: S.paletteVars?.[cur.type] || {} }, location.origin);
+    }
     return;
   }
   S = s;
@@ -210,6 +215,39 @@ const sectorsBlock = (o) => schemaBlock(o, 'sectors', S.sectorsSchema);
 const lapsBlock = (o) => schemaBlock(o, 'laps', S.lapsSchema);
 const rejoinBlock = (o) => schemaBlock(o, 'rejoin', S.rejoinSchema);
 const fuelBlock = (o) => schemaBlock(o, 'fuel', S.fuelSchema);
+// Размер каждого поля таблицы: колонка расширяется вместе с ним, а если окну не хватает ширины, лишние колонки уходят по приоритету
+function sizesBlock(o) {
+  const cat = S.columnCatalog || {};
+  const sz = o.sizes || {};
+  const label = (id) => cat[id]?.labelBy?.[o.type] || cat[id]?.label || id;
+  const rows = (o.columns || []).filter((c) => !cat[c.id]?.sub).map((c) => {
+    const v = sz[c.id] || 100;
+    return `<div class="sub-label" style="margin-top:12px;${c.on ? '' : 'opacity:.5'}">${esc(label(c.id))}${c.on ? '' : ' · выключено'}</div><div class="slider"><input class="range" type="range" min="70" max="200" step="5" value="${v}" data-size-range="${c.id}" aria-label="Размер: ${esc(label(c.id))}"><output>${v}%</output></div>`;
+  }).join('');
+  return `<div class="block">
+    <details class="hf-details" data-cfg-details="size:Размер полей" ${cfgOpen['size:Размер полей'] ? 'open' : ''}>
+      <summary><span class="hf-sum" style="font-weight:600">Размер полей</span>${icon('chevron-down', 'sm')}</summary>
+      <p class="hint" style="margin-top:8px">Увеличьте нужное поле: колонка расширится, строка станет выше. Если в окно всё не помещается, лишние колонки уйдут сами — сначала менее важные.</p>
+      ${rows}
+      <div class="actions" style="margin:14px 0 0"><button class="btn quiet" data-sizes-reset ${Object.keys(sz).length ? '' : 'disabled'}>${icon('rotate-ccw', 'sm')}Сбросить размеры</button></div>
+    </details>
+  </div>`;
+}
+
+// Подробные цвета оверлея: те же цвета, что в «Палитре», но рядом с самим оверлеем
+function colorsBlock(o) {
+  const own = palOwn(o.type);
+  const groups = palTokens(o.type);
+  return `<div class="block">
+    <details class="hf-details" data-cfg-details="colors:Цвета" ${cfgOpen['colors:Цвета'] ? 'open' : ''}>
+      <summary><span class="hf-sum" style="font-weight:600">Цвета</span>${icon('chevron-down', 'sm')}</summary>
+      <p class="hint" style="margin-top:8px">Цвета только для ${esc(S.types[o.type].title)}. Что не изменено здесь, берётся из общей палитры.</p>
+      ${groups.map((g) => `<div class="sub-label pal-group">${esc(g.title)}</div>${g.tokens.map((t) => palField(t, o.type)).join('')}`).join('')}
+      <div class="actions" style="margin:14px 0 0"><button class="btn quiet" data-pal-reset-sc="${o.type}" ${Object.keys(own).length ? '' : 'disabled'}>${icon('rotate-ccw', 'sm')}Сбросить цвета оверлея</button></div>
+    </details>
+  </div>`;
+}
+
 const pitlimitBlock = (o) => schemaBlock(o, 'pitlimit', S.pitlimitSchema);
 
 // Radar: дальность, прозрачность без машин, цифры и цвет класса
@@ -314,7 +352,9 @@ function renderOverlaySettings(o, layout, variation) {
       </div>
 
       ${hfBlock(o, 'header')}
-      ${hfBlock(o, 'footer')}`}
+      ${hfBlock(o, 'footer')}
+      ${sizesBlock(o)}
+      ${colorsBlock(o)}`}
 
       ${(o.type === 'digiflag' || o.type === 'radar' || o.type === 'sectors' || o.type === 'laps' || o.type === 'rejoin' || o.type === 'fuel' || o.type === 'pitlimit') ? '' : `      <div class="block">
         <div class="label">Масштаб</div>
@@ -371,13 +411,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySizes: o.sizes || {}, svoyPalette: S.paletteVars?.[o.type] || {}, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -577,12 +617,13 @@ function palField(t, scope) {
   const val = palValue(t, scope);
   return `<div class="pal-row">
     <span class="pal-name" ${t.hint ? `title="${esc(t.hint)}"` : ''}>${esc(t.label)}</span>
-    <input type="color" data-pal-key="${t.key}" value="${val.toLowerCase()}" aria-label="${esc(t.label)}">
-    <input type="text" class="pal-hex mono" data-pal-hex="${t.key}" value="${val.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="${esc(t.label)}, код цвета">
-    <button class="btn quiet ${own ? '' : 'invisible'}" data-pal-clear="${t.key}" title="Вернуть стандартный" ${own ? '' : 'tabindex="-1"'}>${icon('rotate-ccw', 'sm')}</button>
+    <input type="color" data-pal-key="${t.key}" data-pal-sc="${scope}" value="${val.toLowerCase()}" aria-label="${esc(t.label)}">
+    <input type="text" class="pal-hex mono" data-pal-hex="${t.key}" data-pal-sc="${scope}" value="${val.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="${esc(t.label)}, код цвета">
+    <button class="btn quiet ${own ? '' : 'invisible'}" data-pal-clear="${t.key}" data-pal-sc="${scope}" title="Вернуть стандартный" ${own ? '' : 'tabindex="-1"'}>${icon('rotate-ccw', 'sm')}</button>
   </div>`;
 }
 
+const TABLE_TYPES = ['relative', 'standings'];
 let palPreviewKey = null;
 function renderPalette() {
   const card = $('card');
@@ -628,7 +669,7 @@ function renderPalette() {
       </div>
 
       <div class="block"><div class="label">Расширенная настройка</div>
-        ${groups.map((g) => {
+        ${TABLE_TYPES.includes(scope) ? `<p class="hint">Подробные цвета этого оверлея (имя, лицензии, отрыв и другие) теперь в его настройках, вкладка «Цвета» рядом с размерами.</p><div class="actions" style="margin:12px 0 0"><button class="btn" data-pal-open="${scope}">${icon('external-link', 'sm')}Открыть настройки ${esc(S.types[scope].title)}</button></div>` : groups.map((g) => {
           const rest = g.tokens.filter((t) => !quick.includes(t));
           return rest.length ? `<div class="sub-label pal-group">${esc(g.title)}</div>${rest.map((t) => palField(t, scope)).join('')}` : '';
         }).join('')}
@@ -660,9 +701,9 @@ function renderPalPreview() {
 window.addEventListener('resize', () => { if (view === 'palette' && S && mounted === 'palette') renderPalPreview(); });
 
 let palTimer = null;
-function palSend(key, value) {
+function palSend(key, value, scope = palScope) {
   clearTimeout(palTimer);
-  palTimer = setTimeout(() => act({ type: 'palette.set', scope: palScope, key, value }), 40);
+  palTimer = setTimeout(() => act({ type: 'palette.set', scope, key, value }), 40);
 }
 
 // ---------- Раскладки ----------
@@ -890,11 +931,19 @@ document.addEventListener('click', (e) => {
   if (d.update) return act({ type: d.update });
   if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
   if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
+  if ('sizesReset' in d) return ovAction('overlay.update', { patch: { sizes: null } });
+  if (d.palResetSc) return act({ type: 'palette.reset', scope: d.palResetSc });
+  if (d.palOpen) {
+    view = 'overlays'; save('panelView', view); mounted = null;
+    const target = currentSet().list.find((x) => x.type === d.palOpen);
+    if (target) selOv = target.id;
+    return render();
+  }
   if (d.palScope) { palScope = d.palScope; save('palScope', palScope); return render(); }
   if (d.palPrev) { palPrev = d.palPrev; save('palPrev', palPrev); return render(); }
   if (d.palPreset) return act({ type: 'palette.preset', scope: palScope, id: d.palPreset });
   if ('palReset' in d) return act({ type: 'palette.reset', scope: palScope });
-  if (d.palClear) return act({ type: 'palette.set', scope: palScope, key: d.palClear, value: null });
+  if (d.palClear) return act({ type: 'palette.set', scope: d.palSc || palScope, key: d.palClear, value: null });
   if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
   if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
@@ -956,7 +1005,7 @@ document.addEventListener('change', (e) => {
   if (!S) return;
   if (d.palHex) {
     const v = '#' + t.value.trim().replace(/^#/, '');
-    if (/^#[0-9a-f]{6}$/i.test(v)) return act({ type: 'palette.set', scope: palScope, key: d.palHex, value: v.toUpperCase() });
+    if (/^#[0-9a-f]{6}$/i.test(v)) return act({ type: 'palette.set', scope: d.palSc || palScope, key: d.palHex, value: v.toUpperCase() });
     return render(); // неверный код — вернуть прежний
   }
   if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
@@ -990,10 +1039,17 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('input', (e) => {
   const t = e.target;
+  if (t.dataset.sizeRange) {
+    const n = Number(t.value);
+    t.nextElementSibling.textContent = `${n}%`;
+    const o = currentSet().list.find((x) => x.id === selOv);
+    $('pv')?.contentWindow?.postMessage({ svoySizes: { ...(o?.sizes || {}), [t.dataset.sizeRange]: n } }, location.origin);
+    return ovAction('overlay.update', { patch: { sizes: { [t.dataset.sizeRange]: n } } });
+  }
   if (t.dataset.palKey) {
     const hex = t.parentElement.querySelector('[data-pal-hex]');
     if (hex) hex.value = t.value.toUpperCase();
-    return palSend(t.dataset.palKey, t.value.toUpperCase());
+    return palSend(t.dataset.palKey, t.value.toUpperCase(), t.dataset.palSc || palScope);
   }
   if (t.dataset.ovRange === 'scale') {
     t.nextElementSibling.textContent = `${t.value}%`;

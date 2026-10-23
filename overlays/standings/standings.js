@@ -1,5 +1,5 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
-import { DEFS, buildLevels, cellHtml, currentColumns, onColumns, setColumns } from '/common/columns.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
+import { DEFS, buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, sizeOf, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -19,11 +19,12 @@ let model = null;
 const hf = initHf('standings', () => { if (model?.classes?.length) { fitter.invalidate(); fitter.fit(); } });
 const fitter = createFitter({
   root: wrap, levels, render, minRows: 3,
-  key: () => (model ? `${model.multiClass}|${model.kind}` : ''),
+  key: () => (model ? `${model.multiClass}|${model.kind}|${sizesKey()}` : ''),
   after: () => { distribute(); fitBar($('hdr')); fitBar($('foot')); },
 });
 onColumns(() => { rebuildLevels(); fitter.invalidate(); if (model?.classes?.length) fitter.fit(); });
-onColumnsChange(setColumns); // после onColumns: колонки из адреса приходят сразу
+onColumnsChange(setColumns);
+onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.classes?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('standings', (msg) => {
   model = msg.data;
@@ -34,13 +35,14 @@ connect('standings', (msg) => {
 
 function render(level, budget) {
   const m = model;
+  rowScale(level.cols);
   renderBar($('hdr'), hf.ids('header'), m.info);
   renderBar($('foot'), hf.ids('footer'), m.info);
   const mainIds = level.cols.filter((id) => DEFS[id].zone === 'main' && id !== 'delta');
   const sideIds = level.cols.filter((id) => DEFS[id].zone === 'side');
   $('rightPanel').classList.toggle('hidden', !sideIds.length);
   $('spacer').classList.toggle('hidden', !sideIds.length);
-  $('cols').innerHTML = sideIds.map((id) => `<span class="c-h${id === sideIds[0] ? ' first' : ''}" style="--w:${DEFS[id].w}em">${DEFS[id].head}</span>`).join('');
+  $('cols').innerHTML = sideIds.map((id) => `<span class="c-h${id === sideIds[0] ? ' first' : ''}" style="--w:${(DEFS[id].w * sizeOf(id)).toFixed(2)}em">${DEFS[id].head}</span>`).join('');
   const ctx = { overlay: 'standings', showDelta: level.cols.includes('delta') && m.kind === 'race' };
   let left = '', right = '';
   for (const c of sliceClasses(m, budget)) {
@@ -118,7 +120,7 @@ let distSig = '', natural = null;
 function distribute() {
   if (rightPanel.classList.contains('hidden')) { rightPanel.style.removeProperty('--sx'); placeHandle(); return; }
   const sideCount = rightPanel.querySelectorAll('#cols .c-h').length;
-  const sig = `${[...rightPanel.querySelectorAll('#cols .c-h')].map((x) => x.textContent).join()}|${model?.multiClass}|${getComputedStyle(document.documentElement).fontSize}|${leftPanel.querySelector('.row')?.children.length}`;
+  const sig = `${sizesKey()}|${[...rightPanel.querySelectorAll('#cols .c-h')].map((x) => x.textContent).join()}|${model?.multiClass}|${getComputedStyle(document.documentElement).fontSize}|${leftPanel.querySelector('.row')?.children.length}`;
   if (sig !== distSig || !natural) {
     // естественные ширины панелей: как при замере (имя минимальной ширины, ничего не растянуто)
     rightPanel.style.setProperty('--sx', '0px');

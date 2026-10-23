@@ -1,5 +1,5 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange } from '/common/overlay.js';
-import { buildLevels, cellHtml, currentColumns, onColumns, setColumns } from '/common/columns.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange } from '/common/overlay.js';
+import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -16,9 +16,10 @@ rebuildLevels();
 
 let model = null;
 const hf = initHf('relative', () => { if (model?.rows?.length) { fitter.invalidate(); fitter.fit(); } });
-const fitter = createFitter({ root: panel, levels, render, minRows: 3, after: () => { fitBar($('hdr')); fitBar($('foot')); } });
+const fitter = createFitter({ root: panel, levels, render, minRows: 3, key: sizesKey, after: () => { fitBar($('hdr')); fitBar($('foot')); } });
 onColumns(() => { rebuildLevels(); fitter.invalidate(); if (model?.rows?.length) fitter.fit(); });
-onColumnsChange(setColumns); // после onColumns: колонки из адреса приходят сразу
+onColumnsChange(setColumns);
+onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('relative', (msg) => {
   model = msg.data;
@@ -29,6 +30,7 @@ connect('relative', (msg) => {
 
 function render(level, rows) {
   const m = model;
+  rowScale(level.cols);
   renderBar($('hdr'), hf.ids('header'), m.info);
   renderBar($('foot'), hf.ids('footer'), m.info);
 

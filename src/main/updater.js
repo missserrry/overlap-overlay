@@ -17,7 +17,20 @@ let releases = [];       // [{ version, name, date, body, url }]
 let releasesError = null;
 const state = { status: 'idle', version: null, progress: 0, error: null, url: null, checkedAt: null };
 
-const set = (patch) => { Object.assign(state, patch); onChange(); };
+const set = (patch) => {
+  if (patch.status && patch.status !== state.status) console.log(`[updater] ${state.status} → ${patch.status}${patch.version ? ` (${patch.version})` : ''}${patch.error ? `: ${patch.error}` : ''}`);
+  Object.assign(state, patch);
+  onChange();
+  if (patch.status === 'error') scheduleRetry();
+};
+
+// Ошибка проверки (нет сети, GitHub не ответил): пробуем ещё раз через несколько минут, но не больше трёх раз подряд
+let retries = 0, retryTimer = null;
+function scheduleRetry() {
+  if (retries >= 3 || retryTimer) return;
+  retries++;
+  retryTimer = setTimeout(() => { retryTimer = null; if (state.status === 'error') check(); }, 3 * 60_000);
+}
 
 // «0.4.3» → [0, 4, 3]; сравнение версий
 const parts = (v) => String(v || '').replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
@@ -53,6 +66,7 @@ async function checkManual() {
 
 async function check() {
   if (['checking', 'downloading', 'ready'].includes(state.status)) return;
+  console.log(`[updater] проверка (текущая ${app.getVersion()}, ${canAuto ? 'автообновление' : 'только уведомление'})`);
   set({ status: 'checking', error: null });
   if (!canAuto) return checkManual();
   try {
@@ -68,8 +82,8 @@ function init(onStateChange, isEnabled) {
   if (canAuto) {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.on('update-available', (info) => set({ status: 'available', version: info.version, checkedAt: Date.now() }));
-    autoUpdater.on('update-not-available', () => set({ status: 'none', version: null, checkedAt: Date.now() }));
+    autoUpdater.on('update-available', (info) => { retries = 0; set({ status: 'available', version: info.version, checkedAt: Date.now() }); });
+    autoUpdater.on('update-not-available', () => { retries = 0; set({ status: 'none', version: null, checkedAt: Date.now() }); });
     autoUpdater.on('download-progress', (p) => set({ status: 'downloading', progress: Math.round(p.percent) }));
     autoUpdater.on('update-downloaded', (info) => set({ status: 'ready', version: info.version, progress: 100 }));
     autoUpdater.on('error', (e) => set({ status: 'error', error: String(e?.message || e), checkedAt: Date.now() }));

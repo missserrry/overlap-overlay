@@ -70,8 +70,32 @@ const gapStandings = (g) => {
 
 const side = (id, cls, html) => `<span class="sc ${cls}" style="--w:${DEFS[id].w}em">${html}</span>`;
 
+// ---------- размер полей ----------
+// Каждое поле можно увеличить или уменьшить отдельно: ячейка оборачивается в блок с другим font-size, и всё внутри
+// (ширины в em, значки, текст) растёт вместе с ней. Колонка расширяется, строка становится выше, а если ширины окна не хватает —
+// подгонка (createFitter) убирает колонки с низким приоритетом. Поле со стандартным размером не оборачивается вовсе.
+let sizes = {};
+export function setSizes(obj) {
+  const next = obj && typeof obj === 'object' ? obj : {};
+  if (JSON.stringify(next) === JSON.stringify(sizes)) return false;
+  sizes = next;
+  return true;
+}
+export const sizeOf = (id) => Math.min(Math.max(Number(sizes[id]) || 100, 70), 200) / 100;
+export const sizesKey = () => JSON.stringify(sizes);
+// высота строки — по самому крупному из видимых полей
+export function rowScale(ids) {
+  const k = Math.max(1, ...ids.map(sizeOf));
+  document.documentElement.style.setProperty('--row-k', k.toFixed(3));
+}
+const zoomWrap = (id, html) => {
+  const k = sizeOf(id);
+  return k === 1 ? html : `<span class="cz${id === 'name' ? ' grow' : ''}" style="font-size:${k}em">${html}</span>`;
+};
+
 // ctx: { showDelta, kind, overlay } — row r берётся из модели оверлея
-export function cellHtml(id, r, ctx) {
+export const cellHtml = (id, r, ctx) => zoomWrap(id, cellRaw(id, r, ctx));
+function cellRaw(id, r, ctx) {
   switch (id) {
     case 'pos': return `<span class="pos">${r.position ?? ''}</span>`;
     case 'posChange': {

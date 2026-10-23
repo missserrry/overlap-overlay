@@ -135,7 +135,7 @@ body.edit .rz { display: block; }
 .row {
   display: flex;
   align-items: center;
-  height: var(--row-h);
+  height: calc(var(--row-h) * var(--row-k, 1));
   position: relative;
   border-radius: 2px;
 }
@@ -266,3 +266,7 @@ body.edit .rz { display: block; }
 .hf.up .v { color: var(--green); }
 .hf.down .v { color: var(--red); }
 .hf svg { width: 0.7em; height: 0.7em; }
+
+/* Поле с изменённым размером (columns.js, zoomWrap): блок масштабирует всё внутри, высоту строки задаёт --row-k */
+.cz { display: flex; align-items: center; align-self: stretch; flex: none; }
+.cz.grow { flex: 1; min-width: 0; }
