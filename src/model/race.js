@@ -105,6 +105,7 @@ function buildRaceState(snap) {
     sessionName: String(sess?.SessionName || sess?.SessionType || '').toUpperCase(),
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,
+    pitSpeedLimit: session?.WeekendInfo?.TrackPitSpeedLimit,
     driverInfo: session?.DriverInfo,
     sectorsInfo: session?.SplitTimeInfo?.Sectors,
     multiClass: classes.size > 1,

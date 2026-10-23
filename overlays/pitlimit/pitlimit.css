@@ -1,0 +1,24 @@
+/* Pit Limiter: цвет всего окна — состояние. Зелёный — всё в порядке, красный — лимитер выключен и скорость выше лимита.
+   Шкала показывает скорость, белая отсечка — лимит боксов. Размер задаёт --scale. */
+html, body { height: 100%; }
+.pl { --c: var(--rj-safe, #2ee34a); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.55em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent), 0 0 1.8em color-mix(in srgb, var(--c) 30%, transparent); transition: box-shadow 200ms; }
+.pl.bad { --c: var(--rj-danger, #ff3b30); animation: plPulse 0.55s ease-in-out infinite alternate; }
+@keyframes plPulse { from { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), 0 0 1em color-mix(in srgb, var(--c) 20%, transparent); } to { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 85%, transparent), 0 0 2.6em color-mix(in srgb, var(--c) 60%, transparent); } }
+.pl .top { display: flex; align-items: center; justify-content: space-between; font-size: 0.65em; letter-spacing: 0.12em; color: var(--text-dim); line-height: 1; }
+.pl .state { color: var(--c); }
+.pl .spd { display: flex; align-items: baseline; justify-content: center; gap: 0.5em; line-height: 1; color: var(--c); text-shadow: 0 0 0.5em color-mix(in srgb, var(--c) 40%, transparent); }
+.pl .spd b { font-size: 3em; min-width: 2.2ch; text-align: right; }
+.pl .spd small { font-size: 1.1em; opacity: 0.8; }
+.pl .spd em { font-style: normal; font-size: 0.8em; color: var(--text-dim); text-shadow: none; margin-left: 0.6em; }
+.pl .sbar { position: relative; height: 0.9em; border-radius: 0.45em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.pl .sbar i { position: absolute; inset: 0 auto 0 0; background: var(--c); transition: width 120ms linear; }
+.pl .sbar .over { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.25) 0 4px, transparent 4px 8px); }
+.pl .sbar u { position: absolute; top: -0.15em; bottom: -0.15em; width: 3px; margin-left: -1.5px; background: #fff; border-radius: 2px; z-index: 2; box-shadow: 0 0 0.4em rgba(255, 255, 255, 0.7); }
+.pl .scale { position: relative; height: 1em; font-size: 0.7em; color: var(--text-dim); }
+.pl .scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; color: var(--text); }
+.pl .msg { text-align: center; font-size: 0.95em; letter-spacing: 0.04em; color: var(--c); }
+.pl.go { --c: var(--rj-safe, #2ee34a); justify-content: center; align-items: center; text-align: center; animation: plGo 0.6s ease-out; }
+@keyframes plGo { 0% { transform: scale(0.94); box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 80%, transparent); } 60% { transform: scale(1.02); box-shadow: 0 0 0 1.2em color-mix(in srgb, var(--c) 0%, transparent); } 100% { transform: scale(1); } }
+.pl.go .big { font-size: 2.2em; line-height: 1; color: var(--c); text-shadow: 0 0 0.6em color-mix(in srgb, var(--c) 50%, transparent); }
+.pl.go .sub { font-size: 0.85em; color: var(--text-dim); }
+.pl.go .check { width: 2.2em; height: 2.2em; color: var(--c); }

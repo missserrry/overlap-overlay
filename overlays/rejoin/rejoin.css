@@ -10,8 +10,8 @@ html, body { height: 100%; }
 .rj .main b { font-size: 3.4em; }
 .rj .main small { font-size: 1.2em; opacity: 0.8; }
 .rj .main.none b { font-size: 2em; color: var(--rj-safe, #2ee34a); }
-.rj .bar { position: relative; height: 0.5em; border-radius: 0.25em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-.rj .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 0.25em; background: var(--c); transition: width 150ms linear, background 200ms; }
+.rj .rbar { position: relative; height: 0.5em; border-radius: 0.25em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.rj .rbar i { position: absolute; inset: 0 auto 0 0; border-radius: 0.25em; background: var(--c); transition: width 150ms linear, background 200ms; }
 .rj .car { display: flex; align-items: center; gap: 0.55em; font-size: 0.95em; line-height: 1.2; }
 .rj .car .stripe { margin: 0; flex: none; }
 .rj .car .num { color: var(--text-dim); min-width: 1.6em; }

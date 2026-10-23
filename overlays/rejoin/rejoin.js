@@ -32,7 +32,7 @@ function render() {
   const main = first
     ? `<div class="main"><b>${first.time.toFixed(1)}</b><small>s</small></div>`
     : '<div class="main none"><b>Никого сзади</b></div>';
-  const bar = cfg.bar ? `<div class="bar"><i style="width:${first ? Math.max(0, Math.min(1, 1 - first.time / Math.max(cfg.warn * 1.6, 1))) * 100 : 0}%"></i></div>` : '';
+  const bar = cfg.bar ? `<div class="rbar"><i style="width:${first ? Math.max(0, Math.min(1, 1 - first.time / Math.max(cfg.warn * 1.6, 1))) * 100 : 0}%"></i></div>` : '';
   const rows = cfg.names || cfg.dist ? cars.map((c, i) => `<div class="car ${i ? 'sec' : ''}"><span class="stripe" style="--cls:${esc(c.color)}"></span>${cfg.names ? `<span class="num">#${esc(c.number)}</span><span class="nm">${esc(c.name)}</span>` : '<span class="nm"></span>'}<span class="t">${cfg.dist ? `${c.dist} м · ` : ''}<b>${c.time.toFixed(1)} s</b></span></div>`).join('') : '';
   root.innerHTML = `<div class="top"><span>REJOIN</span><span class="state">${label}</span></div>${main}${bar}${rows}`;
   layout();
