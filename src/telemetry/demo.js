@@ -59,6 +59,7 @@ class DemoSource {
         WeekendOptions: { IncidentLimit: 25 },
       },
       DriverInfo: {
+        DriverCarRedLine: 7500, DriverCarIdleRPM: 900, DriverCarSLFirstRPM: 5500, DriverCarSLShiftRPM: 6900, DriverCarSLLastRPM: 7200, DriverCarSLBlinkRPM: 7350,
         DriverTires: [{ TireIndex: 0, TireCompoundType: 'Soft' }, { TireIndex: 1, TireCompoundType: 'Medium' }, { TireIndex: 2, TireCompoundType: 'Hard' }, { TireIndex: 3, TireCompoundType: 'Wet' }],
         DriverCarIdx: this.player.idx,
         Drivers: [
@@ -134,6 +135,20 @@ class DemoSource {
       });
     }
 
+    // приборы игрока: разгон на каждой передаче 5 секунд, потом переключение, иногда торможение
+    const cyc = (t % 5) / 5, gearNo = 1 + (Math.floor(t / 5) % 6);
+    const rpmFrac = cyc < 0.9 ? 0.3 + cyc * 0.74 : 0.25;
+    const dashRpm = Math.round(900 + rpmFrac * 6600);
+    const slFirst = 5500, slLast = 7200;
+    const shiftPct = Math.min(Math.max((dashRpm - slFirst) / (slLast - slFirst), 0), 1);
+    const braking = (t % 30) > 27;
+    const dash = {
+      Gear: cyc > 0.9 && cyc < 0.97 ? 0 : gearNo, RPM: dashRpm, Speed: (60 + gearNo * 11 + cyc * 14) / 3.6,
+      Throttle: braking ? 0 : (cyc < 0.9 ? 1 : 0), Brake: braking ? 0.7 : 0, Clutch: cyc > 0.9 && cyc < 0.97 ? 0 : 1,
+      SteeringWheelAngle: Math.sin(t / 2.3) * 1.2, BrakeABSactive: braking && Math.sin(t * 40) > 0, ShiftIndicatorPct: shiftPct,
+      EngineWarnings: (t % 40) > 37 ? 0x10 : 0,
+    };
+
     const p = this.player.idx;
     return {
       connected: true,
@@ -153,6 +168,7 @@ class DemoSource {
         CarIdxTrackSurface: surface, CarIdxClass: carClass,
         CarIdxTireCompound: tire,
         CarLeftRight: carLR,
+        ...dash,
         SessionFlags: DEMO_FLAGS[Math.floor(Date.now() / 4000) % DEMO_FLAGS.length],
         AirTemp: 24.3, TrackTempCrew: 31.8, TrackWetness: 3, Precipitation: 0.18, YawNorth: (t * 0.12) % (Math.PI * 2), RelativeHumidity: 0.46, FogLevel: 0,
         WindDir: 1.2, WindVel: 3.6, SessionTimeOfDay: 52200 + t, LapDeltaToBestLap: Math.sin(t / 7) * 0.6,

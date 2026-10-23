@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Dash — макет</title>
+<style>
+  :root { --bg:#0E0F11; --card:#15171A; --line:rgba(255,255,255,.07); --text:#E9EAEC; --muted:#8A9099; --gold:#E2B93B; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:28px; background:var(--bg); color:var(--text); font:14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size:22px; font-weight:600; margin:0 0 4px; } .sub { color:var(--muted); margin:0 0 22px; max-width:760px; }
+  .stage { background: linear-gradient(135deg,#6b4a2e,#c58a52 45%,#9a6a45); border-radius:14px; padding:36px 28px; display:flex; flex-direction:column; gap:34px; align-items:flex-start; }
+  .lbl { color:rgba(255,255,255,.85); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+
+  /* ---- сам оверлей ---- */
+  .dash { --u: .78; font-family: "Montserrat","Segoe UI",sans-serif; font-weight:700; color:#fff; display:inline-flex; flex-direction:column; align-items:stretch; gap:6px; }
+  .main { display:flex; align-items:center; gap:0; height:calc(96px*var(--u)); border-radius:calc(48px*var(--u)); background:rgba(24,20,18,.88); padding:0 calc(18px*var(--u)) 0 calc(6px*var(--u)); box-shadow:0 6px 24px rgba(0,0,0,.35); }
+  .ring { position:relative; width:calc(84px*var(--u)); height:calc(84px*var(--u)); flex:none; }
+  .ring svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .ring .gear { position:absolute; inset:0; display:grid; place-items:center; font-size:calc(40px*var(--u)); }
+  .flash { animation: flash .32s ease-out; }
+  @keyframes flash { 0% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); } 25% { filter: drop-shadow(0 0 calc(10px*var(--u)) #fff) brightness(1.7); } 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); } }
+  .col { display:flex; flex-direction:column; justify-content:center; gap:calc(8px*var(--u)); margin-left:calc(10px*var(--u)); }
+  .dots { display:flex; gap:calc(5px*var(--u)); }
+  .dots i { width:calc(9px*var(--u)); height:calc(9px*var(--u)); border-radius:50%; background:rgba(255,255,255,.2); transition:background 60ms linear, box-shadow 60ms linear; }
+  .dots i.on { background:var(--c); box-shadow:0 0 calc(6px*var(--u)) var(--c); }
+  .dots.blink i.on { animation: blink .16s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.15; } }
+  .nums { display:flex; gap:calc(18px*var(--u)); }
+  .nums div { display:flex; flex-direction:column; align-items:center; line-height:1.1; }
+  .nums small { color:rgba(255,255,255,.55); font-size:calc(12px*var(--u)); letter-spacing:.06em; }
+  .nums b { font-size:calc(17px*var(--u)); font-variant-numeric:tabular-nums; min-width:3.1em; text-align:center; }
+  .trace { position:relative; margin-left:calc(16px*var(--u)); width:calc(250px*var(--u)); height:calc(70px*var(--u)); border-radius:calc(8px*var(--u)); background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.07); overflow:hidden; }
+  .trace canvas { width:100%; height:100%; display:block; }
+  .bars { display:flex; gap:calc(5px*var(--u)); margin-left:calc(12px*var(--u)); align-items:stretch; height:calc(70px*var(--u)); }
+  .bar { width:calc(20px*var(--u)); flex:1; border-radius:calc(4px*var(--u)); background:rgba(255,255,255,.08); position:relative; overflow:hidden; }
+  .bar i { position:absolute; left:0; right:0; bottom:0; height:0%; }
+  .bar span { position:absolute; top:calc(-16px*var(--u)); }
+  .barwrap { display:flex; flex-direction:column; align-items:center; height:100%; gap:calc(3px*var(--u)); font-size:calc(11px*var(--u)); color:rgba(255,255,255,.75); }
+  .pos { margin-left:calc(18px*var(--u)); font-size:calc(26px*var(--u)); }
+  .foot { align-self:center; display:flex; gap:calc(16px*var(--u)); padding:calc(5px*var(--u)) calc(16px*var(--u)); border-radius:calc(14px*var(--u)); background:rgba(40,40,44,.9); font-size:calc(13px*var(--u)); }
+  .foot span { color:rgba(255,255,255,.55); font-size:.85em; margin-right:.3em; }
+  .states { display:flex; gap:26px; flex-wrap:wrap; }
+  .lists { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; margin-top:26px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .card h3 { margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); font-weight:600; }
+  .card ul { margin:0; padding-left:18px; color:var(--text); } .card li { margin:3px 0; } .card li small { color:var(--muted); }
+</style>
+</head>
+<body>
+<h1>Dash — передача, обороты и педали в одном оверлее</h1>
+<p class="sub">Левая часть как на вашем первом скриншоте: кольцо с передачей, под ним числа, сверху ряд точек. Справа — график педалей и столбики. Точки и дуга кольца растут вместе с оборотами и на пределе мигают; при переключении передачи кольцо коротко вспыхивает белым.</p>
+
+<div class="stage">
+  <div><div class="lbl">Основной вид (живая демонстрация)</div>
+    <div class="dash" id="d1" data-graph="1">
+      <div class="main">
+        <div class="ring"><svg viewBox="0 0 100 100"><defs><radialGradient id="rg" cx="50%" cy="38%" r="70%"><stop offset="0" stop-color="#b9bbc0"/><stop offset=".55" stop-color="#6d6f75"/><stop offset="1" stop-color="#2f3034"/></radialGradient></defs>
+          <circle cx="50" cy="50" r="47" fill="url(#rg)"/><circle cx="50" cy="50" r="39" fill="#1b1a19"/>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/>
+          <path class="arc" d="" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round"/></svg><div class="gear">3</div></div>
+        <div class="col"><div class="dots"></div><div class="nums"><div><small>KPH</small><b class="kph">0</b></div><div><small>RPM</small><b class="rpm">0</b></div></div></div>
+        <div class="trace"><canvas></canvas></div>
+        <div class="bars"><div class="barwrap"><div class="bar"><i style="background:#f5c342"></i></div><b class="cl">0</b></div><div class="barwrap"><div class="bar"><i style="background:#ff3b30"></i></div><b class="br">0</b></div><div class="barwrap"><div class="bar"><i style="background:#2ee34a"></i></div><b class="th">0</b></div></div>
+      </div>
+      <div class="foot"><div><span>Track</span>27 °C</div><div><span>SOF</span>2.8k</div><div><span>Fuel</span>38 L</div><div><span>Time</span>14:03</div></div>
+    </div></div>
+
+  <div class="states">
+    <div><div class="lbl">Компактный: только блок передачи</div>
+      <div class="dash" id="d2" data-graph="0" style="--u:.7"><div class="main">
+        <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="url(#rg)"/><circle cx="50" cy="50" r="39" fill="#1b1a19"/><circle cx="50" cy="50" r="43" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/><path class="arc" d="" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round"/></svg><div class="gear">3</div></div>
+        <div class="col"><div class="dots"></div><div class="nums"><div><small>KPH</small><b class="kph">0</b></div><div><small>RPM</small><b class="rpm">0</b></div></div></div>
+        <div class="pos">P12</div></div></div></div>
+    <div><div class="lbl">Только график и педали</div>
+      <div class="dash" id="d3" data-graph="1" data-nogear="1" style="--u:.7"><div class="main" style="padding-left:calc(14px*var(--u))">
+        <div class="trace"><canvas></canvas></div>
+        <div class="bars"><div class="barwrap"><div class="bar"><i style="background:#f5c342"></i></div><b class="cl">0</b></div><div class="barwrap"><div class="bar"><i style="background:#ff3b30"></i></div><b class="br">0</b></div><div class="barwrap"><div class="bar"><i style="background:#2ee34a"></i></div><b class="th">0</b></div></div></div></div></div>
+  </div>
+</div>
+
+<div class="lists">
+  <div class="card"><h3>Что показывать (каждый блок можно выключить)</h3><ul>
+    <li>Кольцо с передачей и дугой оборотов</li><li>Точки-«шифт-лампы» над числами</li><li>Скорость и обороты (по отдельности)</li>
+    <li>График педалей: газ, тормоз, сцепление, руль</li><li>Столбики педалей с цифрами</li><li>Позиция (P12) справа</li><li>Нижняя плашка с пунктами</li></ul></div>
+  <div class="card"><h3>Точки</h3><ul><li>Количество: 8–25</li><li>Форма: круг / вертикальная черта</li><li>Цвета: зелёный → жёлтый → красный (свои цвета)</li><li>Пороги: как в iRacing для этой машины или свои, % оборотов</li><li>Мигание на пределе и скорость мигания</li><li>Заполнение от центра или слева направо</li></ul></div>
+  <div class="card"><h3>Кольцо и передача</h3><ul><li>Дуга оборотов: вкл/выкл, цвет, толщина, с какого угла начинается</li><li>Вспышка белым при переключении: вкл/выкл, сила</li><li>Подсветка «пора переключаться» (кольцо краснеет)</li><li>N и R другим цветом, размер цифры</li></ul></div>
+  <div class="card"><h3>Скорость и обороты</h3><ul><li>КМ/Ч, миль/ч или как в игре</li><li>Подписи KPH/RPM показывать или нет</li><li>Обороты в тысячах (5.6) или целым</li></ul></div>
+  <div class="card"><h3>График</h3><ul><li>Окно времени: 5–30 с</li><li>Какие линии: газ, тормоз, сцепление, руль</li><li>Цвета и толщина линий, сетка, сглаживание</li><li>Заливка под линиями (мягкая)</li><li>Подсветка ABS на тормозе</li></ul></div>
+  <div class="card"><h3>Нижняя плашка и вид</h3><ul><li>Пункты из каталога шапки/подвала: температура трассы, SOF, время, топливо, дельта и другие</li><li>Прозрачность и цвет фона, скругление</li><li>Масштаб отдельно от окна (как у таблиц)</li><li>Режим «только в машине» / прятать в боксах</li></ul></div>
+</div>
+
+<script>
+// Демонстрация: обороты растут, на пределе мигают, потом переключение — вспышка кольца
+function colorAt(t){ return t<.55?'#2ee34a':t<.82?'#f5c342':'#ff3b30'; }
+function arcPath(frac){ const r=43,a0=Math.PI/2,sweep=Math.min(Math.max(frac,0),1)*Math.PI*1.5; if(sweep<0.02) return '';
+  const x0=50+r*Math.cos(a0), y0=50+r*Math.sin(a0), a1=a0+sweep, x1=50+r*Math.cos(a1), y1=50+r*Math.sin(a1);
+  return `M ${x0} ${y0} A ${r} ${r} 0 ${sweep>Math.PI?1:0} 1 ${x1} ${y1}`; }
+const N=9; // столько точек помещается в ширину блока KPH + RPM
+document.querySelectorAll('.dots').forEach(d=>{ for(let i=0;i<N;i++) d.appendChild(document.createElement('i')); });
+const hist=[]; let t0=performance.now(), gear=3, last=0, flashed=false;
+function frame(now){
+  const t=(now-t0)/1000, cyc=(t%4.2)/4.2;                 // один разгон на передаче = 4.2 с
+  const g=3+Math.floor(t/4.2)%3; if(g!==gear){ gear=g; document.querySelectorAll('.ring').forEach(r=>{ r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash'); }); }
+  const rpmFrac=Math.min(.18+cyc*0.86,1), rpm=Math.round(rpmFrac*7600+1000*(1-rpmFrac)), kph=Math.round(70+gear*28+cyc*45);
+  const th=cyc<.86?100:0, br=cyc>.93?70:0, cl=0;
+  hist.push([th,br,cl]); if(hist.length>260) hist.shift();
+  document.querySelectorAll('.dash').forEach(d=>{
+    d.querySelector('.gear') && (d.querySelector('.gear').textContent=gear);
+    d.querySelectorAll('.kph').forEach(e=>e.textContent=kph); d.querySelectorAll('.rpm').forEach(e=>e.textContent=rpm);
+    const arc=d.querySelector('.arc'); if(arc){ arc.setAttribute('d',arcPath(rpmFrac)); arc.setAttribute('stroke', rpmFrac>.9?'#ff3b30':rpmFrac>.7?'#f5c342':'#ff7a59'); }
+    const dots=d.querySelector('.dots'); if(dots){ const lit=Math.round(rpmFrac*N); [...dots.children].forEach((e,i)=>{ e.className=i<lit?'on':''; e.style.setProperty('--c',colorAt(i/N)); }); dots.classList.toggle('blink', rpmFrac>.96); }
+    d.querySelector('.th')&&(d.querySelector('.th').textContent=th, d.querySelectorAll('.bar')[2].firstElementChild.style.height=th+'%');
+    d.querySelector('.br')&&(d.querySelector('.br').textContent=br, d.querySelectorAll('.bar')[1].firstElementChild.style.height=br+'%');
+    d.querySelector('.cl')&&(d.querySelector('.cl').textContent=cl, d.querySelectorAll('.bar')[0].firstElementChild.style.height=cl+'%');
+    const cv=d.querySelector('canvas'); if(cv){ const w=cv.width=cv.clientWidth*2, h=cv.height=cv.clientHeight*2, c=cv.getContext('2d'); c.clearRect(0,0,w,h);
+      c.strokeStyle='rgba(255,255,255,.1)'; c.lineWidth=2; for(let k=1;k<4;k++){ c.beginPath(); c.moveTo(0,h*k/4); c.lineTo(w,h*k/4); c.stroke(); }
+      [[0,'#2ee34a'],[1,'#ff3b30']].forEach(([ix,col])=>{ c.beginPath(); c.strokeStyle=col; c.lineWidth=5; c.lineJoin='round';
+        hist.forEach((p,i)=>{ const x=w*i/259, y=h-(p[ix]/100)*(h-10)-5; i?c.lineTo(x,y):c.moveTo(x,y); }); c.stroke(); }); }
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

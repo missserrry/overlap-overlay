@@ -1,0 +1,55 @@
+/* Dash: передача, обороты, педали. Всё в em: масштаб задаёт --scale на :root (overlay.css).
+   Размеры взяты из макета (design/dash-mockup.html) при его масштабе 0.78. */
+.dash { display: inline-flex; flex-direction: column; align-items: stretch; gap: 0.43em; font-weight: 700; color: #fff; }
+.dash .main { display: flex; align-items: center; height: 5.35em; border-radius: 2.7em; background: var(--bg); padding: 0 1em 0 0.35em; box-shadow: 0 0.4em 1.6em rgba(0, 0, 0, 0.35); }
+.dash .main.noring { padding-left: 1em; border-radius: 1.2em; }
+
+/* кольцо с передачей — как «Controls» в RaceLab: тёмный диск, серая дорожка, дуги газа и тормоза,
+   вспышка диска и «всплывающая» цифра при смене передачи (keyframes те же: glowGearBg, glowText) */
+.ring { position: relative; width: 4.68em; height: 4.68em; flex: none; display: flex; align-items: center; justify-content: center; }
+.ring .tbi { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(#333, #222); box-shadow: 0 0 0 #000; }
+.ring .tbi.g1, .ring .tbi.g2, .ring .tbi.g3, .ring .tbi.g4, .ring .tbi.g5, .ring .tbi.g6 { animation: glowGearBg 500ms ease-out 2 alternate; }
+.ring svg { display: block; width: 100%; vertical-align: middle; overflow: visible; }
+.ring .brakeProgress { position: absolute; inset: 0; }
+.ring .trail { stroke: #666; stroke-linecap: butt; fill-opacity: 0; }
+.ring .path { stroke-linecap: butt; fill-opacity: 0; transition: stroke-dashoffset 0.1s ease 0s; }
+.ring .path.thr { stroke: rgba(70, 206, 34, 1); }
+.ring .path.brk { stroke: rgba(216, 43, 25, 1); }
+.ring .gear { position: absolute; font-size: 2.23em; font-weight: 700; color: #fff; text-shadow: 0.01em 0.01em 0.02em #000; animation: glowText 100ms ease-out 1 alternate; }
+.ring .gear.neutral { color: rgba(255, 255, 255, 0.45); }
+.ring.noanim .tbi, .ring.noanim .gear { animation: none !important; }
+@keyframes glowText { 0% { color: #fff; font-size: 1.49em; } 100% { color: #a4f39a; font-size: 2.23em; } }
+@keyframes glowGearBg {
+  0% { box-shadow: 0 0 0 rgba(0, 255, 0, 0.2), inset 0 0 0 rgba(255, 255, 255, 0.1), 0 0 0 #000; }
+  100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.6), inset 0 0 0.62em 0.93em rgba(255, 255, 255, 0.6), 0 0 0 #000; }
+}
+
+/* числа и точки */
+.col { display: flex; flex-direction: column; justify-content: center; gap: 0.55em; margin-left: 0.6em; }
+.dots { display: flex; gap: 0.28em; }
+.dots i { flex: none; width: 0.5em; height: 0.5em; border-radius: 50%; background: rgba(255, 255, 255, 0.565); transition: background 70ms linear, box-shadow 70ms linear; }
+.dots.bars i { width: 0.34em; height: 0.9em; border-radius: 0.12em; }
+.dots i.on { background: var(--c); box-shadow: 0 0 0.214em 0 var(--c); }
+.dots.blink i.on { animation: dotblink 0.16s steps(2) infinite; }
+@keyframes dotblink { 50% { opacity: 0.15; } }
+.nums { display: flex; gap: 1em; justify-content: space-between; }
+.nums div { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.nums small { color: rgba(255, 255, 255, 0.55); font-size: 0.67em; letter-spacing: 0.06em; }
+.nums b { font-size: 0.95em; font-variant-numeric: tabular-nums; min-width: 3.1em; text-align: center; }
+.nums.nolabels { gap: 0.4em; } .nums.nolabels b { font-size: 1.15em; }
+
+/* график */
+.trace { position: relative; margin-left: 0.9em; width: 13.9em; height: 3.9em; border-radius: 0.45em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.07); overflow: hidden; flex: none; }
+.trace canvas { width: 100%; height: 100%; display: block; }
+
+/* столбики */
+.bars-wrap { display: flex; gap: 0.28em; margin-left: 0.67em; height: 3.9em; flex: none; }
+.barcol { display: flex; flex-direction: column; align-items: center; gap: 0.2em; height: 100%; font-size: 0.61em; color: rgba(255, 255, 255, 0.75); font-variant-numeric: tabular-nums; }
+.barcol .pedal { width: 1.8em; flex: 1; border-radius: 0.3em; background: rgba(255, 255, 255, 0.08); position: relative; overflow: hidden; }
+.barcol .pedal i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--c); }
+.barcol.abs .pedal i { animation: dotblink 0.12s steps(2) infinite; }
+
+.dpos { margin-left: 1em; font-size: 1.45em; }
+
+/* нижняя плашка — пункты как у шапки и подвала таблиц */
+.dash .foot { align-self: stretch; height: 1.7em; padding: 0 1em; border-radius: 0.9em; background: var(--bg); border: 1px solid var(--border); font-size: 0.8em; justify-content: center; gap: 1.3em; }

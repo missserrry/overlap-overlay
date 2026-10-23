@@ -11,6 +11,7 @@ const TELEMETRY_VARS = [
   'CarIdxOnPitRoad', 'CarIdxTrackSurface', 'CarIdxClass', 'CarIdxTireCompound',
   'AirTemp', 'TrackTempCrew', 'TrackTemp', 'TrackWetness', 'Precipitation', 'RelativeHumidity', 'FogLevel', 'WindDir', 'WindVel',
   'SessionTimeOfDay', 'LapDeltaToBestLap', 'FuelLevel', 'OilTemp', 'WaterTemp', 'dcBrakeBias', 'DisplayUnits', 'YawNorth', 'SessionFlags', 'CarLeftRight',
+  'Gear', 'RPM', 'Speed', 'Throttle', 'Brake', 'Clutch', 'SteeringWheelAngle', 'BrakeABSactive', 'ShiftIndicatorPct', 'EngineWarnings',
 ];
 
 // Цвета лицензий: [основной (буква), тёмный (рейтинг)]

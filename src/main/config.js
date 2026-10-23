@@ -1,7 +1,7 @@
 // Настройки приложения и раскладки. Хранятся в %APPDATA%/svoy-overlay/config.json.
 const fs = require('fs');
 const path = require('path');
-const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards } = require('./layouts');
+const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards, normalizeDash } = require('./layouts');
 
 const DEFAULTS = {
   port: 8900,
@@ -48,6 +48,7 @@ function load(dir) {
       o.header = normalizeHf(o.type, 'header', o.header);
       o.footer = normalizeHf(o.type, 'footer', o.footer);
       o.cards = normalizeCards(o.type, o.cards);
+      if (o.type === 'dash') o.dash = normalizeDash(o.dash);
     }
   }
 

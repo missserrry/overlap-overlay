@@ -18,6 +18,7 @@ const TYPE_INFO = {
   relative: 'Машины рядом с вами на трассе и отрыв до них.',
   standings: 'Таблица по классам: позиции, отрыв, лучший круг.',
   digiflag: 'Светодиодная панель флагов: зелёный, жёлтый, SC, синий, белый, красный, клетчатый, чёрный и другие. Мигает, как настоящие.',
+  dash: 'Передача в кольце, точки-лампы оборотов, скорость, график и столбики педалей и нижняя плашка. Все блоки настраиваются.',
   radar: 'Радар вокруг вашей машины: кто рядом по бортам, кто близко спереди и сзади. Цвет и размер меняются с расстоянием.',
   weather: 'Температура трассы, её состояние, осадки и ветер с компасом, который вращается вместе с машиной.',
 };
@@ -157,19 +158,37 @@ function columnRows(o) {
 // Шапка и подвал: список пунктов, перетаскивание и переключатели как у колонок; блок раскрывается
 const hfOpen = { header: false, footer: false };
 const HF_TITLES = { header: 'Шапка', footer: 'Подвал' };
-function hfBlock(o, zone) {
+function hfBlock(o, zone, title = HF_TITLES[zone]) {
   const cat = S.hfCatalog || {};
   const list = o[zone] || [];
   const on = list.filter((c) => c.on).map((c) => cat[c.id]?.label || c.id);
   const rows = list.map((c) => `<div class="col-item" draggable="true" data-list="${zone}" data-col-id="${c.id}">
       <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(cat[c.id]?.label || c.id)}</span><span class="col-grp">${esc(cat[c.id]?.group || '')}</span>${sw(`data-hf="${zone}:${c.id}" aria-label="${esc(cat[c.id]?.label || c.id)}"`, c.on)}</div></div>`).join('');
   return `<div class="block">
-    <div class="label">${HF_TITLES[zone]}</div>
+    <div class="label">${title}</div>
     <details class="hf-details" data-hf-details="${zone}" ${hfOpen[zone] ? 'open' : ''}>
       <summary><span class="hf-sum">${on.length ? esc(on.join(' · ')) : 'Пусто — полоса скрыта'}</span>${icon('chevron-down', 'sm')}</summary>
       <div class="cols-list" style="margin-top:8px">${rows}</div>
     </details>
   </div>`;
+}
+
+// Dash: настройки рисуются по схеме из главного процесса (S.dashSchema), группы раскрываются
+const dashOpen = { 'Что показывать': true };
+function dashBlock(o) {
+  const v = o.dash || {};
+  const ctl = (it) => {
+    const val = v[it.key] ?? it.def;
+    if (it.type === 'bool') return `<label class="toggle" style="margin-top:10px"><span>${esc(it.label)}</span>${sw(`data-dash="${it.key}"`, !!val)}</label>`;
+    if (it.type === 'range') return `<div class="sub-label" style="margin-top:12px">${esc(it.label)}</div><div class="slider"><input class="range" type="range" min="${it.min}" max="${it.max}" step="${it.step}" value="${val}" data-dash-range="${it.key}" aria-label="${esc(it.label)}"><output>${val}${esc(it.unit || '')}</output></div>`;
+    return `<div class="sub-label" style="margin-top:12px">${esc(it.label)}</div><select class="field" data-dash-select="${it.key}">${it.options.map(([id, t]) => `<option value="${id}" ${val === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+  };
+  return (S.dashSchema || []).map((g) => `<div class="block">
+    <details class="hf-details" data-dash-details="${esc(g.group)}" ${dashOpen[g.group] ? 'open' : ''}>
+      <summary><span class="hf-sum" style="font-weight:600">${esc(g.group)}</span>${icon('chevron-down', 'sm')}</summary>
+      <div style="margin-top:4px">${g.items.map(ctl).join('')}</div>
+    </details>
+  </div>`).join('');
 }
 
 // Radar: дальность, прозрачность без машин, цифры и цвет класса
@@ -225,7 +244,9 @@ function renderOverlaySettings(o, layout, variation) {
   const colsOn = cols.filter((c) => c.on).map((c) => c.id);
   const scaleParam = o.autoScale ? 'auto' : (o.scale ?? 1);
   const sc = Math.round((o.scale ?? 1) * 100);
-  const url = o.type === 'radar'
+  const url = o.type === 'dash'
+    ? `${location.origin}/dash/?ftr=${hfOf(o, 'footer')}&scale=${scaleParam}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}`
+    : o.type === 'radar'
     ? `${location.origin}/radar/?range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}`
     : o.type === 'digiflag'
     ? `${location.origin}/digiflag/?layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}`
@@ -255,7 +276,7 @@ function renderOverlaySettings(o, layout, variation) {
         </div>
       </div>
 
-      ${o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
+      ${o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
         <div class="label">Колонки</div>
         <div class="cols-list" id="colsList">${columnRows(o)}</div>
         <p class="hint" style="margin-top:10px">Порядок меняется перетаскиванием. Когда окно узкое, лишние колонки уходят сами — сначала менее важные.</p>
@@ -319,13 +340,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg', `rgba(10, 10, 11, ${o.bgOpacity ?? 0.8})`);
-    $('pv')?.contentWindow?.postMessage({ svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -609,6 +630,8 @@ document.addEventListener('change', (e) => {
   if (!S) return;
   if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
   if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
+  if (d.dash) return ovAction('overlay.update', { patch: { dash: { [d.dash]: t.checked } } });
+  if (d.dashSelect) return ovAction('overlay.update', { patch: { dash: { [d.dashSelect]: t.value } } });
   if ('diagVerbose' in d) return act({ type: 'diag.verbose', value: t.checked });
   if ('radarDist' in d) return ovAction('overlay.update', { patch: { radarDist: t.checked } });
   if ('radarClass' in d) return ovAction('overlay.update', { patch: { radarClass: t.checked } });
@@ -640,6 +663,13 @@ document.addEventListener('input', (e) => {
     t.nextElementSibling.textContent = `${t.value}%`;
     $('pv')?.contentWindow?.postMessage({ svoyScale: t.value / 100 }, location.origin);
     return ovAction('overlay.update', { patch: { scale: t.value / 100 } });
+  }
+  if (t.dataset.dashRange) {
+    t.nextElementSibling.textContent = `${t.value}${(t.nextElementSibling.textContent.match(/\D+$/) || [''])[0]}`;
+    const key = t.dataset.dashRange, num = Number(t.value);
+    const o = currentSet().list.find((x) => x.id === selOv);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: { ...(o?.dash || {}), [key]: num } }, location.origin);
+    return ovAction('overlay.update', { patch: { dash: { [key]: num } } });
   }
   if (t.dataset.ovRange === 'radarRange' || t.dataset.ovRange === 'radarIdle') {
     const isRange = t.dataset.ovRange === 'radarRange';
@@ -700,6 +730,8 @@ document.addEventListener('drop', (e) => {
 document.addEventListener('toggle', (e) => {
   const z = e.target.dataset?.hfDetails;
   if (z) hfOpen[z] = e.target.open;
+  const dz = e.target.dataset?.dashDetails;
+  if (dz) dashOpen[dz] = e.target.open;
 }, true);
 
 document.addEventListener('keydown', (e) => {

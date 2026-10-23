@@ -5,6 +5,7 @@ import { fmtClock, fmtDuration, fmtLap, fmtIrating, onHfChange, ARROW_UP, ARROW_
 const DEFAULTS = {
   relative: { header: ['sof', 'inc'], footer: ['session', 'lap', 'pos'] },
   standings: { header: ['session'], footer: [] },
+  dash: { header: [], footer: ['trackTemp', 'sof', 'fuel', 'clock'] },
 };
 
 let state = { header: null, footer: null };

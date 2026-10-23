@@ -10,6 +10,7 @@ const OVERLAY_TYPES = {
   weather: { title: 'Weather', width: 240, height: 560 },
   digiflag: { title: 'DigiFlag', width: 200, height: 200 },
   radar: { title: 'Radar', width: 260, height: 260 },
+  dash: { title: 'Dash', width: 560, height: 150 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -83,6 +84,7 @@ const HF_ORDER = Object.keys(HF_CATALOG);
 const HF_DEFAULTS = {
   relative: { header: ['sof', 'inc'], footer: ['session', 'lap', 'pos'] },
   standings: { header: ['session'], footer: [] },
+  dash: { header: [], footer: ['trackTemp', 'sof', 'fuel', 'clock'] },
 };
 // Список {id, on}: известные пункты в сохранённом порядке, недостающие — в конце (выключены, кроме включённых по умолчанию)
 function normalizeHf(type, zone, list) {
@@ -118,6 +120,57 @@ function normalizeCards(type, list) {
   return out;
 }
 
+// Настройки Dash: одна схема на всё — значения по умолчанию, границы и подписи для панели.
+// Ключи плоские через точку (dots.count). Как они показываются — overlays/dash/dash.js.
+const bool = (key, label, def) => ({ key, type: 'bool', label, def });
+const range = (key, label, def, min, max, step = 1, unit = '') => ({ key, type: 'range', label, def, min, max, step, unit });
+const select = (key, label, def, options) => ({ key, type: 'select', label, def, options });
+const DASH_SCHEMA = [
+  { group: 'Что показывать', items: [
+    bool('blocks.ring', 'Кольцо с передачей', true), bool('blocks.dots', 'Точки над числами', true),
+    bool('blocks.speed', 'Скорость', true), bool('blocks.rpm', 'Обороты', true),
+    bool('blocks.graph', 'График педалей', true), bool('blocks.bars', 'Столбики педалей', true),
+    bool('blocks.pos', 'Позиция справа', false), bool('blocks.foot', 'Нижняя плашка', true),
+  ] },
+  { group: 'Точки', items: [
+    range('dots.count', 'Количество (кратно 3: зелёные, оранжевые, красные)', 9, 6, 18, 3),
+    select('dots.shape', 'Форма', 'circle', [['circle', 'Круг'], ['bar', 'Черта']]),
+    select('dots.source', 'Пороги', 'car', [['car', 'Как в iRacing для этой машины'], ['custom', 'Свои проценты']]),
+    range('dots.from', 'Свои: начало, % оборотов', 60, 30, 95, 1, '%'),
+    range('dots.to', 'Свои: конец, % оборотов', 95, 70, 100, 1, '%'),
+    bool('dots.pit', 'Голубые лампы на питлейне', true),
+    bool('dots.blink', 'Мигание на пределе', false),
+  ] },
+  { group: 'Кольцо и передача', items: [
+    bool('ring.arc', 'Дуги газа и тормоза вокруг передачи', true),
+    bool('ring.flash', 'Вспышка при смене передачи', true),
+  ] },
+  { group: 'Скорость и обороты', items: [
+    select('speedUnit', 'Единицы скорости', 'auto', [['auto', 'Как в игре'], ['kph', 'км/ч'], ['mph', 'миль/ч']]),
+    bool('labels', 'Подписи KPH и RPM', true), bool('rpmK', 'Обороты в тысячах (5.6)', false),
+  ] },
+  { group: 'График', items: [
+    range('graph.seconds', 'Окно времени', 10, 5, 30, 1, ' с'), range('graph.thick', 'Толщина линий', 2, 1, 5),
+    bool('graph.throttle', 'Газ', true), bool('graph.brake', 'Тормоз', true), bool('graph.clutch', 'Сцепление', false), bool('graph.steer', 'Руль', false),
+    bool('graph.grid', 'Сетка', true), bool('graph.fill', 'Заливка под линиями', false), bool('graph.abs', 'Подсветка ABS', true),
+  ] },
+];
+const DASH_ITEMS = DASH_SCHEMA.flatMap((g) => g.items);
+const DASH_DEFAULTS = Object.fromEntries(DASH_ITEMS.map((i) => [i.key, i.def]));
+
+// Привести настройки к актуальному виду: известные ключи, значения в границах; patch — плоские изменения поверх cur
+function normalizeDash(cur, patch = {}) {
+  const src = { ...DASH_DEFAULTS, ...(cur || {}), ...patch };
+  const out = {};
+  for (const it of DASH_ITEMS) {
+    const v = src[it.key];
+    if (it.type === 'bool') out[it.key] = typeof v === 'boolean' ? v : it.def;
+    else if (it.type === 'range') out[it.key] = Number.isFinite(v) ? Math.min(it.max, Math.max(it.min, Math.round(v))) : it.def;
+    else out[it.key] = it.options.some(([id]) => id === v) ? v : it.def;
+  }
+  return out;
+}
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -135,7 +188,8 @@ function createOverlay(type, at = {}) {
     width: meta.width, height: meta.height, // размер окна = масштаб и количество строк
     bgOpacity: 0.8,
     scale: 1,            // масштаб содержимого, если не включена подгонка под ширину окна
-    autoScale: false,    // true — как раньше: масштаб следует за шириной окна
+    autoScale: type === 'dash', // true — масштаб следует за шириной окна (у Dash так по умолчанию)
+    dash: normalizeDash(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -247,4 +301,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
+  DASH_SCHEMA, normalizeDash,
 };

@@ -97,6 +97,7 @@ function buildRaceState(snap) {
     sessionName: String(sess?.SessionName || sess?.SessionType || '').toUpperCase(),
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,
+    driverInfo: session?.DriverInfo,
     multiClass: classes.size > 1,
     sof: strengthOfField(cars.map((c) => c.irating)),
     session: {
