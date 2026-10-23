@@ -4,7 +4,7 @@ setupPage();
 const root = document.getElementById('root');
 
 // по умолчанию совпадает со схемой в src/main/layouts.js (FUEL_SCHEMA)
-const DEFAULTS = { margin: 0.5, planLaps: 10, units: 'auto', 'blocks.bar': true, 'blocks.stats': true, 'blocks.pit': true };
+const DEFAULTS = { margin: 0.5, planLaps: 10, units: 'auto', 'blocks.bar': true, 'blocks.stats': true, 'blocks.save': true, 'blocks.pit': true };
 let cfg = { ...DEFAULTS };
 let model = null;
 
@@ -56,6 +56,20 @@ function render() {
   const stat = (lab, val) => `<div class="stat"><small>${lab}</small><b class="${val == null ? 'na' : ''}">${val ?? '–'}</b></div>`;
   const stats = cfg['blocks.stats'] ? `<div class="stats">${stat('РАСХОД / КР', c.perLap != null ? `${c.f(c.perLap, 2)} ${c.unit}` : null)}${stat('ХВАТИТ НА', left != null ? `${left} кр` : null)}${stat(c.planned ? 'ПЛАН' : 'ДО ФИНИША', `${c.laps >= 10 ? c.laps.toFixed(0) : c.laps.toFixed(1)} кр`)}</div>` : '';
 
+  // Экономия: цель по расходу на круг и полоса «лифт». Вправо (красное) — тратите больше цели, влево (зелёное) — меньше
+  let save = '';
+  if (cfg['blocks.save'] && c.perLap != null && m.remLaps != null) {
+    const tgt = Math.max((m.fuel / Math.max(m.remLaps + cfg.margin, 0.5)), 0);   // с запасом из настроек
+    const over = c.perLap - tgt;                                                  // > 0 — тратите больше, чем можно
+    const need = over > 0.005;
+    const span = Math.max(tgt * 0.1, 0.05);                                       // ширина полосы: ±10% цели
+    const d = m.liveDelta != null ? m.liveDelta : null;
+    const pos = d != null ? Math.max(-1, Math.min(1, d / span)) : 0;
+    const msg = !need ? 'Экономить не нужно' : `Лифтите: нужно экономить ${c.f(over, 2)} ${c.unit} на круг`;
+    const mark = d != null ? `<i class="mk ${d > 0 ? 'over' : 'under'}" style="${pos >= 0 ? `left:50%;width:${pos * 50}%` : `right:50%;width:${-pos * 50}%`}"></i>` : '';
+    save = `<div class="save ${need ? 'need' : ''}"><div class="save-head"><small>ЭКОНОМИЯ</small><span>Цель ${c.f(tgt, 2)} ${c.unit}/кр · сейчас ${c.f(c.perLap, 2)}</span></div>${need ? `<div class="sbar"><u></u>${mark}</div><div class="smsg">${d != null ? `<b class="${d > 0 ? 'over' : 'under'}">${d > 0 ? '+' : '–'}${c.f(Math.abs(d), 2)} ${c.unit}</b> на этом круге · ` : ''}${msg}</div>` : `<div class="smsg">${msg}</div>`}</div>`;
+  }
+
   let pit = '';
   if (cfg['blocks.pit'] && m.onPitRoad && m.pitSelected != null && c.add != null) {
     const sel = m.pitSelected;
@@ -64,7 +78,7 @@ function render() {
     pit = `<div class="pit ${ok ? 'ok' : 'bad'}">В меню боксов: <b>${c.f(sel)} ${c.unit}</b> — ${ok ? 'достаточно' : `не хватает ${c.f(diff)} ${c.unit}`}</div>`;
   }
 
-  root.innerHTML = `<div class="top"><span>FUEL</span><b>${c.f(m.fuel)} ${c.unit}</b></div>${bar}${hero}${stats}${pit}`;
+  root.innerHTML = `<div class="top"><span>FUEL</span><b>${c.f(m.fuel)} ${c.unit}</b></div>${bar}${hero}${stats}${save}${pit}`;
   layout();
 }
 

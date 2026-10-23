@@ -22,3 +22,16 @@ html, body { height: 100%; }
 .fuel .pit b { color: var(--text); }
 .fuel .pit.ok b { color: var(--rj-safe, #2ee34a); }
 .fuel .pit.bad b { color: var(--rj-danger, #ff3b30); }
+
+.fuel .save { display: flex; flex-direction: column; gap: 0.4em; padding-top: 0.5em; border-top: 1px solid var(--border); }
+.fuel .save-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; font-size: 0.8em; color: var(--text-dim); }
+.fuel .save-head small { font-size: 0.78em; letter-spacing: 0.1em; }
+.fuel .sbar { position: relative; height: 0.55em; border-radius: 0.3em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.fuel .sbar u { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255, 255, 255, 0.45); z-index: 1; }
+.fuel .sbar .mk { position: absolute; top: 0; bottom: 0; transition: width 150ms linear; }
+.fuel .sbar .mk.over, .fuel .smsg .over { background: var(--rj-danger, #ff3b30); }
+.fuel .sbar .mk.under { background: var(--rj-safe, #2ee34a); }
+.fuel .smsg { text-align: center; font-size: 0.8em; font-weight: 600; }
+.fuel .smsg b { background: none !important; }
+.fuel .smsg b.over { color: var(--rj-danger, #ff3b30); }
+.fuel .smsg b.under { color: var(--rj-safe, #2ee34a); }

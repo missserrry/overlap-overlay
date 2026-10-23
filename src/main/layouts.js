@@ -235,6 +235,7 @@ const FUEL_SCHEMA = [
   { group: 'Что показывать', items: [
     bool('blocks.bar', 'Полоса бака', true),
     bool('blocks.stats', 'Расход, хватит на, до финиша', true),
+    bool('blocks.save', 'Экономия: цель по расходу и полоса «лифт»', true),
     bool('blocks.pit', 'Выбранное в меню боксов', true),
   ] },
 ];
