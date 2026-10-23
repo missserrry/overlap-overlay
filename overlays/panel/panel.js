@@ -20,6 +20,7 @@ const TYPE_INFO = {
   digiflag: 'Светодиодная панель флагов: зелёный, жёлтый, SC, синий, белый, красный, клетчатый, чёрный и другие. Мигает, как настоящие.',
   dash: 'Передача в кольце, точки-лампы оборотов, скорость, график и столбики педалей и нижняя плашка. Все блоки настраиваются.',
   sectors: 'Полоса секторов: каждый сектор заполняется по мере проезда и показывает дельту к эталону. До 5 секторов на экране, остальные прокручиваются.',
+  rejoin: 'Помощник выезда: когда вы стоите на трассе, показывает, через сколько секунд вас догонит машина сзади, и подсвечивает, можно ли выезжать.',
   laps: 'Круги: время текущего круга, предикт с дельтой, лучший и прошлый круги, лучший круг лидера класса. Каждый блок включается отдельно.',
   radar: 'Радар вокруг вашей машины: кто рядом по бортам, кто близко спереди и сзади. Цвет и размер меняются с расстоянием.',
   weather: 'Температура трассы, её состояние, осадки и ветер с компасом, который вращается вместе с машиной.',
@@ -183,7 +184,7 @@ function hfBlock(o, zone, title = HF_TITLES[zone]) {
 
 // Настройки по схеме из главного процесса (Dash, Sectors): группы раскрываются, элементы — переключатель, ползунок, выбор.
 // Каждый элемент помнит, в каком поле оверлея лежит (data-cfg) и под каким ключом (data-k).
-const cfgOpen = { 'dash:Что показывать': true, 'sectors:Секторы': true, 'laps:Что показывать': true };
+const cfgOpen = { 'dash:Что показывать': true, 'sectors:Секторы': true, 'laps:Что показывать': true, 'rejoin:Когда показывать': true, 'rejoin:Сигнал': true };
 function schemaBlock(o, field, schema) {
   const v = o[field] || {};
   const ctl = (it) => {
@@ -203,6 +204,7 @@ function schemaBlock(o, field, schema) {
 const dashBlock = (o) => schemaBlock(o, 'dash', S.dashSchema);
 const sectorsBlock = (o) => schemaBlock(o, 'sectors', S.sectorsSchema);
 const lapsBlock = (o) => schemaBlock(o, 'laps', S.lapsSchema);
+const rejoinBlock = (o) => schemaBlock(o, 'rejoin', S.rejoinSchema);
 
 // Radar: дальность, прозрачность без машин, цифры и цвет класса
 function radarBlock(o) {
@@ -257,7 +259,9 @@ function renderOverlaySettings(o, layout, variation) {
   const colsOn = cols.filter((c) => c.on).map((c) => c.id);
   const scaleParam = o.autoScale ? 'auto' : (o.scale ?? 1);
   const sc = Math.round((o.scale ?? 1) * 100);
-  const url = o.type === 'laps'
+  const url = o.type === 'rejoin'
+    ? `${location.origin}/rejoin/?rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}`
+    : o.type === 'laps'
     ? `${location.origin}/laps/?laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}`
     : o.type === 'sectors'
     ? `${location.origin}/sectors/?sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}`
@@ -293,7 +297,7 @@ function renderOverlaySettings(o, layout, variation) {
         </div>
       </div>
 
-      ${o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
+      ${o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : `      <div class="block">
         <div class="label">Колонки</div>
         <div class="cols-list" id="colsList">${columnRows(o)}</div>
         <p class="hint" style="margin-top:10px">Порядок меняется перетаскиванием. Когда окно узкое, лишние колонки уходят сами — сначала менее важные.</p>
@@ -302,7 +306,7 @@ function renderOverlaySettings(o, layout, variation) {
       ${hfBlock(o, 'header')}
       ${hfBlock(o, 'footer')}`}
 
-      ${(o.type === 'digiflag' || o.type === 'radar' || o.type === 'sectors' || o.type === 'laps') ? '' : `      <div class="block">
+      ${(o.type === 'digiflag' || o.type === 'radar' || o.type === 'sectors' || o.type === 'laps' || o.type === 'rejoin') ? '' : `      <div class="block">
         <div class="label">Масштаб</div>
         <div class="slider ${o.autoScale ? 'dim' : ''}">
           <input class="range" type="range" min="50" max="250" step="5" value="${sc}" data-ov-range="scale" ${o.autoScale ? 'disabled' : ''} aria-label="Масштаб">
@@ -357,13 +361,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}${o.type === 'rejoin' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -804,7 +808,7 @@ document.addEventListener('input', (e) => {
     t.nextElementSibling.textContent = `${t.value}${(t.nextElementSibling.textContent.match(/\D+$/) || [''])[0]}`;
     const field = t.dataset.cfgRange, key = t.dataset.k, num = Number(t.value);
     const o = currentSet().list.find((x) => x.id === selOv);
-    $('pv')?.contentWindow?.postMessage({ [{ dash: 'svoyDash', sectors: 'svoySectors', laps: 'svoyLaps' }[field]]: { ...(o?.[field] || {}), [key]: num } }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ [{ dash: 'svoyDash', sectors: 'svoySectors', laps: 'svoyLaps', rejoin: 'svoyRejoin' }[field]]: { ...(o?.[field] || {}), [key]: num } }, location.origin);
     return ovAction('overlay.update', { patch: { [field]: { [key]: num } } });
   }
   if (t.dataset.ovRange === 'radarRange' || t.dataset.ovRange === 'radarIdle') {

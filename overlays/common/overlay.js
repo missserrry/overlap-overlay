@@ -95,6 +95,11 @@ let lapsHook = null, lastLaps = null;
 const deliverLaps = (obj) => { lastLaps = obj; lapsHook?.(obj); };
 export const onLapsChange = (fn) => { lapsHook = fn; if (lastLaps) fn(lastLaps); };
 
+// Настройки Rejoin (JSON): ?rejoin=..., настройки приложения, панель
+let rejoinHook = null, lastRejoin = null;
+const deliverRejoin = (obj) => { lastRejoin = obj; rejoinHook?.(obj); };
+export const onRejoinChange = (fn) => { rejoinHook = fn; if (lastRejoin) fn(lastRejoin); };
+
 let colsHook = null, lastCols = null;
 const deliverCols = (ids) => { lastCols = ids; colsHook?.(ids); };
 export const onColumnsChange = (fn) => { colsHook = fn; if (lastCols) fn(lastCols); };
@@ -112,6 +117,7 @@ export function setupPage() {
   if (params.has('dist')) deliverFlagOpts({ dist: params.get('dist') === '1' });
   if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
   if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
+  if (params.has('rejoin')) { try { deliverRejoin(JSON.parse(params.get('rejoin'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('laps')) { try { deliverLaps(JSON.parse(params.get('laps'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('sectors')) { try { deliverSectors(JSON.parse(params.get('sectors'))); } catch { /* остаются настройки по умолчанию */ } }
   if (params.has('dash')) { try { deliverDash(JSON.parse(params.get('dash'))); } catch { /* битый адрес — остаются настройки по умолчанию */ } }
@@ -130,6 +136,7 @@ export function setupPage() {
     if (e.data?.svoyDash) deliverDash(e.data.svoyDash);
     if (e.data?.svoySectors) deliverSectors(e.data.svoySectors);
     if (e.data?.svoyLaps) deliverLaps(e.data.svoyLaps);
+    if (e.data?.svoyRejoin) deliverRejoin(e.data.svoyRejoin);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
@@ -150,6 +157,7 @@ export function setupPage() {
       if ('hideEmpty' in s && !params.has('hide')) deliverFlagOpts({ hide: !!s.hideEmpty });
       if (s.dash && !params.has('dash')) deliverDash(s.dash);
       if (s.palette && !params.has('palette')) deliverPalette(s.palette);
+      if (s.rejoin && !params.has('rejoin')) deliverRejoin(s.rejoin);
       if (s.laps && !params.has('laps')) deliverLaps(s.laps);
       if (s.sectors && !params.has('sectors')) deliverSectors(s.sectors);
       if (Array.isArray(s.cards) && s.cards.length && !params.has('cards')) deliverCards(s.cards.filter((c) => c.on).map((c) => c.id));

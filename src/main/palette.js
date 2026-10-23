@@ -3,7 +3,7 @@
 // В страницы оверлеев уходит готовая карта CSS-переменных ({'--player-strong': '#eabe11', ...}), поэтому логика только здесь.
 
 const TABLE = ['relative', 'standings'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -60,6 +60,13 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Rejoin', tokens: [
+      { key: 'rjSafe', label: 'Можно выезжать', def: '#2EE34A', types: ['rejoin'] },
+      { key: 'rjWarn', label: 'Осторожно', def: '#FFB020', types: ['rejoin'] },
+      { key: 'rjDanger', label: 'Опасно', def: '#FF3B30', types: ['rejoin'] },
+    ],
+  },
+  {
     title: 'Флаги', tokens: [
       { key: 'flagY', label: 'Жёлтый', def: '#FFE600', types: ['digiflag'] },
       { key: 'flagW', label: 'Белый', def: '#F4F4F4', types: ['digiflag'] },
@@ -98,6 +105,9 @@ const CSS = {
   radarDanger: (c) => ({ '--radar-danger': c }),
   radarFront: (c) => ({ '--radar-front': c }),
   radarMe: (c) => ({ '--radar-me': c }),
+  rjSafe: (c) => ({ '--rj-safe': c }),
+  rjWarn: (c) => ({ '--rj-warn': c }),
+  rjDanger: (c) => ({ '--rj-danger': c }),
   dashThr: (c) => ({ '--d-thr': c }),
   dashBrk: (c) => ({ '--d-brk': c }),
   dashClu: (c) => ({ '--d-clu': c }),

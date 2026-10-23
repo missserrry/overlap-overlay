@@ -13,6 +13,7 @@ const OVERLAY_TYPES = {
   dash: { title: 'Dash', width: 560, height: 150 },
   sectors: { title: 'Sectors', width: 640, height: 70 },
   laps: { title: 'Laps', width: 320, height: 200 },
+  rejoin: { title: 'Rejoin', width: 320, height: 170 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -203,6 +204,26 @@ const LAPS_SCHEMA = [
 const LAPS_ITEMS = LAPS_SCHEMA.flatMap((g) => g.items);
 const normalizeLaps = (cur, patch) => normalizeSchema(LAPS_ITEMS, cur, patch);
 
+// Настройки Rejoin (помощник выезда на трассу)
+const REJOIN_SCHEMA = [
+  { group: 'Когда показывать', items: [
+    range('stopSpeed', 'Считать остановкой скорость до', 15, 1, 60, 1, ' км/ч'),
+    bool('always', 'Показывать всегда (для настройки)', false),
+  ] },
+  { group: 'Сигнал', items: [
+    range('danger', 'Опасно, если меньше', 3, 1, 10, 1, ' с'),
+    range('warn', 'Осторожно, если меньше', 7, 3, 20, 1, ' с'),
+  ] },
+  { group: 'Вид', items: [
+    range('count', 'Сколько машин показывать', 2, 1, 3),
+    bool('names', 'Имена и номера', true),
+    bool('dist', 'Расстояние в метрах', true),
+    bool('bar', 'Шкала приближения', true),
+  ] },
+];
+const REJOIN_ITEMS = REJOIN_SCHEMA.flatMap((g) => g.items);
+const normalizeRejoin = (cur, patch) => normalizeSchema(REJOIN_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -224,6 +245,7 @@ function createOverlay(type, at = {}) {
     dash: normalizeDash(),
     sectors: normalizeSectors(),
     laps: normalizeLaps(),
+    rejoin: normalizeRejoin(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -335,5 +357,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin,
 };

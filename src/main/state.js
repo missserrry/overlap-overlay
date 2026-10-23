@@ -95,6 +95,7 @@ class LayoutState {
       dashSchema: L.DASH_SCHEMA,
       sectorsSchema: L.SECTORS_SCHEMA,
       lapsSchema: L.LAPS_SCHEMA,
+      rejoinSchema: L.REJOIN_SCHEMA,
       paletteGroups: P.GROUPS,
       palettePresets: P.PRESETS,
       paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
@@ -240,6 +241,7 @@ class LayoutState {
         if (typeof p.radarDist === 'boolean') o.radarDist = p.radarDist;
         if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
+        if (p.rejoin && typeof p.rejoin === 'object') o.rejoin = L.normalizeRejoin(o.rejoin, p.rejoin);
         if (p.laps && typeof p.laps === 'object') o.laps = L.normalizeLaps(o.laps, p.laps);
         if (p.dash && typeof p.dash === 'object') o.dash = L.normalizeDash(o.dash, p.dash);
         if (Array.isArray(p.cards)) o.cards = L.normalizeCards(o.type, p.cards);
