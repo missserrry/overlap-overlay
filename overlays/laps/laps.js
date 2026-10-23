@@ -44,7 +44,7 @@ function render() {
 function layout() {
   if (!model?.active) return;
   root.style.setProperty('--scale', 1);
-  root.style.width = '320px';
+  root.style.width = '400px';
   const w0 = root.offsetWidth, h0 = root.offsetHeight;
   if (!w0 || !h0) return;
   const k = Math.min(window.innerWidth / w0, window.innerHeight / h0);

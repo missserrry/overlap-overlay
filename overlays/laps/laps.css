@@ -7,9 +7,9 @@ html, body { height: 100%; }
 .laps .pre .d { font-size: 0.7em; }
 .laps .d.fast { color: var(--sec-fast, #2ee34a); }
 .laps .d.slow { color: var(--sec-slow, #ff3b30); }
-.laps .cells { display: flex; gap: 0.4em; padding-top: 0.45em; border-top: 1px solid var(--border); }
-.laps .cell { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.15em; }
+.laps .cells { display: flex; gap: 0; padding-top: 0.45em; border-top: 1px solid var(--border); }
+.laps .cell { flex: 1; min-width: 0; padding: 0 0.6em; display: flex; flex-direction: column; align-items: center; gap: 0.15em; }
 .laps .cell + .cell { border-left: 1px solid var(--border); }
 .laps .cell small { font-size: 0.6em; letter-spacing: 0.08em; color: var(--text-dim); line-height: 1; }
-.laps .cell b { font-size: 1.05em; line-height: 1.1; }
+.laps .cell b { font-size: 1em; line-height: 1.1; }
 .laps .na { color: var(--text-dim); }
