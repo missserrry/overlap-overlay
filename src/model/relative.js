@@ -36,9 +36,9 @@ function buildRelative(race, opts = {}) {
 
 function row(car, t, d, ref, race) {
   // В гонке подсвечиваем машины на другом круге: впереди по кругу (красный) или отстающие (синий)
-  let lapState = 'same';
+  let lapState = 'same', lapDiff = 0;
   if (race.kind === 'race' && car !== ref) {
-    const lapDiff = Math.round(car.totalDist - ref.totalDist - d);
+    lapDiff = Math.round(car.totalDist - ref.totalDist - d);
     if (lapDiff > 0) lapState = 'ahead';
     else if (lapDiff < 0) lapState = 'behind';
   }
@@ -53,6 +53,7 @@ function row(car, t, d, ref, race) {
     bestLap: car.bestLap,
     name: car.name,
     classColor: car.classColor,
+    className: car.className,
     license: car.license,
     irating: car.irating,
     iratingDelta: car.iratingDelta ?? null,
@@ -60,6 +61,8 @@ function row(car, t, d, ref, race) {
     isPlayer: car === ref,
     onPitRoad: car.onPitRoad,
     lapState,
+    lapDiff,                 // > 0 — машина на столько кругов впереди вас, < 0 — позади
+    behind: d <= 0,          // машина сзади (может догнать)
   };
 }
 

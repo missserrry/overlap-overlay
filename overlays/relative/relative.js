@@ -1,4 +1,4 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange } from '/common/overlay.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onRelChange } from '/common/overlay.js';
 import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
@@ -19,6 +19,15 @@ const hf = initHf('relative', () => { if (model?.rows?.length) { fitter.invalida
 const fitter = createFitter({ root: panel, levels, render, minRows: 3, key: sizesKey, after: () => { fitBar($('hdr')); fitBar($('foot')); } });
 onColumns(() => { rebuildLevels(); fitter.invalidate(); if (model?.rows?.length) fitter.fit(); });
 onColumnsChange(setColumns);
+// Оформление: круговые обводкой или заливкой, подписи кругов, мигание угрозы
+let rel = { ring: true, label: true, pulse: true, pulseSec: 5 };
+onRelChange((s) => {
+  rel = { ...rel, ...s };
+  document.body.classList.toggle('lap-ring', !!rel.ring);
+  fitter.invalidate();
+  if (model?.rows?.length) fitter.fit();
+});
+document.body.classList.add('lap-ring');
 onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('relative', (msg) => {
@@ -34,7 +43,14 @@ function render(level, rows) {
   renderBar($('hdr'), hf.ids('header'), m.info);
   renderBar($('foot'), hf.ids('footer'), m.info);
 
-  $('rows').innerHTML = pickRows(m.rows, rows).map((r) => rowHtml(r, m, level)).join('');
+  // колонка «Класс» нужна, только когда в списке больше одного класса
+  const shown = pickRows(m.rows, rows);
+  const multi = new Set(m.rows.map((r) => r.classColor)).size > 1;
+  const cols = multi ? level.cols : level.cols.filter((id) => id !== 'cls');
+  const lv = cols === level.cols ? level : { ...level, cols };
+  // общая ширина ячейки отрыва, если у кого-то есть подпись круга: столбец остаётся ровным
+  const wide = rel.label && shown.some((r) => r.lapDiff);
+  $('rows').innerHTML = shown.map((r) => rowHtml(r, m, lv, wide)).join('');
 }
 
 // Оставить n строк так, чтобы своя машина была посередине (если сверху/снизу не хватает — добираем с другой стороны)
@@ -49,12 +65,14 @@ function pickRows(all, n) {
   return all.slice(p - ahead, p + behind + 1);
 }
 
-function rowHtml(r, m, level) {
+function rowHtml(r, m, level, wide) {
   const cls = ['row'];
   if (r.isPlayer) cls.push('player');
   if (r.onPitRoad) cls.push('pit');
   if (r.lapState === 'ahead') cls.push('lap-ahead');
   if (r.lapState === 'behind') cls.push('lap-behind');
-  const ctx = { overlay: 'relative', showDelta: level.cols.includes('delta') && m.kind === 'race' };
+  // угроза: машина на круг впереди вас догоняет сзади и уже близко
+  if (rel.pulse && r.lapState === 'ahead' && r.behind && r.gap < rel.pulseSec) cls.push('threat');
+  const ctx = { overlay: 'relative', showDelta: level.cols.includes('delta') && m.kind === 'race', wideGap: wide, lapLabel: rel.label };
   return `<div class="${cls.join(' ')}">${level.cols.filter((id) => id !== 'delta').map((id) => cellHtml(id, r, ctx)).join('')}</div>`;
 }

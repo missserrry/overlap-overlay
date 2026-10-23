@@ -22,6 +22,7 @@ const OVERLAY_TYPES = {
 const COLUMN_CATALOG = {
   pos: { label: 'Позиция' },
   posChange: { label: 'Изменение позиции' },
+  cls: { label: 'Класс (плашка)' },
   num: { label: 'Номер машины' },
   brand: { label: 'Марка машины' },
   name: { label: 'Имя', fixed: true },
@@ -36,7 +37,7 @@ const COLUMN_CATALOG = {
   pit: { label: 'Питлейн' },
 };
 const COLUMN_DEFAULTS = {
-  relative: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
+  relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
   standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, tire: 0, pit: 0 },
 };
 
@@ -61,7 +62,13 @@ function normalizeColumns(type, cols) {
     seen.add(c.id);
     out.push({ id: c.id, on: COLUMN_CATALOG[c.id].fixed ? true : !!c.on });
   }
-  for (const id of Object.keys(def)) if (!seen.has(id)) out.push({ id, on: !!def[id] });
+  for (const id of Object.keys(def)) {
+    if (seen.has(id)) continue;
+    const item = { id, on: !!def[id] };
+    // колонка «Класс» появилась позже остальных: у старых настроек вставляем её перед именем, а не в самый конец
+    const at = id === 'cls' ? out.findIndex((c) => c.id === 'name') : -1;
+    if (at >= 0) out.splice(at, 0, item); else out.push(item);
+  }
   return out;
 }
 
@@ -270,6 +277,18 @@ const PITLIMIT_SCHEMA = [
 const PITLIMIT_ITEMS = PITLIMIT_SCHEMA.flatMap((g) => g.items);
 const normalizePitlimit = (cur, patch) => normalizeSchema(PITLIMIT_ITEMS, cur, patch);
 
+// Оформление Relative: как показываются классы и круговые
+const REL_SCHEMA = [
+  { group: 'Классы и круговые', items: [
+    bool('ring', 'Круговые обводкой (иначе заливкой)', true),
+    bool('label', 'Подпись +1L / −1L у круговых', true),
+    bool('pulse', 'Мигание, когда круговой догоняет сзади', true),
+    range('pulseSec', 'Мигать, если до него меньше', 5, 1, 15, 1, ' с'),
+  ] },
+];
+const REL_ITEMS = REL_SCHEMA.flatMap((g) => g.items);
+const normalizeRel = (cur, patch) => normalizeSchema(REL_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -294,6 +313,7 @@ function createOverlay(type, at = {}) {
     laps: normalizeLaps(),
     rejoin: normalizeRejoin(),
     fuel: normalizeFuel(),
+    rel: normalizeRel(),
     pitlimit: normalizePitlimit(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
@@ -406,5 +426,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, PITLIMIT_SCHEMA, normalizePitlimit,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, PITLIMIT_SCHEMA, normalizePitlimit,
 };

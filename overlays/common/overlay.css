@@ -270,3 +270,16 @@ body.edit .rz { display: block; }
 /* Поле с изменённым размером (columns.js, zoomWrap): блок масштабирует всё внутри, высоту строки задаёт --row-k */
 .cz { display: flex; align-items: center; align-self: stretch; flex: none; }
 .cz.grow { flex: 1; min-width: 0; }
+
+/* Колонка «Класс»: плашка цвета класса с коротким названием (Relative) */
+.ctag { display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box; width: 3.4em; margin: 0 0.3em 0 0.1em; padding: 0.18em 0; border-radius: 0.3em; font-size: 0.7em; font-weight: 700; letter-spacing: 0.02em; background: var(--cls, #888); color: #0e0f11; text-shadow: none; overflow: hidden; white-space: nowrap; }
+.row.pit .ctag { filter: grayscale(1) brightness(0.55); }
+
+/* Круговые обводкой, а не заливкой: цифра остаётся читаемой, цвет — флаг. Красный — он на круг впереди вас, синий — вы его обогнали на круг */
+body.lap-ring .row.lap-ahead .gap { background: none; box-shadow: inset 0 0 0 2px var(--ring-ahead, #ff3b30); }
+body.lap-ring .row.lap-behind .gap { background: none; box-shadow: inset 0 0 0 2px var(--ring-behind, #4da3ff); }
+.gap.wide { width: 5.2em; }
+.gap .lapn { font-size: 0.62em; font-weight: 700; margin-right: 0.5em; letter-spacing: 0.02em; opacity: 0.9; }
+/* угроза: круговой догоняет сзади — обводка мигает */
+body.lap-ring .row.threat .gap, .row.threat .gap { animation: lapThreat 0.7s ease-in-out infinite alternate; }
+@keyframes lapThreat { from { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ring-ahead, #ff3b30) 60%, transparent); } to { box-shadow: inset 0 0 0 2px var(--ring-ahead, #ff3b30), 0 0 0.9em var(--ring-ahead, #ff3b30); } }

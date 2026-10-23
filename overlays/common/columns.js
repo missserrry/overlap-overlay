@@ -8,6 +8,7 @@ import { ARROW_DOWN, ARROW_UP, esc, fmtIrating, fmtLap, iratingBadge, licenseBad
 export const DEFS = {
   pos:   { prio: 95, zone: 'main' },
   posChange: { prio: 28, zone: 'main' },
+  cls:   { prio: 42, zone: 'main' },
   num:   { prio: 40, zone: 'main' },
   brand: { prio: 45, zone: 'main' },
   name:  { prio: 99, zone: 'main' },
@@ -23,11 +24,11 @@ export const DEFS = {
 };
 
 const DEFAULTS = {
-  relative: ['pos', 'name', 'lic', 'ir', 'delta', 'gap'],
+  relative: ['pos', 'cls', 'name', 'lic', 'ir', 'delta', 'gap'],
   standings: ['pos', 'name', 'ir', 'delta', 'gap', 'best'],
 };
 const SUPPORTED = {
-  relative: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'last', 'pit']),
+  relative: new Set(['pos', 'cls', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'last', 'pit']),
   standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'pit']),
 };
 
@@ -104,6 +105,7 @@ function cellRaw(id, r, ctx) {
       return `<span class="pch ${d > 0 ? 'up' : 'down'}">${d > 0 ? ARROW_UP : ARROW_DOWN}${Math.abs(d)}</span>`;
     }
     case 'tire': return side('tire', 'tire-v', r.tire ? tireHtml(r.tire) : '');
+    case 'cls': return `<span class="ctag" style="--cls:${esc(r.classColor)}" title="${esc(r.className)}">${esc((r.className || '').slice(0, 5))}</span>`;
     case 'num': return `<span class="num">${esc(r.number)}</span>`;
     case 'brand': return brandHtml(r.brand);
     case 'name': return `<span class="stripe" style="--cls:${esc(r.classColor)}"></span><span class="name">${esc(r.name)}</span>`;
@@ -111,7 +113,7 @@ function cellRaw(id, r, ctx) {
     case 'ir': return iratingBadge(r.irating, r.iratingDelta, ctx.showDelta);
     case 'gap':
       return ctx.overlay === 'relative'
-        ? `<span class="gap">${r.gap.toFixed(1)}</span>`
+        ? `<span class="gap${ctx.wideGap ? ' wide' : ''}">${ctx.lapLabel && r.lapDiff ? `<small class="lapn">${r.lapDiff > 0 ? '+' : '−'}${Math.abs(r.lapDiff)}L</small>` : ''}${r.gap.toFixed(1)}</span>`
         : side('gap', 'gap-v', gapStandings(r.gap));
     case 'int': return side('int', 'int-v', gapStandings(r.int));
     case 'last': return side('last', 'last-v', fmtLap(r.lastLap));

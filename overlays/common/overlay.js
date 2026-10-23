@@ -115,6 +115,11 @@ let sizesHook = null, lastSizes = null;
 const deliverSizes = (obj) => { lastSizes = obj; sizesHook?.(obj); };
 export const onSizesChange = (fn) => { sizesHook = fn; if (lastSizes) fn(lastSizes); };
 
+// Оформление Relative (JSON): ?rel=..., настройки приложения, панель
+let relHook = null, lastRel = null;
+const deliverRel = (obj) => { lastRel = obj; relHook?.(obj); };
+export const onRelChange = (fn) => { relHook = fn; if (lastRel) fn(lastRel); };
+
 let colsHook = null, lastCols = null;
 const deliverCols = (ids) => { lastCols = ids; colsHook?.(ids); };
 export const onColumnsChange = (fn) => { colsHook = fn; if (lastCols) fn(lastCols); };
@@ -132,6 +137,7 @@ export function setupPage() {
   if (params.has('dist')) deliverFlagOpts({ dist: params.get('dist') === '1' });
   if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
   if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
+  if (params.has('rel')) { try { deliverRel(JSON.parse(params.get('rel'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('sizes')) { try { deliverSizes(JSON.parse(params.get('sizes'))); } catch { /* размеры по умолчанию */ } }
   if (params.has('pitlimit')) { try { deliverPit(JSON.parse(params.get('pitlimit'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('fuel')) { try { deliverFuel(JSON.parse(params.get('fuel'))); } catch { /* настройки по умолчанию */ } }
@@ -158,6 +164,7 @@ export function setupPage() {
     if (e.data?.svoyFuel) deliverFuel(e.data.svoyFuel);
     if (e.data?.svoyPit) deliverPit(e.data.svoyPit);
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
+    if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
@@ -178,6 +185,7 @@ export function setupPage() {
       if ('hideEmpty' in s && !params.has('hide')) deliverFlagOpts({ hide: !!s.hideEmpty });
       if (s.dash && !params.has('dash')) deliverDash(s.dash);
       if (s.palette && !params.has('palette')) deliverPalette(s.palette);
+      if (s.rel && !params.has('rel')) deliverRel(s.rel);
       if (s.sizes && !params.has('sizes')) deliverSizes(s.sizes);
       if (s.pitlimit && !params.has('pitlimit')) deliverPit(s.pitlimit);
       if (s.fuel && !params.has('fuel')) deliverFuel(s.fuel);
