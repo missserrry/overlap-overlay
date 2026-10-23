@@ -3,7 +3,7 @@
 // В страницы оверлеев уходит готовая карта CSS-переменных ({'--player-strong': '#eabe11', ...}), поэтому логика только здесь.
 
 const TABLE = ['relative', 'standings'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -61,9 +61,9 @@ const GROUPS = [
   },
   {
     title: 'Rejoin, Fuel и Pit Limiter', tokens: [
-      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit'] },
-      { key: 'rjWarn', label: 'Осторожно / впритык', def: '#FFB020', types: ['rejoin', 'fuel', 'pitlimit'] },
-      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit'] },
+      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
+      { key: 'rjWarn', label: 'Осторожно / впритык', def: '#FFB020', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
+      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
     ],
   },
   {

@@ -16,6 +16,7 @@ const OVERLAY_TYPES = {
   rejoin: { title: 'Rejoin', width: 320, height: 170 },
   fuel: { title: 'Fuel', width: 320, height: 230 },
   pitlimit: { title: 'Pit Limiter', width: 380, height: 150 },
+  traffic: { title: 'Traffic', width: 300, height: 56 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -289,6 +290,21 @@ const REL_SCHEMA = [
 const REL_ITEMS = REL_SCHEMA.flatMap((g) => g.items);
 const normalizeRel = (cur, patch) => normalizeSchema(REL_ITEMS, cur, patch);
 
+// Настройки Traffic (плашка мультикласса)
+const TRAFFIC_SCHEMA = [
+  { group: 'Что показывать', items: [
+    bool('behind', 'Быстрый класс сзади', true),
+    bool('ahead', 'Медленный класс впереди', true),
+    bool('number', 'Номер машины', false),
+  ] },
+  { group: 'Когда', items: [
+    range('range', 'Показывать, если до встречи меньше', 30, 10, 90, 5, ' с'),
+    range('warn', 'Мигать, если быстрый класс ближе чем', 6, 2, 15, 1, ' с'),
+  ] },
+];
+const TRAFFIC_ITEMS = TRAFFIC_SCHEMA.flatMap((g) => g.items);
+const normalizeTraffic = (cur, patch) => normalizeSchema(TRAFFIC_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -314,6 +330,7 @@ function createOverlay(type, at = {}) {
     rejoin: normalizeRejoin(),
     fuel: normalizeFuel(),
     rel: normalizeRel(),
+    traffic: normalizeTraffic(),
     pitlimit: normalizePitlimit(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
@@ -426,5 +443,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, PITLIMIT_SCHEMA, normalizePitlimit,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit,
 };

@@ -98,6 +98,7 @@ class LayoutState {
       rejoinSchema: L.REJOIN_SCHEMA,
       fuelSchema: L.FUEL_SCHEMA,
       relSchema: L.REL_SCHEMA,
+      trafficSchema: L.TRAFFIC_SCHEMA,
       pitlimitSchema: L.PITLIMIT_SCHEMA,
       paletteGroups: P.GROUPS,
       palettePresets: P.PRESETS,
@@ -244,6 +245,7 @@ class LayoutState {
         if (typeof p.radarDist === 'boolean') o.radarDist = p.radarDist;
         if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
+        if (p.traffic && typeof p.traffic === 'object') o.traffic = L.normalizeTraffic(o.traffic, p.traffic);
         if (p.rel && typeof p.rel === 'object') o.rel = L.normalizeRel(o.rel, p.rel);
         if (p.sizes === null) o.sizes = {};
         else if (p.sizes && typeof p.sizes === 'object') o.sizes = L.normalizeSizes(o.sizes, p.sizes);

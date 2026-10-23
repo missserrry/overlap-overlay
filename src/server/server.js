@@ -1,6 +1,6 @@
 // Сервер телеметрии: читает iRacing (или демо), считает модели и раздаёт их по WebSocket.
 //   HTTP:  http://127.0.0.1:<port>/relative/   /standings/   — страницы оверлеев (работают и в OBS/браузере)
-//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit
+//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +21,7 @@ const { buildLaps } = require('../model/laps');
 const { buildRejoin } = require('../model/rejoin');
 const { buildFuel } = require('../model/fuel');
 const { buildPit } = require('../model/pitlimit');
+const { buildTraffic } = require('../model/traffic');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const STATIC_DIRS = {
@@ -47,6 +48,7 @@ const CHANNELS = {
   rejoin: (race) => buildRejoin(race),
   fuel: (race) => buildFuel(race),
   pitlimit: (race) => buildPit(race),
+  traffic: (race) => buildTraffic(race),
 };
 
 function startServer(options = {}) {
