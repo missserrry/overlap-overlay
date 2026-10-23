@@ -12,6 +12,7 @@ const OVERLAY_TYPES = {
   radar: { title: 'Radar', width: 260, height: 260 },
   dash: { title: 'Dash', width: 560, height: 150 },
   sectors: { title: 'Sectors', width: 640, height: 70 },
+  laps: { title: 'Laps', width: 320, height: 200 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -188,6 +189,20 @@ const SECTORS_SCHEMA = [
 const SECTORS_ITEMS = SECTORS_SCHEMA.flatMap((g) => g.items);
 const normalizeSectors = (cur, patch) => normalizeSchema(SECTORS_ITEMS, cur, patch);
 
+// Настройки Laps (блок кругов): каждый из блоков включается отдельно
+const LAPS_SCHEMA = [
+  { group: 'Что показывать', items: [
+    bool('blocks.current', 'Время текущего круга', true),
+    bool('blocks.predict', 'Предикт круга и дельта', true),
+    bool('blocks.best', 'Лучший круг', true),
+    bool('blocks.last', 'Прошлый круг', true),
+    bool('blocks.leader', 'Лучший круг лидера класса', true),
+    bool('labels', 'Подписи блоков', true),
+  ] },
+];
+const LAPS_ITEMS = LAPS_SCHEMA.flatMap((g) => g.items);
+const normalizeLaps = (cur, patch) => normalizeSchema(LAPS_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -208,6 +223,7 @@ function createOverlay(type, at = {}) {
     autoScale: type === 'dash', // true — масштаб следует за шириной окна (у Dash так по умолчанию)
     dash: normalizeDash(),
     sectors: normalizeSectors(),
+    laps: normalizeLaps(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -319,5 +335,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps,
 };

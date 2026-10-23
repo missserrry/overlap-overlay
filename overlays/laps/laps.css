@@ -1,0 +1,15 @@
+/* Блок кругов: крупное время круга, предикт с дельтой и ячейки с лучшим, прошлым и лучшим кругом лидера. Размер задаёт --u. */
+html, body { height: 100%; }
+.laps { position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.5em; padding: 0.7em 0.9em; box-sizing: border-box; border-radius: 0.8em; background: var(--bg); font-variant-numeric: tabular-nums; }
+.laps .ico { width: 1.1em; height: 1.1em; flex: none; color: var(--accent, #35d0e6); }
+.laps .cur { display: flex; align-items: center; justify-content: center; gap: 0.5em; font-size: 2.3em; line-height: 1.1; }
+.laps .pre { display: flex; align-items: center; justify-content: center; gap: 0.5em; font-size: 1.4em; line-height: 1.1; padding-top: 0.45em; border-top: 1px solid var(--border); }
+.laps .pre .d { font-size: 0.7em; }
+.laps .d.fast { color: var(--sec-fast, #2ee34a); }
+.laps .d.slow { color: var(--sec-slow, #ff3b30); }
+.laps .cells { display: flex; gap: 0.4em; padding-top: 0.45em; border-top: 1px solid var(--border); }
+.laps .cell { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.15em; }
+.laps .cell + .cell { border-left: 1px solid var(--border); }
+.laps .cell small { font-size: 0.6em; letter-spacing: 0.08em; color: var(--text-dim); line-height: 1; }
+.laps .cell b { font-size: 1.05em; line-height: 1.1; }
+.laps .na { color: var(--text-dim); }

@@ -3,14 +3,14 @@
 // В страницы оверлеев уходит готовая карта CSS-переменных ({'--player-strong': '#eabe11', ...}), поэтому логика только здесь.
 
 const TABLE = ['relative', 'standings'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
   {
     title: 'Основные', tokens: [
       { key: 'primary', label: 'Основной цвет', hint: 'Вы в таблице, рамки, подсветка', def: '#EABE11', types: ALL },
-      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash'] },
+      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps'] },
       { key: 'text', label: 'Текст', def: '#FFFFFF', types: ALL },
       { key: 'textDim', label: 'Приглушённый текст', def: '#8A8A8F', types: ALL },
       { key: 'bg', label: 'Фон оверлея', hint: 'Прозрачность — в настройках оверлея', def: '#0A0A0B', types: ALL },
@@ -54,9 +54,9 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Sectors', tokens: [
-      { key: 'secFast', label: 'Быстрее эталона', def: '#2EE34A', types: ['sectors'] },
-      { key: 'secSlow', label: 'Медленнее эталона', def: '#FF3B30', types: ['sectors'] },
+    title: 'Sectors и Laps', tokens: [
+      { key: 'secFast', label: 'Быстрее эталона', def: '#2EE34A', types: ['sectors', 'laps'] },
+      { key: 'secSlow', label: 'Медленнее эталона', def: '#FF3B30', types: ['sectors', 'laps'] },
     ],
   },
   {

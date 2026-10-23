@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const P = require('./palette');
-const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors } = require('./layouts');
+const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps } = require('./layouts');
 
 const DEFAULTS = {
   port: 8900,
@@ -54,6 +54,7 @@ function load(dir) {
       o.cards = normalizeCards(o.type, o.cards);
       if (o.type === 'dash') o.dash = normalizeDash(o.dash);
       if (o.type === 'sectors') o.sectors = normalizeSectors(o.sectors);
+      if (o.type === 'laps') o.laps = normalizeLaps(o.laps);
     }
   }
 
