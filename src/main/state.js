@@ -92,6 +92,7 @@ class LayoutState {
       hfCatalog: L.HF_CATALOG,
       weatherCards: L.WEATHER_CARDS,
       dashSchema: L.DASH_SCHEMA,
+      sectorsSchema: L.SECTORS_SCHEMA,
       categories: L.CATEGORIES,
     };
   }
@@ -229,6 +230,7 @@ class LayoutState {
         if (Number.isFinite(p.radarIdle)) o.radarIdle = Math.min(1, Math.max(0, p.radarIdle));
         if (typeof p.radarDist === 'boolean') o.radarDist = p.radarDist;
         if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
+        if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
         if (p.dash && typeof p.dash === 'object') o.dash = L.normalizeDash(o.dash, p.dash);
         if (Array.isArray(p.cards)) o.cards = L.normalizeCards(o.type, p.cards);
         if (Array.isArray(p.header)) o.header = L.normalizeHf(o.type, 'header', p.header);

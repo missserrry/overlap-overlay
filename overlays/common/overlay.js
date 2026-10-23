@@ -69,6 +69,11 @@ let dashHook = null, lastDash = null;
 const deliverDash = (obj) => { lastDash = obj; dashHook?.(obj); };
 export const onDashChange = (fn) => { dashHook = fn; if (lastDash) fn(lastDash); };
 
+// Настройки Sectors (JSON): ?sectors=..., настройки приложения, панель
+let sectorsHook = null, lastSectors = null;
+const deliverSectors = (obj) => { lastSectors = obj; sectorsHook?.(obj); };
+export const onSectorsChange = (fn) => { sectorsHook = fn; if (lastSectors) fn(lastSectors); };
+
 let colsHook = null, lastCols = null;
 const deliverCols = (ids) => { lastCols = ids; colsHook?.(ids); };
 export const onColumnsChange = (fn) => { colsHook = fn; if (lastCols) fn(lastCols); };
@@ -85,6 +90,7 @@ export function setupPage() {
   if (params.has('idle')) deliverFlagOpts({ idle: parseFloat(params.get('idle')) });
   if (params.has('dist')) deliverFlagOpts({ dist: params.get('dist') === '1' });
   if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
+  if (params.has('sectors')) { try { deliverSectors(JSON.parse(params.get('sectors'))); } catch { /* остаются настройки по умолчанию */ } }
   if (params.has('dash')) { try { deliverDash(JSON.parse(params.get('dash'))); } catch { /* битый адрес — остаются настройки по умолчанию */ } }
   if (params.has('cards')) deliverCards(params.get('cards').split(',').filter(Boolean));
   if (params.has('hdr')) deliverHf('header', params.get('hdr').split(',').filter(Boolean));
@@ -99,6 +105,7 @@ export function setupPage() {
     if (e.data && 'svoyScale' in e.data) deliverScale(e.data.svoyScale);
     if (e.data?.svoyFlag) deliverFlagOpts(e.data.svoyFlag);
     if (e.data?.svoyDash) deliverDash(e.data.svoyDash);
+    if (e.data?.svoySectors) deliverSectors(e.data.svoySectors);
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
     if (Array.isArray(e.data?.svoyFtr)) deliverHf('footer', e.data.svoyFtr);
@@ -117,6 +124,7 @@ export function setupPage() {
       if (s.radar && !params.has('range')) deliverFlagOpts(s.radar);
       if ('hideEmpty' in s && !params.has('hide')) deliverFlagOpts({ hide: !!s.hideEmpty });
       if (s.dash && !params.has('dash')) deliverDash(s.dash);
+      if (s.sectors && !params.has('sectors')) deliverSectors(s.sectors);
       if (Array.isArray(s.cards) && s.cards.length && !params.has('cards')) deliverCards(s.cards.filter((c) => c.on).map((c) => c.id));
       if (Array.isArray(s.header) && !params.has('hdr')) deliverHf('header', s.header.filter((c) => c.on).map((c) => c.id));
       if (Array.isArray(s.footer) && !params.has('ftr')) deliverHf('footer', s.footer.filter((c) => c.on).map((c) => c.id));

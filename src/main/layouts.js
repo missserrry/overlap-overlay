@@ -11,6 +11,7 @@ const OVERLAY_TYPES = {
   digiflag: { title: 'DigiFlag', width: 200, height: 200 },
   radar: { title: 'Radar', width: 260, height: 260 },
   dash: { title: 'Dash', width: 560, height: 150 },
+  sectors: { title: 'Sectors', width: 640, height: 70 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -156,13 +157,13 @@ const DASH_SCHEMA = [
   ] },
 ];
 const DASH_ITEMS = DASH_SCHEMA.flatMap((g) => g.items);
-const DASH_DEFAULTS = Object.fromEntries(DASH_ITEMS.map((i) => [i.key, i.def]));
 
 // Привести настройки к актуальному виду: известные ключи, значения в границах; patch — плоские изменения поверх cur
-function normalizeDash(cur, patch = {}) {
-  const src = { ...DASH_DEFAULTS, ...(cur || {}), ...patch };
+function normalizeSchema(items, cur, patch = {}) {
+  const defaults = Object.fromEntries(items.map((i) => [i.key, i.def]));
+  const src = { ...defaults, ...(cur || {}), ...patch };
   const out = {};
-  for (const it of DASH_ITEMS) {
+  for (const it of items) {
     const v = src[it.key];
     if (it.type === 'bool') out[it.key] = typeof v === 'boolean' ? v : it.def;
     else if (it.type === 'range') out[it.key] = Number.isFinite(v) ? Math.min(it.max, Math.max(it.min, Math.round(v))) : it.def;
@@ -170,6 +171,22 @@ function normalizeDash(cur, patch = {}) {
   }
   return out;
 }
+const normalizeDash = (cur, patch) => normalizeSchema(DASH_ITEMS, cur, patch);
+
+// Настройки Sectors (полоса секторов с наполнением)
+const SECTORS_SCHEMA = [
+  { group: 'Секторы', items: [
+    range('max', 'Максимум секторов на экране', 5, 1, 5),
+    select('ref', 'Сравнивать с', 'best', [['best', 'Моим лучшим кругом'], ['session', 'Лучшим кругом сессии'], ['optimal', 'Идеальным кругом (лучшие сектора)']]),
+    range('decimals', 'Знаков после точки', 3, 2, 3),
+    bool('labels', 'Подписи S1, S2…', true),
+    bool('fill', 'Заливка по мере проезда сектора', true),
+    bool('underline', 'Цветная линия под сектором', true),
+    bool('slide', 'Плавная прокрутка секторов', true),
+  ] },
+];
+const SECTORS_ITEMS = SECTORS_SCHEMA.flatMap((g) => g.items);
+const normalizeSectors = (cur, patch) => normalizeSchema(SECTORS_ITEMS, cur, patch);
 
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
@@ -190,6 +207,7 @@ function createOverlay(type, at = {}) {
     scale: 1,            // масштаб содержимого, если не включена подгонка под ширину окна
     autoScale: type === 'dash', // true — масштаб следует за шириной окна (у Dash так по умолчанию)
     dash: normalizeDash(),
+    sectors: normalizeSectors(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -301,5 +319,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors,
 };

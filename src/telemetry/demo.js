@@ -74,6 +74,7 @@ class DemoSource {
           })),
         ],
       },
+      SplitTimeInfo: { Sectors: [0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((p, i) => ({ SectorNum: i, SectorStartPct: p })) },
       QualifyResultsInfo: {
         Results: [...this.cars].sort((a, b) => b.startDist - a.startDist).map((c) => ({
           CarIdx: c.idx, ClassPosition: this.cars.filter((x) => x.cls === c.cls && x.startDist > c.startDist).length,
@@ -150,6 +151,9 @@ class DemoSource {
     };
 
     const p = this.player.idx;
+    // дельта круга: накапливается по кругу с разным наклоном в разных секторах, на каждом круге по-новому
+    const myPct = pct[p], myLapNo = lap[p];
+    const lapDelta = (0.5 + 0.35 * Math.sin(myLapNo * 1.7)) * myPct + 0.12 * Math.sin(myPct * 22 + myLapNo);
     return {
       connected: true,
       demo: true,
@@ -171,7 +175,7 @@ class DemoSource {
         ...dash,
         SessionFlags: DEMO_FLAGS[Math.floor(Date.now() / 4000) % DEMO_FLAGS.length],
         AirTemp: 24.3, TrackTempCrew: 31.8, TrackWetness: 3, Precipitation: 0.18, YawNorth: (t * 0.12) % (Math.PI * 2), RelativeHumidity: 0.46, FogLevel: 0,
-        WindDir: 1.2, WindVel: 3.6, SessionTimeOfDay: 52200 + t, LapDeltaToBestLap: Math.sin(t / 7) * 0.6,
+        WindDir: 1.2, WindVel: 3.6, SessionTimeOfDay: 52200 + t, LapDeltaToBestLap: lapDelta, LapDeltaToBestLap_OK: true, LapDeltaToSessionBestLap: lapDelta * 1.2, LapDeltaToSessionBestLap_OK: true, LapDeltaToOptimalLap: lapDelta * 1.5, LapDeltaToOptimalLap_OK: true,
         FuelLevel: 42 - ((t / this.player.lapTime) % 40) * 0.9, OilTemp: 104, WaterTemp: 88, dcBrakeBias: 54.3, DisplayUnits: 1,
       },
     };

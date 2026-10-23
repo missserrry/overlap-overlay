@@ -98,6 +98,7 @@ function buildRaceState(snap) {
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,
     driverInfo: session?.DriverInfo,
+    sectorsInfo: session?.SplitTimeInfo?.Sectors,
     multiClass: classes.size > 1,
     sof: strengthOfField(cars.map((c) => c.irating)),
     session: {
