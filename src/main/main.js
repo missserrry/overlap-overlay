@@ -9,6 +9,7 @@ const { foreground, isIRacing } = require('./foreground');
 const { startServer } = require('../server/server');
 const config = require('./config');
 const P = require('./palette');
+const { hideFromAltTab } = require('./winstyle');
 const { LayoutState } = require('./state');
 const snapper = require('./snapper');
 const { execFile } = require('child_process');
@@ -213,6 +214,7 @@ function createOverlayWindow(o) {
   });
   win.overlayId = o.id;
   win.overlayType = o.type;
+  hideFromAltTab(win);
   logger.attachWindow(win, `оверлей ${o.type}`);
   win.setAlwaysOnTop(true, 'screen-saver');
   win.loadURL(`http://127.0.0.1:${server.port}/${o.type}/`);
@@ -345,6 +347,7 @@ function showGuides(area) {
       focusable: false, alwaysOnTop: true, show: false,
       webPreferences: { preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
     });
+    hideFromAltTab(guidesWin);
     guidesWin.setAlwaysOnTop(true, 'screen-saver');
     guidesWin.setIgnoreMouseEvents(true);
     guidesWin.loadURL(`http://127.0.0.1:${server.port}/common/guides.html`);
