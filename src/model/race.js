@@ -64,8 +64,12 @@ function buildRaceState(snap) {
     classes.get(c.classId).cars.push(c);
   }
 
+  // В гонке после старта порядок считаем «вживую» по пройденной дистанции (круги + доля круга): позиции iRacing
+  // (CarIdxPosition, CarIdxClassPosition) и время отрыва (CarIdxF2Time) обновляются только при пересечении линии.
+  const live = kind === 'race' && (vars.SessionState ?? 0) >= 4;
+
   for (const cls of classes.values()) {
-    const sorted = [...cls.cars].sort((a, b) => classOrder(a, b, kind));
+    const sorted = [...cls.cars].sort((a, b) => classOrder(a, b, kind, live));
     sorted.forEach((c, i) => { c.classPos = i + 1; });
     cls.cars = sorted;
     cls.leader = sorted[0];
@@ -77,10 +81,14 @@ function buildRaceState(snap) {
       for (const c of sorted) c.iratingDelta = deltas.get(c.carIdx) ?? null;
     }
     sorted.forEach((c, i) => {
-      c.gap = gapToLeader(c, cls.leader, kind);
-      c.int = gapToLeader(c, sorted[i - 1] || c, kind); // интервал — тот же расчёт, но до машины впереди
+      c.gap = gapToLeader(c, cls.leader, kind, live);
+      c.int = gapToLeader(c, sorted[i - 1] || c, kind, live); // интервал — тот же расчёт, но до машины впереди
     });
   }
+
+  // общая позиция (для «P7» в подвале): тоже по дистанции, если порядок живой
+  const overall = [...cars].sort((a, b) => (live && a.inWorld && b.inWorld ? b.totalDist - a.totalDist : (a.livePos || 999) - (b.livePos || 999)));
+  overall.forEach((c, i) => { c.overallPos = live ? i + 1 : c.livePos; });
 
   updateGrid(snap, kind, cars);
   for (const c of cars) {
@@ -131,7 +139,8 @@ function updateGrid(snap, kind, cars) {
 }
 
 // Порядок внутри класса: живая позиция в гонке, иначе результаты, иначе лучший круг
-function classOrder(a, b, kind) {
+function classOrder(a, b, kind, live = false) {
+  if (live && a.inWorld && b.inWorld) return b.totalDist - a.totalDist;
   const pa = kind === 'race' ? (a.liveClassPos || a.resultsClassPos) : (a.resultsClassPos || 0);
   const pb = kind === 'race' ? (b.liveClassPos || b.resultsClassPos) : (b.resultsClassPos || 0);
   if (pa && pb) return pa - pb;
@@ -143,9 +152,18 @@ function classOrder(a, b, kind) {
   return b.totalDist - a.totalDist;
 }
 
-function gapToLeader(car, leader, kind) {
+// Отрыв: в гонке — по дистанции (живой), иначе по лучшему кругу.
+// Время до лидера/машины впереди = недостающая доля круга × темп этой машины; на круг и больше — «+N кругов».
+function gapToLeader(car, leader, kind, live = false) {
   if (car === leader) return { type: 'leader' };
   if (kind === 'race') {
+    if (live && car.inWorld && leader.inWorld) {
+      const delta = leader.totalDist - car.totalDist;               // в кругах
+      const lapsDown = Math.floor(delta);
+      if (lapsDown >= 1) return { type: 'laps', value: lapsDown };
+      const lapRef = car.classEstLap || car.lastLap || car.bestLap || leader.classEstLap || leader.lastLap || 100;
+      return { type: 'time', value: Math.max(delta * lapRef, 0) };
+    }
     const lapsDown = Math.floor(leader.totalDist - car.totalDist);
     if (lapsDown >= 1) return { type: 'laps', value: lapsDown };
     const t = car.f2Time - leader.f2Time;

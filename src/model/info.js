@@ -40,7 +40,7 @@ function buildInfo(race) {
     lap: ref ? Math.max(ref.lap, 0) : 0,
     lapsEstimate: est,
     lapsLeft: est && ref ? Math.max(est.value - Math.max(ref.lap, 0), 0) : null,
-    pos: ref?.livePos || null,
+    pos: ref?.overallPos || ref?.livePos || null,
     classPos: ref?.classPos ?? null,
     classSize: cls?.cars.length ?? null,
     drivers: race.cars.length,
