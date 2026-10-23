@@ -1,17 +1,17 @@
 {
   "name": "svoy-overlay",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Overlap — личные оверлеи для iRacing: Relative, Standings, Weather, DigiFlag, Radar",
+  "description": "Overlap — личные оверлеи для iRacing: Relative, Standings, Weather, DigiFlag, Radar, Dash, Sectors",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "server": "node scripts/dev-server.js",
     "demo": "node scripts/dev-server.js --demo",
-    "dist": "electron-builder --win portable --x64"
+    "dist": "electron-builder --win nsis portable --x64"
   },
   "build": {
-    "appId": "local.svoy-overlay",
+    "appId": "local.overlap",
     "productName": "Overlap",
     "directories": { "output": "dist" },
     "files": [
@@ -20,7 +20,20 @@
       "!node_modules/koffi/build/koffi/!(win32_x64)/**"
     ],
     "asarUnpack": ["node_modules/koffi/**"],
-    "win": { "target": "portable", "icon": "overlays/common/brand/icon.ico" },
+    "win": { "target": ["nsis", "portable"], "icon": "overlays/common/brand/icon.ico" },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Overlap",
+      "installerIcon": "overlays/common/brand/icon.ico",
+      "uninstallerIcon": "overlays/common/brand/icon.ico",
+      "artifactName": "Overlap-Setup-${version}.exe"
+    },
     "portable": { "artifactName": "Overlap-${version}-portable.exe" }
   },
   "dependencies": {

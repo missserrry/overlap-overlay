@@ -16,6 +16,10 @@ const { reloadCarTexture } = require('../telemetry/broadcast');
 
 let liveries;
 
+// Папка настроек всегда одна и та же (%APPDATA%\svoy-overlay), чем бы ни запускали приложение: установщик, portable или npm start.
+// Благодаря этому обновление поверх старой версии сохраняет раскладки, позиции окон и всё, что настроил пользователь.
+app.setPath('userData', path.join(app.getPath('appData'), 'svoy-overlay'));
+
 // Логи пишем с самого старта, чтобы не потерять ошибки запуска
 logger.init(app.getPath('userData'));
 logger.hookConsole();
