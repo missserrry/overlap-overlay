@@ -139,13 +139,16 @@ const TIRE_COLORS = { S: '#E5483D', M: '#F2C230', H: '#F2F2F2', W: '#3B82F6', I:
 function tireNames(session) {
   const map = new Map();
   for (const t of session?.DriverInfo?.DriverTires || []) map.set(Number(t.TireIndex), String(t.TireCompoundType || '').trim());
+  // У машины один сухой состав (как у GT3): iRacing называет его Hard, но выбора нет — показываем просто «сухие» (D)
+  const slicks = [...map.values()].filter((n) => !/^(wet|inter)/i.test(n));
+  map.single = slicks.length <= 1;
   return map;
 }
 function tireInfo(idx, names) {
   if (idx == null || idx < 0) return null;
   const name = names.get(idx) || '';
   const n = name.toLowerCase();
-  const code = n.startsWith('wet') ? 'W' : n.startsWith('inter') ? 'I' : n.startsWith('dry') ? 'D'
+  const code = names.single && /^(hard|med|soft)/.test(n) ? 'D' : n.startsWith('wet') ? 'W' : n.startsWith('inter') ? 'I' : n.startsWith('dry') ? 'D'
     : n.startsWith('soft') ? 'S' : n.startsWith('med') ? 'M' : n.startsWith('hard') ? 'H'
     : n.startsWith('prim') ? 'P' : n.startsWith('alt') ? 'A' : (name.charAt(0).toUpperCase() || String(idx));
   return { code, name: name || `Состав ${idx}`, color: TIRE_COLORS[code] || '#BDBDBD' };
