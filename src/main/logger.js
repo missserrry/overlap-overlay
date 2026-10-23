@@ -12,6 +12,7 @@ const REPEAT_WINDOW_MS = 60_000;
 let dir = null;
 let verbose = false;
 let last = { key: '', count: 0, at: 0, level: '' };
+let onFatal = null;                   // вызывается при падении: main сохранит отчёт и покажет уведомление
 let stopped = false;                  // файл переполнен — дальше пишем только ошибки
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -78,8 +79,9 @@ function hookConsole() {
   }
 }
 
-function installCrashHandlers() {
-  process.on('uncaughtException', (e) => write('ERROR', `uncaughtException: ${e?.stack || e}`));
+function installCrashHandlers(fatalCb) {
+  onFatal = fatalCb || null;
+  process.on('uncaughtException', (e) => { write('ERROR', `uncaughtException: ${e?.stack || e}`); onFatal?.('uncaughtException'); });
   process.on('unhandledRejection', (e) => write('ERROR', `unhandledRejection: ${e?.stack || e}`));
 }
 
@@ -99,7 +101,10 @@ function attachWindow(win, label) {
     else if (verbose) write('DEBUG', `[${label}] ${message}`);
   });
   wc.on('did-fail-load', (_e, code, desc, url) => write('ERROR', `[${label}] не загрузилось ${url}: ${desc} (${code})`));
-  wc.on('render-process-gone', (_e, d) => write('ERROR', `[${label}] процесс окна завершился: ${d.reason} (код ${d.exitCode})`));
+  wc.on('render-process-gone', (_e, d) => {
+    write('ERROR', `[${label}] процесс окна завершился: ${d.reason} (код ${d.exitCode})`);
+    if (d.reason !== 'clean-exit') onFatal?.(`окно «${label}»: ${d.reason}`);
+  });
   win.on('unresponsive', () => write('WARN', `[${label}] окно не отвечает`));
   win.on('responsive', () => write('INFO', `[${label}] окно снова отвечает`));
 }

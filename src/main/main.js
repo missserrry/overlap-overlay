@@ -3,7 +3,7 @@
 //   Ctrl+Shift+H — скрыть/показать все оверлеи
 //   Ctrl+Shift+J — открыть панель управления (или клик по значку в трее)
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification } = require('electron');
 const logger = require('./logger');
 const { startServer } = require('../server/server');
 const config = require('./config');
@@ -18,7 +18,25 @@ let liveries;
 // Логи пишем с самого старта, чтобы не потерять ошибки запуска
 logger.init(app.getPath('userData'));
 logger.hookConsole();
-logger.installCrashHandlers();
+// При падении сами сохраняем отчёт и говорим об этом уведомлением (не чаще раза в 10 минут)
+let lastCrashNote = 0;
+function onFatal(reason) {
+  if (Date.now() - lastCrashNote < 10 * 60_000) return;
+  lastCrashNote = Date.now();
+  try {
+    const f = path.join(logger.getDir(), `overlap-crash-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.txt`);
+    require('fs').writeFileSync(f, `Причина: ${reason}
+
+${report()}`);
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: 'Overlap: произошла ошибка', body: 'Отчёт сохранён. Нажмите, чтобы открыть папку, и отправьте файл разработчику.' });
+      n.on('click', () => shell.showItemInFolder(f));
+      n.show();
+    }
+  } catch { /* не мешаем работе */ }
+}
+app.setAppUserModelId('local.overlap');
+logger.installCrashHandlers(onFatal);
 let diagNote = null; // сообщение под кнопками диагностики в панели
 
 let cfg;
@@ -357,7 +375,7 @@ function openPanel() {
 
 // Диагностика: папка логов, отчёт в буфер обмена или в файл
 function report() {
-  return logger.buildReport({ app, screen, cfg, status: server?.status });
+  return logger.buildReport({ app, screen, cfg: cfg || {}, status: server?.status });
 }
 function applyDiagAction(a) {
   if (a.type === 'diag.openFolder') {
