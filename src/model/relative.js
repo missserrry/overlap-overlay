@@ -7,22 +7,19 @@ function buildRelative(race, opts = {}) {
   const ref = race.ref;
   if (!ref || !ref.inWorld) return { ...header(race), rows: [] };
 
-  // Оценочное время круга для «заворота» отрыва через линию старта/финиша
-  const lapTime = ref.classEstLap || ref.bestLap || 100;
+  // Отрыв — реальное время до машины на трассе, независимо от круга и класса. Считаем от расстояния по трассе:
+  //   впереди — за сколько вы её догоните на своём темпе (доля круга × ваш круг),
+  //   сзади — за сколько она догонит вас на своём (доля круга × её круг).
+  // CarIdxEstTime тут не годится: он считается в «часах» своего класса, и между классами отрыв получался в сотни секунд.
+  const myLap = ref.classEstLap || ref.bestLap || ref.lastLap || 100;
+  const lapOf = (c) => c.classEstLap || c.bestLap || c.lastLap || myLap;
   const around = [];
   for (const c of race.cars) {
     if (!c.inWorld || c === ref) continue;
     let d = c.lapDistPct - ref.lapDistPct;
     if (d > 0.5) d -= 1;
     if (d < -0.5) d += 1;
-
-    let t = c.estTime - ref.estTime;
-    if (t > lapTime / 2) t -= lapTime;
-    if (t < -lapTime / 2) t += lapTime;
-    // знак времени должен совпадать со стороной трассы
-    if (d > 0 && t < 0) t += lapTime;
-    if (d < 0 && t > 0) t -= lapTime;
-
+    const t = d > 0 ? d * myLap : d * lapOf(c); // знак как у d: впереди +, сзади −
     around.push({ car: c, d, t });
   }
 

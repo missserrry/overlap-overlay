@@ -224,8 +224,9 @@ body.edit .rz { display: block; }
   font-variant-numeric: tabular-nums;
   border-radius: 2px;
 }
-.row.lap-ahead .gap { background: linear-gradient(90deg, transparent, var(--lap-ahead) 35%); }
-.row.lap-behind .gap { background: linear-gradient(90deg, transparent, var(--lap-behind) 35%); }
+/* на круг впереди вас (вы для него круговой) — красным; на круг позади (он для вас круговой) — синим */
+.row.lap-ahead .gap { background: var(--lap-ahead); border-radius: 0.3em; }
+.row.lap-behind .gap { background: var(--lap-behind); border-radius: 0.3em; }
 
 .sep { height: 0.35em; }
 
