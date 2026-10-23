@@ -49,6 +49,7 @@ function setState(s) {
   }
   S = s;
   maybeWhatsNew();
+  renderUpdateUi();
   const layouts = S.cfg.layouts;
   if (!sel || !layouts.some((l) => l.id === sel.layoutId)) sel = S.panelSelection || { layoutId: S.active.layoutId, variation: 'base' };
   if (!selLayout || !layouts.some((l) => l.id === selLayout)) selLayout = sel.layoutId;
@@ -100,7 +101,6 @@ function renderStatus() {
   const editing = !S.cfg.locked;
   // связь — просто текст с точкой; видимость — действие; режим окон — сегментированный переключатель
   $('status').innerHTML = `
-    ${updateButton()}
     <span class="conn"><span class="dot ${dot}"></span>${esc(text)}</span>
     <button class="btn quiet" data-app-toggle="hiddenAll" title="Ctrl+Shift+H">${icon('eye', 'sm')}${S.cfg.hiddenAll ? 'Показать оверлеи' : 'Скрыть оверлеи'}</button>
     <span class="mode" role="group" aria-label="Режим окон оверлеев" title="Ctrl+Shift+L">
@@ -414,17 +414,87 @@ function mdHtml(src) {
 }
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return ''; } };
 
-// Кнопка в верхней полосе: показывает, что есть обновление, и ведёт по шагам скачать → перезапустить
-function updateButton() {
+// Уведомление об обновлении: всплывает карточка → по крестику сворачивается в значок «i» в левой рейке → по значку открывается окно со списком нового
+const updActive = () => S.update && ['available', 'manual', 'downloading', 'ready'].includes(S.update.status);
+let toastFor = null;   // для какой версии карточка уже показана в этом запуске
+let popOpen = false;
+
+const updDismissed = () => load('updDismissed', '') === S.update?.version;
+
+function updBody() {
   const u = S.update;
-  if (!u) return '';
-  if (u.status === 'available') return u.canAuto
-    ? `<button class="btn upd" data-update="update.download" title="Скачать и установить">${icon('download', 'sm')}Доступна ${esc(u.version)} — обновить</button>`
-    : `<button class="btn upd" data-update-url="${esc(u.url || '')}">${icon('download', 'sm')}Доступна ${esc(u.version)}</button>`;
-  if (u.status === 'manual') return `<button class="btn upd" data-update-url="${esc(u.url || '')}" title="Открыть страницу релиза">${icon('download', 'sm')}Доступна ${esc(u.version)}</button>`;
-  if (u.status === 'downloading') return `<span class="upd-note">${icon('download', 'sm')}Загрузка ${u.progress}%</span>`;
-  if (u.status === 'ready') return `<button class="btn upd" data-update="update.install" title="Установка займёт несколько секунд">${icon('refresh-cw', 'sm')}Перезапустить и обновить</button>`;
-  return '';
+  const r = (u.releases || []).find((x) => x.version === u.version);
+  const notes = r ? (mdHtml(r.body) || '<p class="hint">Описание не добавлено.</p>') : `<p class="hint">${u.releasesError ? 'Не удалось загрузить описание. Его можно прочитать на GitHub.' : 'Загружаю описание…'}</p>`;
+  let primary = '';
+  if (u.status === 'downloading') primary = `<button class="btn primary" disabled>${icon('download', 'sm')}Загрузка ${u.progress}%</button>`;
+  else if (u.status === 'ready') primary = `<button class="btn primary" data-update="update.install">${icon('refresh-cw', 'sm')}Перезапустить и обновить</button>`;
+  else if (u.canAuto) primary = `<button class="btn primary" data-update="update.download">${icon('download', 'sm')}Обновить сейчас</button>`;
+  const url = r?.url || u.url;
+  const link = url ? `<button class="btn" data-update-url="${esc(url)}">${icon('external-link', 'sm')}Открыть на GitHub</button>` : '';
+  const bar = u.status === 'downloading' ? `<div class="upd-bar"><i style="width:${u.progress}%"></i></div>` : '';
+  const note = u.status === 'ready' ? '<p class="hint">Версия загружена. Приложение перезапустится за несколько секунд, настройки сохранятся.</p>'
+    : u.canAuto ? '' : '<p class="hint">Эта сборка не обновляется сама: скачайте новую версию на странице релиза.</p>';
+  return `<div class="pop-head"><div><div class="pop-title">Доступна версия ${esc(u.version)}</div><div class="pop-sub">Сейчас установлена ${esc(u.current)}${r ? ` · вышла ${esc(fmtDate(r.date))}` : ''}</div></div><button class="btn quiet" data-upd-close title="Закрыть" aria-label="Закрыть">${icon('x', 'sm')}</button></div>
+    <div class="pop-label">Что нового</div><div class="rel-body pop-notes">${notes}</div>${bar}${note}
+    <div class="actions" style="margin:14px 0 0">${primary}${link}</div>`;
+}
+
+function renderUpdatePop() {
+  let pop = document.getElementById('updPop');
+  if (!popOpen || !updActive()) { pop?.remove(); return; }
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'updPop';
+    pop.className = 'upd-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Доступно обновление');
+    document.body.appendChild(pop);
+    pop.innerHTML = updBody();
+    pop.animate([{ opacity: 0, transform: 'translate(-12px, 12px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    return;
+  }
+  const notes = pop.querySelector('.pop-notes');
+  const top = notes ? notes.scrollTop : 0;
+  pop.innerHTML = updBody();
+  const n = pop.querySelector('.pop-notes');
+  if (n) n.scrollTop = top;
+}
+
+// Карточка сворачивается в значок «i»: летит к нему и уменьшается
+function dismissToast() {
+  const t = document.getElementById('updToast');
+  if (!t) return;
+  save('updDismissed', S.update?.version || '');
+  const to = $('updBtn').getBoundingClientRect(), from = t.getBoundingClientRect();
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2), dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  t.style.pointerEvents = 'none';
+  const anim = t.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translate(${dx}px, ${dy}px) scale(.08)` }], { duration: 520, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'forwards' });
+  anim.finished.then(() => {
+    t.remove();
+    $('updBtn').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' });
+  });
+}
+
+function renderUpdateUi() {
+  const btn = $('updBtn');
+  if (!btn) return;
+  const on = !!updActive();
+  btn.hidden = !on;
+  btn.classList.toggle('on', on && popOpen);
+  if (!on) { popOpen = false; document.getElementById('updToast')?.remove(); renderUpdatePop(); return; }
+  btn.title = `Доступна версия ${S.update.version}`;
+  // карточка — один раз на версию, пока пользователь её не закрыл
+  if (toastFor !== S.update.version && !updDismissed()) {
+    toastFor = S.update.version;
+    const t = document.createElement('div');
+    t.id = 'updToast';
+    t.className = 'upd-toast';
+    t.setAttribute('role', 'status');
+    t.innerHTML = `<i class="ico" style="--i:url(/vendor/icons/info.svg)"></i><div class="toast-text"><b>Доступна версия ${esc(S.update.version)}</b><span>Нажмите, чтобы посмотреть, что нового</span></div><button class="btn quiet" data-upd-toast-close title="Закрыть" aria-label="Закрыть">${icon('x', 'sm')}</button>`;
+    document.body.appendChild(t);
+    t.animate([{ opacity: 0, transform: 'translateX(-24px)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+  renderUpdatePop();
 }
 
 function updateStatusText() {
@@ -792,11 +862,23 @@ function renderSettings() {
 
 const ovAction = (type, extra = {}) => act({ type, layoutId: sel.layoutId, variation: currentSet().variation, overlayId: selOv, ...extra });
 
+// клик по самой карточке (не по крестику): открыть окно со списком нового
+document.addEventListener('click', (e) => {
+  if (!S || e.target.closest('[data-upd-toast-close]') || !e.target.closest('#updToast')) return;
+  document.getElementById('updToast')?.remove();
+  save('updDismissed', S.update?.version || '');
+  popOpen = true;
+  renderUpdateUi();
+});
+
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .row, [data-ov]');
   if (!t || !S) return;
   const d = t.dataset;
 
+  if ('updToastClose' in d) return dismissToast();
+  if (e.target.closest('#updBtn')) { popOpen = !popOpen; return renderUpdateUi(); }
+  if ('updClose' in d) { popOpen = false; return renderUpdateUi(); }
   if (d.update) return act({ type: d.update });
   if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
   if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
