@@ -178,7 +178,7 @@ const normalizeDash = (cur, patch) => normalizeSchema(DASH_ITEMS, cur, patch);
 const SECTORS_SCHEMA = [
   { group: 'Секторы', items: [
     range('max', 'Максимум секторов на экране', 5, 1, 5),
-    select('ref', 'Сравнивать с', 'best', [['best', 'Моим лучшим кругом'], ['session', 'Лучшим кругом сессии'], ['optimal', 'Идеальным кругом (лучшие сектора)']]),
+    select('ref', 'Сравнивать с', 'best', [['best', 'Моим лучшим кругом'], ['session', 'Лучшим кругом сессии'], ['optimal', 'Идеальным кругом (лучшие сектора)'], ['last', 'Прошлым кругом']]),
     range('decimals', 'Знаков после точки', 3, 2, 3),
     bool('labels', 'Подписи S1, S2…', true),
     bool('fill', 'Заливка по мере проезда сектора', true),

@@ -175,7 +175,7 @@ class DemoSource {
         ...dash,
         SessionFlags: DEMO_FLAGS[Math.floor(Date.now() / 4000) % DEMO_FLAGS.length],
         AirTemp: 24.3, TrackTempCrew: 31.8, TrackWetness: 3, Precipitation: 0.18, YawNorth: (t * 0.12) % (Math.PI * 2), RelativeHumidity: 0.46, FogLevel: 0,
-        WindDir: 1.2, WindVel: 3.6, SessionTimeOfDay: 52200 + t, LapCurrentLapTime: myPct * this.player.lapTime, LapBestLapTime: best[p] > 0 ? best[p] : this.player.lapTime * 0.996, LapLastLapTime: last[p] > 0 ? last[p] : this.player.lapTime * 1.004, LapDeltaToBestLap: lapDelta, LapDeltaToBestLap_OK: true, LapDeltaToSessionBestLap: lapDelta * 1.2, LapDeltaToSessionBestLap_OK: true, LapDeltaToOptimalLap: lapDelta * 1.5, LapDeltaToOptimalLap_OK: true,
+        WindDir: 1.2, WindVel: 3.6, SessionTimeOfDay: 52200 + t, LapCurrentLapTime: myPct * this.player.lapTime, LapBestLapTime: best[p] > 0 ? best[p] : this.player.lapTime * 0.996, LapLastLapTime: last[p] > 0 ? last[p] : this.player.lapTime * 1.004, LapDeltaToBestLap: lapDelta, LapDeltaToBestLap_OK: true, LapDeltaToSessionBestLap: lapDelta * 1.2, LapDeltaToSessionBestLap_OK: true, LapDeltaToSessionLastlLap: lapDelta * 0.8, LapDeltaToSessionLastlLap_OK: true, LapDeltaToOptimalLap: lapDelta * 1.5, LapDeltaToOptimalLap_OK: true,
         FuelLevel: 42 - ((t / this.player.lapTime) % 40) * 0.9, OilTemp: 104, WaterTemp: 88, dcBrakeBias: 54.3, DisplayUnits: 1,
       },
     };

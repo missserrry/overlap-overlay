@@ -6,6 +6,7 @@ const REFS = {
   best: ['LapDeltaToBestLap', 'LapDeltaToBestLap_OK'],
   session: ['LapDeltaToSessionBestLap', 'LapDeltaToSessionBestLap_OK'],
   optimal: ['LapDeltaToOptimalLap', 'LapDeltaToOptimalLap_OK'],
+  last: ['LapDeltaToSessionLastlLap', 'LapDeltaToSessionLastlLap_OK'], // в SDK iRacing имя с опечаткой
 };
 
 const num = (v) => (Number.isFinite(v) ? v : null);
@@ -18,7 +19,7 @@ function sectorStarts(race) {
 }
 
 const fresh = () => ({ idx: -1, startDelta: null, lastDelta: null, values: [], live: null, partial: false });
-let state = { key: '', lastPct: -1, lap: -1, refs: { best: fresh(), session: fresh(), optimal: fresh() } };
+let state = { key: '', lastPct: -1, lap: -1, refs: { best: fresh(), session: fresh(), optimal: fresh(), last: fresh() } };
 
 function buildSectors(race) {
   const v = race.vars || {};
@@ -33,7 +34,7 @@ function buildSectors(race) {
   for (let i = 0; i < n; i++) if (starts[i] <= pct) idx = i;
 
   const key = `${race.kind}|${n}|${Math.round(starts[1] * 1000)}`;
-  if (key !== state.key) state = { key, lastPct: -1, lap: -1, refs: { best: fresh(), session: fresh(), optimal: fresh() } };
+  if (key !== state.key) state = { key, lastPct: -1, lap: -1, refs: { best: fresh(), session: fresh(), optimal: fresh(), last: fresh() } };
 
   // новый круг: линию старта/финиша пересекли (или сбросили машину): всё начинается заново
   const wrapped = state.lastPct > 0.85 && pct < 0.15;
@@ -46,7 +47,8 @@ function buildSectors(race) {
 
   for (const [name, [dv, okv]] of Object.entries(REFS)) {
     const r = state.refs[name];
-    const delta = v[okv] === false ? null : num(v[dv]);
+    const alt = name === 'last' && v[dv] == null ? 'LapDeltaToSessionLastLap' : dv;
+    const delta = v[alt + '_OK'] === false ? null : num(v[alt]);
     if (wrapped || jumped) {
       // закрываем последний сектор прошлого круга и начинаем сначала
       if (wrapped && r.idx === n - 1 && !r.partial && r.lastDelta != null && r.startDelta != null) r.values[n - 1] = r.lastDelta - r.startDelta;
