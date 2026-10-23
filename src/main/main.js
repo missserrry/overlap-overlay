@@ -5,6 +5,7 @@
 const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification } = require('electron');
 const logger = require('./logger');
+const { foreground, isIRacing } = require('./foreground');
 const { startServer } = require('../server/server');
 const config = require('./config');
 const { LayoutState } = require('./state');
@@ -61,6 +62,7 @@ app.whenReady().then(async () => {
     return;
   }
   state = new LayoutState(cfg, onStateChanged);
+  watchForeground();
   state.sim = server.status;
   server.onStatus((s) => { state.sim = s; onStateChanged(); });
 
@@ -136,6 +138,24 @@ function applyLiveryAction(a) {
     shell.openPath(path.join(app.getPath('documents'), 'iRacing', 'paint'));
   }
   sendPanelState();
+}
+
+// Следим, какое окно на переднем плане: игра свернута или вы на рабочем столе — оверлеи прячутся.
+// Своё окно (панель, оверлеи) не считается уходом из игры: тогда остаётся прежнее состояние.
+function watchForeground() {
+  const check = () => {
+    const f = foreground();
+    if (!f.exe && !f.pid) return;
+    if (f.pid === process.pid) return;
+    const focused = isIRacing(f.exe);
+    if (focused !== state.gameFocused) {
+      state.gameFocused = focused;
+      logger.debug(`передний план: ${f.exe || '?'} → оверлеи ${focused ? 'показаны' : 'скрыты'}`);
+      onStateChanged();
+    }
+  };
+  setInterval(check, 400);
+  check();
 }
 
 // Kapps Better TP или официальный загрузчик Trading Paints качают в те же папки — предупреждаем в панели

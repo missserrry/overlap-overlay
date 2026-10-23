@@ -6,6 +6,7 @@ class LayoutState {
     this.cfg = cfg;
     this.onChange = onChange;
     this.sim = { source: 'none', connected: false };
+    this.gameFocused = true;       // окно iRacing на переднем плане (обновляет главный процесс)
     this.manual = null;            // { layoutId, key } — ручной выбор действует, пока не сменилась машина/сессия
     this.panelSelection = null;    // { layoutId, variation } — что редактируется в панели
   }
@@ -46,15 +47,21 @@ class LayoutState {
     }
     const { layout } = this.resolve();
     const variation = L.activeVariation(layout, this.sim);
-    return L.overlaysOf(layout, variation).filter((o) => o.enabled && (editing || this.visibleNow(o)));
+    // Не в режиме редактирования: прячем всё, пока игра не в фокусе (alt-tab, рабочий стол), если так включено
+    if (!editing && this.cfg.onlyWhenFocused !== false && !this.gameFocused) return [];
+    return L.overlaysOf(layout, variation).filter((o) => o.enabled && (editing || this.visibleNow(o, variation)));
   }
 
-  visibleNow(o) {
+  // Показывать ли оверлей прямо сейчас (по галочкам «Где показывать»):
+  //   «Без игры» — iRacing не запущен (демо-режим тоже считается «без игры»);
+  //   «Боксы» — вы в гараже; «Трасса» — вы за рулём и машина на трассе (включая питлейн);
+  //   меню, повтор и роль зрителя — только если для этого есть свой вариант раскладки «Споттинг».
+  visibleNow(o, variation) {
     const v = o.visibility || {};
-    if (!this.sim.connected) return !!v.disconnected;
-    if (this.sim.source === 'demo') return true;
+    if (!this.sim.connected || this.sim.source === 'demo') return !!v.disconnected;
     if (this.sim.inGarage) return !!v.inGarage;
-    return v.onTrack !== false;
+    if (this.sim.onTrack) return v.onTrack !== false;
+    return variation === 'spotting';
   }
 
   // Где сейчас лежит оверлей с этим id (для сохранения позиции после перетаскивания)
@@ -99,7 +106,7 @@ class LayoutState {
     const touch = (l) => { l.updatedAt = new Date().toISOString(); };
     switch (a.type) {
       case 'app.set': {
-        for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo']) if (k in a) this.cfg[k] = a[k];
+        for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo', 'onlyWhenFocused']) if (k in a) this.cfg[k] = a[k];
         if ('autoSwitch' in a) this.manual = null;
         break;
       }

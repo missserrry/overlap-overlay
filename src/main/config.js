@@ -9,6 +9,7 @@ const DEFAULTS = {
   autoSwitch: true,        // выбирать раскладку по машине/сессии
   locked: true,            // оверлеи закреплены (клики проходят в игру)
   hiddenAll: false,
+  onlyWhenFocused: true,   // оверлеи видны, только когда на переднем плане iRacing
   verboseLog: false,       // подробные логи (для поиска сложных поломок)
   activeLayoutId: null,    // выбранная вручную (если автопереключение выключено или ничего не подошло)
   layouts: null,

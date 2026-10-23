@@ -270,9 +270,9 @@ function renderOverlaySettings(o, layout, variation) {
       <div class="block">
         <div class="label">Где показывать</div>
         <div class="where">
-          ${where('onTrack', 'Трасса', v.onTrack !== false)}
-          ${where('inGarage', 'Боксы', !!v.inGarage)}
-          ${where('disconnected', 'Без игры', !!v.disconnected, 'Когда iRacing не запущен')}
+          ${where('onTrack', 'За рулём', v.onTrack !== false, 'Вы в машине на трассе, включая питлейн')}
+          ${where('inGarage', 'Гараж', !!v.inGarage, 'Вы на экране гаража')}
+          ${where('disconnected', 'Без игры', !!v.disconnected, 'Когда iRacing не запущен (демо тоже считается «без игры»)')}
         </div>
       </div>
 
@@ -522,6 +522,8 @@ function renderSettings() {
           </select>
           <span>Автовыбор раскладки</span>
           <span>${sw('data-app="autoSwitch"', c.autoSwitch)}</span>
+          <span>Показывать только когда iRacing в фокусе</span>
+          <span>${sw('data-app="onlyWhenFocused"', c.onlyWhenFocused !== false)}</span>
         </div>
       </div>
       <div class="sep"></div>
