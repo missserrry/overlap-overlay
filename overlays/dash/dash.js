@@ -1,4 +1,4 @@
-import { connect, setupPage, getFixedScale, onScaleChange, onDashChange } from '/common/overlay.js';
+import { connect, setupPage, getFixedScale, onScaleChange, onDashChange, cssVar } from '/common/overlay.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -52,7 +52,7 @@ function build() {
   }
   if (c['blocks.graph']) parts.push('<div class="trace"><canvas data-graph></canvas></div>');
   if (c['blocks.bars']) {
-    parts.push('<div class="bars-wrap">' + [['clutch', '#f5c342'], ['brake', '#ff3b30'], ['throttle', '#2ee34a']]
+    parts.push('<div class="bars-wrap">' + [['clutch', 'var(--d-clu, #f5c342)'], ['brake', 'var(--d-brk, #ff3b30)'], ['throttle', 'var(--d-thr, #2ee34a)']]
       .map(([k, col]) => `<div class="barcol" data-col="${k}"><div class="pedal"><i style="--c:${col}" data-bar="${k}"></i></div><b data-val="${k}">0</b></div>`).join('') + '</div>');
   }
   if (c['blocks.pos']) parts.push('<div class="dpos" data-pos>P–</div>');
@@ -138,7 +138,7 @@ function render() {
 }
 
 // ---------- график: перерисовка по таймеру (rAF засыпает, когда окно закрыто игрой) ----------
-const LINES = [['throttle', '#2ee34a'], ['brake', '#ff3b30'], ['clutch', '#f5c342'], ['steer', '#4da3ff']];
+const lines = () => [['throttle', cssVar('--d-thr', '#2ee34a')], ['brake', cssVar('--d-brk', '#ff3b30')], ['clutch', cssVar('--d-clu', '#f5c342')], ['steer', cssVar('--accent', '#4da3ff')]];
 function drawGraph() {
   const cv = refs.graph;
   if (!cv || !root.isConnected) return;
@@ -155,7 +155,7 @@ function drawGraph() {
     for (let k = 1; k < 4; k++) { c.beginPath(); c.moveTo(0, h * k / 4); c.lineTo(w, h * k / 4); c.stroke(); }
   }
   const pad = 4 * dpr, thick = cfg['graph.thick'] * dpr;
-  for (const [key, col] of LINES) {
+  for (const [key, col] of lines()) {
     if (!cfg[`graph.${key}`] || samples.length < 2) continue;
     const val = (s) => (key === 'steer' ? clamp(0.5 + s.steer / 2 / Math.PI / 1.5 * 1, 0, 1) : s[key]);
     const pts = samples.map((s) => [w - ((now - s.t) / span) * w, h - pad - val(s) * (h - 2 * pad)]);

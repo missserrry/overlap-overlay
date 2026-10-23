@@ -13,8 +13,8 @@
 .ring .brakeProgress { position: absolute; inset: 0; }
 .ring .trail { stroke: #666; stroke-linecap: butt; fill-opacity: 0; }
 .ring .path { stroke-linecap: butt; fill-opacity: 0; transition: stroke-dashoffset 0.1s ease 0s; }
-.ring .path.thr { stroke: rgba(70, 206, 34, 1); }
-.ring .path.brk { stroke: rgba(216, 43, 25, 1); }
+.ring .path.thr { stroke: var(--d-thr, rgba(70, 206, 34, 1)); }
+.ring .path.brk { stroke: var(--d-brk, rgba(216, 43, 25, 1)); }
 .ring .gear { position: absolute; font-size: 2.23em; font-weight: 700; color: #fff; text-shadow: 0.01em 0.01em 0.02em #000; animation: glowText 100ms ease-out 1 alternate; }
 .ring .gear.neutral { color: rgba(255, 255, 255, 0.45); }
 .ring.noanim .tbi, .ring.noanim .gear { animation: none !important; }

@@ -4,7 +4,7 @@ const params = setupPage();
 const FORCE = params.get('force'); // ?force=safety — показать флаг принудительно (для проверки и предпросмотра)
 const box = document.getElementById('flagbox');
 
-const COLOR = { Y: '#ffe600', W: '#f4f4f4', R: '#ff2a1f', G: '#21d63a', B: '#2a74ff', O: '#ff6a10' };
+const COLOR = { Y: 'var(--flag-y, #ffe600)', W: 'var(--flag-w, #f4f4f4)', R: 'var(--flag-r, #ff2a1f)', G: 'var(--flag-g, #21d63a)', B: 'var(--flag-b, #2a74ff)', O: 'var(--flag-o, #ff6a10)' };
 
 // Буквы S и C: сетка 3×7 «пикселей», каждый — квадрат из k×k светодиодов
 const GLYPH = {

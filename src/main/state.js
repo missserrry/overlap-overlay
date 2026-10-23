@@ -1,5 +1,6 @@
 // Состояние и действия над раскладками. Чистая логика без Electron — её вызывает панель управления через IPC.
 const L = require('./layouts');
+const P = require('./palette');
 
 class LayoutState {
   constructor(cfg, onChange) {
@@ -93,6 +94,9 @@ class LayoutState {
       weatherCards: L.WEATHER_CARDS,
       dashSchema: L.DASH_SCHEMA,
       sectorsSchema: L.SECTORS_SCHEMA,
+      paletteGroups: P.GROUPS,
+      palettePresets: P.PRESETS,
+      paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
       categories: L.CATEGORIES,
     };
   }
@@ -111,6 +115,10 @@ class LayoutState {
         if ('autoSwitch' in a) this.manual = null;
         break;
       }
+      case 'palette.set': case 'palette.preset': case 'palette.reset':
+        if (!P.apply(this.cfg.palette ||= P.emptyPalette(), a)) return;
+        break;
+
       case 'panel.select':
         this.panelSelection = a.layoutId ? { layoutId: a.layoutId, variation: a.variation || 'base' } : null;
         return this.changed(false);

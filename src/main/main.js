@@ -8,6 +8,7 @@ const logger = require('./logger');
 const { foreground, isIRacing } = require('./foreground');
 const { startServer } = require('../server/server');
 const config = require('./config');
+const P = require('./palette');
 const { LayoutState } = require('./state');
 const snapper = require('./snapper');
 const { execFile } = require('child_process');
@@ -249,7 +250,7 @@ function applyOverlay(win, o, editing, force = false) {
   win.setFocusable(editing);
   if (!win.ready) return;
   win.webContents.setZoomFactor(1); // масштаб теперь задаётся размером окна
-  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.dash, sectors: o.sectors, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null });
+  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.dash, sectors: o.sectors, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null, palette: P.buildVars(cfg.palette, o.type) });
 }
 
 // Перемещение и растягивание (как в Laki Overlay): двигать — за любое место окна,

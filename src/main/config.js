@@ -1,6 +1,7 @@
 // Настройки приложения и раскладки. Хранятся в %APPDATA%/svoy-overlay/config.json.
 const fs = require('fs');
 const path = require('path');
+const P = require('./palette');
 const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors } = require('./layouts');
 
 const DEFAULTS = {
@@ -12,6 +13,7 @@ const DEFAULTS = {
   onlyWhenFocused: true,   // оверлеи видны, только когда на переднем плане iRacing
   verboseLog: false,       // подробные логи (для поиска сложных поломок)
   activeLayoutId: null,    // выбранная вручную (если автопереключение выключено или ничего не подошло)
+  palette: null,           // цвета оверлеев (см. palette.js)
   layouts: null,
 };
 
@@ -41,6 +43,7 @@ function load(dir) {
   const cfg = { ...DEFAULTS, ...saved };
   if (!Array.isArray(cfg.layouts) || !cfg.layouts.length) cfg.layouts = defaultLayouts(saved.overlays);
   delete cfg.overlays;
+  cfg.palette = P.normalize(cfg.palette);
   // у оверлеев из старых конфигов колонок ещё нет
   for (const l of cfg.layouts) {
     const lists = [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)];

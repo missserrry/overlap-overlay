@@ -10,7 +10,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 const icon = (name, cls = '') => `<i class="ico ${cls}" style="--i:url(/vendor/icons/${name}.svg)"></i>`;
 const sw = (attrs, on) => `<label class="sw"><input type="checkbox" ${attrs} ${on ? 'checked' : ''}><i></i></label>`;
 
-const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', liveries: 'Ливреи', settings: 'Настройки' };
+const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', liveries: 'Ливреи', settings: 'Настройки' };
 const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
@@ -39,7 +39,12 @@ function save(k, v) { try { localStorage.setItem(k, v); } catch { /* не кри
 // ---------- состояние ----------
 
 function setState(s) {
-  if (document.activeElement?.matches?.('input[type=range], input[type=text], input[type=number]')) { pending = s; return; }
+  if (document.activeElement?.matches?.('input[type=range], input[type=text], input[type=number], input[type=color]')) {
+    pending = s;
+    // цвет тянут пальцем: поля не пересоздаём, но превью обновляем сразу
+    if (view === 'palette' && mounted === 'palette') { S = s; renderPalPreview(); }
+    return;
+  }
   S = s;
   const layouts = S.cfg.layouts;
   if (!sel || !layouts.some((l) => l.id === sel.layoutId)) sel = S.panelSelection || { layoutId: S.active.layoutId, variation: 'base' };
@@ -68,6 +73,7 @@ function render() {
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
   if (view === 'overlays') renderOverlays();
   else if (view === 'layouts') renderLayouts();
+  else if (view === 'palette') renderPalette();
   else if (view === 'liveries') renderLiveries();
   else renderSettings();
 }
@@ -352,7 +358,7 @@ function renderPreview(o) {
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
-    doc?.documentElement?.style.setProperty('--bg', `rgba(10, 10, 11, ${o.bgOpacity ?? 0.8})`);
+    doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
     $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
@@ -368,6 +374,108 @@ function renderPreview(o) {
   tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${k < 1 ? ` · ${Math.round(k * 100)}%` : ''}`;
 }
 window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
+
+// ---------- Палитра ----------
+let palScope = load('palScope', 'all');   // 'all' или тип оверлея
+let palPrev = load('palPrev', 'relative'); // какой оверлей показан в превью, когда выбран «Все»
+const palOwn = (scope) => (scope === 'all' ? S.cfg.palette?.all : S.cfg.palette?.types?.[scope]) || {};
+const palTokens = (scope) => S.paletteGroups.map((g) => ({ ...g, tokens: g.tokens.filter((t) => scope === 'all' || t.types.includes(scope)) })).filter((g) => g.tokens.length);
+const palValue = (t, scope) => palOwn(scope)[t.key] ?? (scope !== 'all' ? S.cfg.palette?.all?.[t.key] : null) ?? t.def;
+const palVarsFor = (type) => encodeURIComponent(JSON.stringify(S.paletteVars?.[type] || {}));
+const sameValues = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+
+function palField(t, scope) {
+  const own = palOwn(scope)[t.key];
+  const val = palValue(t, scope);
+  return `<div class="pal-row">
+    <span class="pal-name" ${t.hint ? `title="${esc(t.hint)}"` : ''}>${esc(t.label)}</span>
+    <input type="color" data-pal-key="${t.key}" value="${val.toLowerCase()}" aria-label="${esc(t.label)}">
+    <input type="text" class="pal-hex mono" data-pal-hex="${t.key}" value="${val.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="${esc(t.label)}, код цвета">
+    <button class="btn quiet ${own ? '' : 'invisible'}" data-pal-clear="${t.key}" title="Вернуть стандартный" ${own ? '' : 'tabindex="-1"'}>${icon('rotate-ccw', 'sm')}</button>
+  </div>`;
+}
+
+let palPreviewKey = null;
+function renderPalette() {
+  const card = $('card');
+  if (mounted !== 'palette') {
+    card.innerHTML = `
+      <div class="ov-screen">
+        <section class="col"><div class="list"><div id="palList"></div></div></section>
+        <section class="col" id="palSettings"></section>
+        <section class="preview"><div class="pal-types" id="palTypes"></div><div class="stage" id="palStage"></div><span class="size-tag mono" id="palTag"></span></section>
+      </div>`;
+    mounted = 'palette';
+    palPreviewKey = null;
+  }
+  if (palScope !== 'all' && !S.types[palScope]) palScope = 'all';
+  const scope = palScope;
+  const own = palOwn(scope);
+  const types = Object.entries(S.types);
+  const dotOf = (t) => (Object.keys(S.cfg.palette?.types?.[t] || {}).length ? '<i class="pal-dot" title="Своя палитра"></i>' : '');
+
+  $('palList').innerHTML = `
+    <div class="group">
+      <div class="label">Палитра для</div>
+      <div class="row ${scope === 'all' ? 'on' : ''}" data-pal-scope="all"><span class="name">Все оверлеи</span></div>
+      ${types.map(([t, m]) => `<div class="row ${scope === t ? 'on' : ''}" data-pal-scope="${t}"><span class="name">${esc(m.title)}</span>${dotOf(t)}</div>`).join('')}
+    </div>`;
+
+  const allTokens = S.paletteGroups.flatMap((g) => g.tokens);
+  const quick = ['primary', 'accent'].map((k) => allTokens.find((t) => t.key === k)).filter((t) => scope === 'all' || t.types.includes(scope));
+  const relevant = (k) => scope === 'all' || allTokens.some((t) => t.key === k && t.types.includes(scope));
+  const presetOn = (p) => sameValues(Object.fromEntries(Object.entries(p.values).filter(([k]) => relevant(k))), own);
+  const swatch = (p) => ['primary', 'accent', 'bg', 'good'].map((k) => `<i style="background:${p.values[k] || allTokens.find((t) => t.key === k).def}"></i>`).join('');
+  const groups = palTokens(scope);
+
+  $('palSettings').innerHTML = `
+    <div class="settings">
+      <div class="head"><span class="pal-title">${scope === 'all' ? 'Все оверлеи' : esc(S.types[scope].title)}</span></div>
+      <p class="kind">${scope === 'all' ? 'Общие цвета для всех оверлеев. Если у оверлея есть своя палитра — она важнее.' : 'Своя палитра этого оверлея. Что не изменено здесь — берётся из общей палитры.'}</p>
+
+      <div class="block"><div class="label">Быстрая настройка</div>${quick.map((t) => palField(t, scope)).join('')}</div>
+
+      <div class="block"><div class="label">Готовые палитры</div>
+        <div class="pal-presets">${S.palettePresets.map((p) => `<button class="pal-preset ${presetOn(p) ? 'on' : ''}" data-pal-preset="${p.id}"><span class="pal-sw">${swatch(p)}</span><span>${esc(p.name)}</span></button>`).join('')}</div>
+      </div>
+
+      <div class="block"><div class="label">Расширенная настройка</div>
+        ${groups.map((g) => {
+          const rest = g.tokens.filter((t) => !quick.includes(t));
+          return rest.length ? `<div class="sub-label pal-group">${esc(g.title)}</div>${rest.map((t) => palField(t, scope)).join('')}` : '';
+        }).join('')}
+      </div>
+
+      <div class="actions"><button class="btn" data-pal-reset ${Object.keys(own).length || (scope === 'all' && Object.keys(S.cfg.palette?.types || {}).length) ? '' : 'disabled'}>${icon('rotate-ccw', 'sm')}${scope === 'all' ? 'Сбросить всё к стандартным' : 'Сбросить этот оверлей'}</button></div>
+    </div>`;
+  renderPalPreview();
+}
+
+function renderPalPreview() {
+  const type = palScope === 'all' ? palPrev : palScope;
+  const m = S.types[type];
+  $('palTypes').innerHTML = palScope === 'all' ? `<span class="seg">${Object.entries(S.types).map(([t, x]) => `<button class="${t === type ? 'on' : ''}" data-pal-prev="${t}">${esc(x.title)}</button>`).join('')}</span>` : '';
+  const stage = $('palStage');
+  if (palPreviewKey !== type) {
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${type}/?bg=0.8&scale=1&palette=${palVarsFor(type)}"></iframe></div>`;
+    palPreviewKey = type;
+  } else {
+    $('pv')?.contentWindow?.postMessage({ svoyPalette: S.paletteVars?.[type] || {} }, location.origin);
+  }
+  const pv = $('pv'), wrap = pv.parentElement;
+  const box = stage.parentElement.getBoundingClientRect();
+  const k = Math.min(1, (box.width - 64) / m.width, (box.height - 120) / m.height);
+  pv.style.width = `${m.width}px`; pv.style.height = `${m.height}px`; pv.style.transform = `scale(${k})`;
+  wrap.style.width = `${Math.round(m.width * k)}px`; wrap.style.height = `${Math.round(m.height * k)}px`;
+  $('palTag').textContent = 'Предпросмотр · демо-данные';
+}
+window.addEventListener('resize', () => { if (view === 'palette' && S && mounted === 'palette') renderPalPreview(); });
+
+let palTimer = null;
+function palSend(key, value) {
+  clearTimeout(palTimer);
+  palTimer = setTimeout(() => act({ type: 'palette.set', scope: palScope, key, value }), 40);
+}
 
 // ---------- Раскладки ----------
 
@@ -578,6 +686,11 @@ document.addEventListener('click', (e) => {
   if (!t || !S) return;
   const d = t.dataset;
 
+  if (d.palScope) { palScope = d.palScope; save('palScope', palScope); return render(); }
+  if (d.palPrev) { palPrev = d.palPrev; save('palPrev', palPrev); return render(); }
+  if (d.palPreset) return act({ type: 'palette.preset', scope: palScope, id: d.palPreset });
+  if ('palReset' in d) return act({ type: 'palette.reset', scope: palScope });
+  if (d.palClear) return act({ type: 'palette.set', scope: palScope, key: d.palClear, value: null });
   if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
   if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
@@ -637,6 +750,11 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target, d = t.dataset;
   if (!S) return;
+  if (d.palHex) {
+    const v = '#' + t.value.trim().replace(/^#/, '');
+    if (/^#[0-9a-f]{6}$/i.test(v)) return act({ type: 'palette.set', scope: palScope, key: d.palHex, value: v.toUpperCase() });
+    return render(); // неверный код — вернуть прежний
+  }
   if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
   if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
   if (d.cfg) return ovAction('overlay.update', { patch: { [d.cfg]: { [d.k]: t.checked } } });
@@ -668,6 +786,11 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('input', (e) => {
   const t = e.target;
+  if (t.dataset.palKey) {
+    const hex = t.parentElement.querySelector('[data-pal-hex]');
+    if (hex) hex.value = t.value.toUpperCase();
+    return palSend(t.dataset.palKey, t.value.toUpperCase());
+  }
   if (t.dataset.ovRange === 'scale') {
     t.nextElementSibling.textContent = `${t.value}%`;
     $('pv')?.contentWindow?.postMessage({ svoyScale: t.value / 100 }, location.origin);
@@ -694,7 +817,7 @@ document.addEventListener('input', (e) => {
   if (t.dataset.ovRange !== 'bgOpacity') return;
   t.nextElementSibling.textContent = `${t.value}%`;
   const doc = $('pv')?.contentDocument;
-  doc?.documentElement?.style.setProperty('--bg', `rgba(10, 10, 11, ${t.value / 100})`);
+  doc?.documentElement?.style.setProperty('--bg-a', t.value / 100);
   ovAction('overlay.update', { patch: { bgOpacity: t.value / 100 } });
 });
 

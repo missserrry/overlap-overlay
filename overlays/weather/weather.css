@@ -19,7 +19,7 @@
 .wet { display: flex; align-items: center; gap: 0.6em; }
 .wet .ico { width: 1.1em; height: 1.1em; }
 .wet .bar2 { position: relative; flex: 1; height: 0.55em; border-radius: 0.3em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-.wet .bar2 i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 0.3em; background: linear-gradient(90deg, #35d0e6, #1b7fb8); transition: width 600ms ease; }
+.wet .bar2 i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 0.3em; background: linear-gradient(90deg, var(--accent, #35d0e6), color-mix(in srgb, var(--accent, #35d0e6) 60%, #0a3a66)); transition: width 600ms ease; }
 .wet-name { text-align: center; margin-top: 0.5em; font-size: 1.05em; }
 
 /* Ветер: компас вращается вместе с машиной, стрелка показывает, откуда дует */
@@ -32,7 +32,7 @@
 .compass .ring b.w { left: 0.5em; top: 50%; transform: translateY(-50%); }
 .compass svg.car { position: absolute; left: 50%; top: 50%; width: 3.4em; height: 5.6em; transform: translate(-50%, -50%); }
 .compass .arrow { position: absolute; inset: 0; transition: transform 280ms linear; }
-.compass .arrow svg { position: absolute; left: 50%; top: 0.9em; width: 2.4em; height: 3.2em; transform: translateX(-50%); filter: drop-shadow(0 0 0.4em rgba(53, 208, 230, 0.6)); }
+.compass .arrow svg { position: absolute; left: 50%; top: 0.9em; width: 2.4em; height: 3.2em; transform: translateX(-50%); filter: drop-shadow(0 0 0.4em color-mix(in srgb, var(--accent, #35d0e6) 60%, transparent)); }
 .wind-speed { display: flex; align-items: center; gap: 0.6em; }
 .wind-speed .ico { width: 1.7em; height: 1.7em; }
 

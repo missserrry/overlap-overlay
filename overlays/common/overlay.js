@@ -74,6 +74,22 @@ let sectorsHook = null, lastSectors = null;
 const deliverSectors = (obj) => { lastSectors = obj; sectorsHook?.(obj); };
 export const onSectorsChange = (fn) => { sectorsHook = fn; if (lastSectors) fn(lastSectors); };
 
+// Палитра: карта CSS-переменных ({'--player-strong': '#eabe11'}) из настроек приложения, ?palette=... или панели.
+// Прежние значения снимаются, поэтому сброс в панели возвращает стандартные цвета из CSS.
+let palVars = {};
+const palListeners = [];
+export const cssVar = (name, fallback) => palVars[name] ?? fallback;
+export const onPalette = (fn) => palListeners.push(fn);
+function deliverPalette(vars) {
+  const next = vars && typeof vars === 'object' ? vars : {};
+  if (JSON.stringify(next) === JSON.stringify(palVars)) return;
+  const st = document.documentElement.style;
+  for (const k of Object.keys(palVars)) if (!(k in next)) st.removeProperty(k);
+  for (const [k, v] of Object.entries(next)) st.setProperty(k, v);
+  palVars = next;
+  palListeners.forEach((f) => f());
+}
+
 let colsHook = null, lastCols = null;
 const deliverCols = (ids) => { lastCols = ids; colsHook?.(ids); };
 export const onColumnsChange = (fn) => { colsHook = fn; if (lastCols) fn(lastCols); };
@@ -90,6 +106,7 @@ export function setupPage() {
   if (params.has('idle')) deliverFlagOpts({ idle: parseFloat(params.get('idle')) });
   if (params.has('dist')) deliverFlagOpts({ dist: params.get('dist') === '1' });
   if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
+  if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
   if (params.has('sectors')) { try { deliverSectors(JSON.parse(params.get('sectors'))); } catch { /* остаются настройки по умолчанию */ } }
   if (params.has('dash')) { try { deliverDash(JSON.parse(params.get('dash'))); } catch { /* битый адрес — остаются настройки по умолчанию */ } }
   if (params.has('cards')) deliverCards(params.get('cards').split(',').filter(Boolean));
@@ -106,6 +123,7 @@ export function setupPage() {
     if (e.data?.svoyFlag) deliverFlagOpts(e.data.svoyFlag);
     if (e.data?.svoyDash) deliverDash(e.data.svoyDash);
     if (e.data?.svoySectors) deliverSectors(e.data.svoySectors);
+    if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
     if (Array.isArray(e.data?.svoyFtr)) deliverHf('footer', e.data.svoyFtr);
@@ -124,6 +142,7 @@ export function setupPage() {
       if (s.radar && !params.has('range')) deliverFlagOpts(s.radar);
       if ('hideEmpty' in s && !params.has('hide')) deliverFlagOpts({ hide: !!s.hideEmpty });
       if (s.dash && !params.has('dash')) deliverDash(s.dash);
+      if (s.palette && !params.has('palette')) deliverPalette(s.palette);
       if (s.sectors && !params.has('sectors')) deliverSectors(s.sectors);
       if (Array.isArray(s.cards) && s.cards.length && !params.has('cards')) deliverCards(s.cards.filter((c) => c.on).map((c) => c.id));
       if (Array.isArray(s.header) && !params.has('hdr')) deliverHf('header', s.header.filter((c) => c.on).map((c) => c.id));
@@ -264,7 +283,7 @@ export function createFitter({ root, levels, render, key = () => '', after = nul
 
 function setBgOpacity(a) {
   if (a == null) return;
-  document.documentElement.style.setProperty('--bg', `rgba(10, 10, 11, ${a})`);
+  document.documentElement.style.setProperty('--bg-a', a);
 }
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -312,5 +331,5 @@ export function iratingBadge(ir, delta, showDelta = delta != null) {
 
 export function licenseBadge(lic) {
   if (!lic) return '';
-  return `<span class="lic" style="--lic:${esc(lic.bgColor)};--lic-dark:${esc(lic.darkBgColor)}"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
+  return `<span class="lic" style="--lic:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}, ${esc(lic.bgColor)});--lic-dark:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}-d, ${esc(lic.darkBgColor)})"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
 }

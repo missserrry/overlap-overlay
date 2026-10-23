@@ -1,4 +1,4 @@
-import { connect, setupPage, getFlagOpts, onFlagOpts } from '/common/overlay.js';
+import { connect, setupPage, getFlagOpts, onFlagOpts, cssVar, onPalette } from '/common/overlay.js';
 
 setupPage();
 const box = document.getElementById('box');
@@ -67,6 +67,7 @@ const sides = { L: Array.from({ length: SIDE_SLOTS }, () => makeSide('L')), R: A
 // своя машина
 const me = el('rect', { x: C - 7, y: C - 15, width: 14, height: 30, rx: 3.5, fill: '#fff' }, svg);
 me.style.filter = 'drop-shadow(0 0 3px rgba(255,255,255,0.6))';
+onPalette(() => { me.style.fill = cssVar('--radar-me', '#fff'); });
 
 // ---------- обновление ----------
 let model = null;
@@ -79,7 +80,7 @@ function size() {
 const colorFor = (m, fromClass, classColor) => {
   if (fromClass && classColor) return classColor;
   // чем ближе борт к борту, тем краснее: от янтарного к красному
-  return mix('#ffb020', '#ff2a1f', clamp(1 - (Math.abs(m) - 2) / 8, 0, 1));
+  return mix(cssVar('--radar-warn', '#ffb020'), cssVar('--radar-danger', '#ff2a1f'), clamp(1 - (Math.abs(m) - 2) / 8, 0, 1));
 };
 
 function render() {
@@ -118,7 +119,7 @@ function render() {
     const e = clamp(1 - gap / R, 0, 1);
     const rx = 26 + 62 * e;
     arc.e.setAttribute('rx', rx.toFixed(1)); arc.e.setAttribute('ry', (rx * 0.9).toFixed(1));
-    const tint = mix('#ffd000', '#ff2a1f', clamp((e - 0.5) * 2.2, 0, 1));
+    const tint = mix(cssVar('--radar-front', '#ffd000'), cssVar('--radar-danger', '#ff2a1f'), clamp((e - 0.5) * 2.2, 0, 1));
     arc.stops.forEach((st) => st.setAttribute('stop-color', tint));
     arc.g.setAttribute('opacity', (0.25 + 0.75 * e).toFixed(2));
     if (o.dist) {

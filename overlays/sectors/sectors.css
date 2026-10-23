@@ -10,11 +10,11 @@ html, body { height: 100%; }
 .sec .val { position: relative; z-index: 1; font-size: 1.1em; font-variant-numeric: tabular-nums; line-height: 1.1; color: #fff; }
 .sec.wait .val { color: rgba(255, 255, 255, 0.4); }
 /* заливка проезжаемого сектора */
-.sec .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(70, 150, 200, 0.55); }
+.sec .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: color-mix(in srgb, var(--accent, #4696c8) 55%, transparent); }
 .sec.live .fill { transition: width 120ms linear; }
 /* цветная линия снизу: быстрее эталона — зелёная, медленнее — красная */
 .sec .line { position: absolute; left: 0; right: 0; bottom: 0; height: 0.16em; background: transparent; }
-.sec.ul.fast .line { background: #2ee34a; }
-.sec.ul.slow .line { background: #ff3b30; }
-.sec.fast .val { color: #8af59b; }
-.sec.slow .val { color: #ff8b82; }
+.sec.ul.fast .line { background: var(--sec-fast, #2ee34a); }
+.sec.ul.slow .line { background: var(--sec-slow, #ff3b30); }
+.sec.fast .val { color: var(--sec-fast-text, #8af59b); }
+.sec.slow .val { color: var(--sec-slow-text, #ff8b82); }

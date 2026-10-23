@@ -15,7 +15,7 @@ const CAR = `<svg class="car" viewBox="0 0 34 56" aria-hidden="true">
   <path d="M9.500 19c2.500-2 5-2.500 7.500-2.500s5 .5 7.500 2.500l-1 7c-2 1-4 1.300-6.500 1.300s-4.500-.3-6.500-1.300z" fill="#1e2024"/>
   <path d="M10 38c2 1 4.500 1.500 7 1.500s5-.5 7-1.500l.5 5c-2 1.500-4.500 2-7.500 2s-5.500-.5-7.500-2z" fill="#1e2024"/>
 </svg>`;
-const ARROW = `<svg viewBox="0 0 24 32" aria-hidden="true"><defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#35d0e6" stop-opacity="0.15"/><stop offset="1" stop-color="#35d0e6"/></linearGradient></defs>
+const ARROW = `<svg viewBox="0 0 24 32" aria-hidden="true"><defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--accent,#35d0e6)" stop-opacity="0.15"/><stop offset="1" style="stop-color:var(--accent,#35d0e6)"/></linearGradient></defs>
   <path d="M12 31 L2 17 L9 19 L9 2 L15 2 L15 19 L22 17 Z" fill="url(#wg)"/></svg>`;
 
 // Каждая карточка: html и функция обновления значений на месте (без перестройки — иначе не будет плавного вращения)
