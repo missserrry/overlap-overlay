@@ -3,7 +3,8 @@
 //   Ctrl+Shift+H — скрыть/показать все оверлеи
 //   Ctrl+Shift+J — открыть панель управления (или клик по значку в трее)
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard } = require('electron');
+const logger = require('./logger');
 const { startServer } = require('../server/server');
 const config = require('./config');
 const { LayoutState } = require('./state');
@@ -13,6 +14,12 @@ const { TradingPaints, DEFAULT_SETTINGS: DEFAULT_LIVERY_SETTINGS } = require('..
 const { reloadCarTexture } = require('../telemetry/broadcast');
 
 let liveries;
+
+// Логи пишем с самого старта, чтобы не потерять ошибки запуска
+logger.init(app.getPath('userData'));
+logger.hookConsole();
+logger.installCrashHandlers();
+let diagNote = null; // сообщение под кнопками диагностики в панели
 
 let cfg;
 let server;
@@ -26,6 +33,8 @@ app.on('second-instance', () => openPanel());
 
 app.whenReady().then(async () => {
   cfg = config.load(app.getPath('userData'));
+  logger.setVerbose(cfg.verboseLog);
+  console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
     server = await startServer({ port: cfg.port, demo: cfg.demo });
   } catch (e) {
@@ -76,7 +85,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader } };
+  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, diag: { dir: logger.redact(logger.getDir() || ''), note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -161,6 +170,7 @@ function createOverlayWindow(o) {
   });
   win.overlayId = o.id;
   win.overlayType = o.type;
+  logger.attachWindow(win, `оверлей ${o.type}`);
   win.setAlwaysOnTop(true, 'screen-saver');
   win.loadURL(`http://127.0.0.1:${server.port}/${o.type}/`);
   win.webContents.on('did-finish-load', () => {
@@ -335,6 +345,7 @@ function openPanel() {
     show: false,
     webPreferences: { preload: path.join(__dirname, 'panelPreload.js') },
   });
+  logger.attachWindow(panel, 'панель');
   panel.loadURL(`http://127.0.0.1:${server.port}/panel/`);
   panel.once('ready-to-show', () => panel.show());
   panel.on('closed', () => {
@@ -344,10 +355,36 @@ function openPanel() {
   });
 }
 
+// Диагностика: папка логов, отчёт в буфер обмена или в файл
+function report() {
+  return logger.buildReport({ app, screen, cfg, status: server?.status });
+}
+function applyDiagAction(a) {
+  if (a.type === 'diag.openFolder') {
+    shell.openPath(logger.getDir());
+    diagNote = null;
+  } else if (a.type === 'diag.copyReport') {
+    clipboard.writeText(report());
+    diagNote = 'Отчёт скопирован в буфер обмена — вставьте его в сообщение.';
+  } else if (a.type === 'diag.saveReport') {
+    const f = path.join(logger.getDir(), `overlap-report-${new Date().toISOString().slice(0, 10)}.txt`);
+    require('fs').writeFileSync(f, report());
+    shell.showItemInFolder(f);
+    diagNote = 'Отчёт сохранён в папку логов — отправьте этот файл.';
+  } else if (a.type === 'diag.verbose') {
+    cfg.verboseLog = !!a.value;
+    logger.setVerbose(cfg.verboseLog);
+    cfg.save();
+    console.log(`Подробные логи: ${cfg.verboseLog ? 'включены' : 'выключены'}`);
+  }
+  sendPanelState();
+}
+
 ipcMain.handle('panel-get-state', () => panelState());
 ipcMain.on('panel-action', (_e, action) => {
   try {
     if (String(action?.type).startsWith('liveries.')) applyLiveryAction(action);
+    else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
     else state.apply(action);
   } catch (e) {
     console.error('[panel] action failed:', action, e);

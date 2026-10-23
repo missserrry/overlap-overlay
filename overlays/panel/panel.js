@@ -515,6 +515,21 @@ function renderSettings() {
       </div>
       <div class="sep"></div>
       <div class="block">
+        <div class="label">Если что-то сломалось</div>
+        <p class="hint" style="margin-bottom:14px">Overlap записывает ошибки в логи. Нажмите «Сохранить отчёт» и отправьте файл разработчику, либо скопируйте отчёт и вставьте в сообщение. В отчёте только версия, система, сводка настроек и последние строки лога, без паролей и личных путей.</p>
+        <div class="diag-actions">
+          <button class="btn" data-diag="diag.saveReport">${icon('file-text', 'sm')}Сохранить отчёт</button>
+          <button class="btn" data-diag="diag.copyReport">${icon('copy', 'sm')}Скопировать отчёт</button>
+          <button class="btn quiet" data-diag="diag.openFolder">${icon('folder-open', 'sm')}Открыть папку логов</button>
+        </div>
+        ${S.diag?.note ? `<p class="hint" style="margin-top:12px;color:var(--text)">${esc(S.diag.note)}</p>` : ''}
+        <div class="kv" style="margin-top:16px">
+          <span>Подробные логи</span><span>${sw('data-diag-verbose', !!S.diag?.verbose)}</span>
+          <span>Папка логов</span><span class="mono" style="word-break:break-all">${esc(S.diag?.dir || '')}</span>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
         <div class="label">Сервер оверлеев</div>
         <div class="kv">
           <span>Адрес</span><span class="mono">${esc(location.origin)}</span>
@@ -535,6 +550,7 @@ document.addEventListener('click', (e) => {
 
   if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
   if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
+  if (d.diag) return act({ type: d.diag });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
   if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });
   if (d.copy) { navigator.clipboard?.writeText(d.copy); t.innerHTML = `${icon('check', 'sm')}<span>Скопировано</span>`; setTimeout(() => render(), 1200); return; }
@@ -593,6 +609,7 @@ document.addEventListener('change', (e) => {
   if (!S) return;
   if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
   if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
+  if ('diagVerbose' in d) return act({ type: 'diag.verbose', value: t.checked });
   if ('radarDist' in d) return ovAction('overlay.update', { patch: { radarDist: t.checked } });
   if ('radarClass' in d) return ovAction('overlay.update', { patch: { radarClass: t.checked } });
   if ('hideEmpty' in d) return ovAction('overlay.update', { patch: { hideEmpty: t.checked } });
