@@ -59,7 +59,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "plotnikovgerman26-cell",
+        "owner": "missserrry",
         "repo": "overlap-overlay"
       }
     ]

@@ -446,7 +446,7 @@ ipcMain.on('panel-action', (_e, action) => {
   }
 });
 ipcMain.on('panel-open-url', (_e, url) => {
-  if (/^http:\/\/127\.0\.0\.1:\d+\//.test(url) || String(url).startsWith('https://github.com/plotnikovgerman26-cell/overlap-overlay/')) shell.openExternal(url);
+  if (/^http:\/\/127\.0\.0\.1:\d+\//.test(url) || String(url).startsWith('https://github.com/missserrry/overlap-overlay/')) shell.openExternal(url);
 });
 
 // ---------- трей ----------

@@ -3,7 +3,7 @@
 // Portable и запуск из исходников обновить сами не могут: для них только сообщение о новой версии и ссылка на релиз.
 const { app, net } = require('electron');
 
-const OWNER = 'plotnikovgerman26-cell';
+const OWNER = 'missserrry';
 const REPO = 'overlap-overlay';
 const CHECK_EVERY = 4 * 60 * 60_000;
 
