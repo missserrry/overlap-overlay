@@ -240,7 +240,7 @@ body.edit .rz { display: block; }
 .pit-tag { font-size: 0.7em; font-weight: 700; padding: 0.1em 0.35em; border-radius: 0.3em; background: var(--player-strong); color: #000; text-shadow: none; }
 .row.pit .pit-tag { filter: none; }
 
-.num { width: 2.4em; flex: none; text-align: center; color: var(--text-dim); font-size: 0.928em; font-variant-numeric: tabular-nums; }
+.num { width: 2.4em; flex: none; overflow: hidden; white-space: nowrap; text-align: center; color: var(--text-dim); font-size: 0.928em; font-variant-numeric: tabular-nums; }
 
 /* Марка машины: чистый логотип без фона, вписан в ячейку 2.9 × 1.65 em — колонка остаётся ровной при любой форме знака */
 .brand { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.9em; height: 1.65em; margin: 0 0.3em 0 0.1em; font-size: 0.857em; }

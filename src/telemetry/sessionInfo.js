@@ -13,7 +13,11 @@ const KEY_RE = new RegExp(`^(\\s*(?:- )?)(${STRING_KEYS.join('|')}): (.*)$`, 'gm
 
 function sanitize(raw) {
   return raw.replace(KEY_RE, (_, indent, key, value) => {
-    const v = value.trim().replace(/'/g, "''");
+    let v = value.trim();
+    // iRacing сам берёт номера машин в двойные кавычки (CarNumber: "12") — это кавычки YAML, а не часть номера
+    const quoted = v.match(/^"(.*)"$/);
+    if (quoted) v = quoted[1];
+    v = v.replace(/'/g, "''");
     return `${indent}${key}: '${v}'`;
   });
 }

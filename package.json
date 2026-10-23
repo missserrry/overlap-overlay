@@ -1,6 +1,6 @@
 {
   "name": "svoy-overlay",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Overlap — личные оверлеи для iRacing: Relative, Standings, Weather, DigiFlag, Radar, Dash, Sectors",
   "main": "src/main/main.js",
