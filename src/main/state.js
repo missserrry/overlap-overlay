@@ -238,6 +238,7 @@ class LayoutState {
         if (p.split === null) o.split = null;
         else if (Number.isFinite(p.split)) o.split = Math.min(0.85, Math.max(0.15, p.split));
         if (typeof p.autoScale === 'boolean') o.autoScale = p.autoScale;
+        if (Number.isFinite(p.width)) o.width = Math.round(Math.min(2400, Math.max(120, p.width)));
         if (p.visibility) o.visibility = { ...o.visibility, ...p.visibility };
         if ((p.flagLayout === 'big' || p.flagLayout === 'strip') && p.flagLayout !== o.flagLayout) {
           o.flagLayout = p.flagLayout;

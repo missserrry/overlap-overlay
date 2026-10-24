@@ -401,7 +401,20 @@ export function createFitter({ root, levels, render, key = () => '', after = nul
   }
 
   // after(result) — довести раскладку после подгонки (например, распределить лишнюю ширину между панелями)
-  function fit() { const r = fitInner(); after?.(r); return r; }
+  function fit() { const r = fitInner(); after?.(r); reportFit(r); return r; }
+
+  // Какие включённые колонки не поместились в окно и какая ширина нужна для всех — панель покажет это под превью
+  let fitSig = '';
+  function reportFit(r) {
+    if (window.parent === window) return;
+    const full = levels[0]?.cols || [], shown = new Set(levels[r.level]?.cols || []);
+    const hidden = full.filter((id) => !shown.has(id));
+    const need = hidden.length ? Math.ceil((cache.get(`0|${key()}`)?.width || 0) * r.scale) : 0;
+    const sig = `${hidden}|${need}`;
+    if (sig === fitSig) return;
+    fitSig = sig;
+    window.parent.postMessage({ svoyFit: { hidden, need } }, location.origin);
+  }
 
   window.addEventListener('resize', () => fit.last && fit());
   scaleListeners.push(() => fit.last && fit());
