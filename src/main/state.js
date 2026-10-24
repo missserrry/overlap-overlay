@@ -102,6 +102,8 @@ class LayoutState {
       pitlimitSchema: L.PITLIMIT_SCHEMA,
       paletteGroups: P.GROUPS,
       palettePresets: P.PRESETS,
+      paletteDim: P.DIM,
+      paletteNames: P.NAMES,
       paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
       categories: L.CATEGORIES,
     };

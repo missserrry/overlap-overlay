@@ -183,4 +183,14 @@ function apply(palette, a) {
   return false;
 }
 
-module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply };
+// Подсветка цвета при редактировании: все цвета, кроме выбранного, приглушаются до серого.
+// DIM[ключ] — переменные «серого» варианта токена (фон не приглушаем: он остаётся рамкой);
+// NAMES[ключ] — какие переменные страницы относятся к токену.
+const DIM_GRAY = '#3A3D42';
+const DIM = {}, NAMES = {};
+for (const k of Object.keys(CSS)) {
+  NAMES[k] = Object.keys(CSS[k]('#000000'));
+  if (k !== 'bg') DIM[k] = CSS[k](DIM_GRAY);
+}
+
+module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply, DIM, NAMES };

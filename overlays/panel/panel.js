@@ -53,7 +53,7 @@ function setState(s) {
     else if (view === 'overlays' && mounted === 'overlays') {
       S = s;
       const cur = currentSet().list.find((x) => x.id === selOv);
-      if (cur) $('pv')?.contentWindow?.postMessage({ svoyPalette: S.paletteVars?.[cur.type] || {} }, location.origin);
+      if (cur) $('pv')?.contentWindow?.postMessage({ svoyPalette: pvPalette(cur.type) }, location.origin);
     }
     return;
   }
@@ -443,7 +443,7 @@ function renderPreview(o) {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySizes: o.sizes || {}, svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: S.paletteVars?.[o.type] || {}, svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySizes: o.sizes || {}, svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -653,6 +653,43 @@ function palField(t, scope) {
 }
 
 const TABLE_TYPES = ['relative', 'standings'];
+
+// Подсветка цвета: пока курсор на строке цвета (или идёт правка), в превью все остальные цвета серые
+let palFocus = null, palEditing = false;
+function pvPalette(type) {
+  const base = S.paletteVars?.[type] || {};
+  if (!palFocus) return base;
+  const out = {};
+  for (const g of S.paletteGroups) for (const t of g.tokens) {
+    if (!t.types.includes(type)) continue;
+    if (t.key === palFocus) { for (const n of S.paletteNames?.[t.key] || []) if (n in base) out[n] = base[n]; }
+    else if (S.paletteDim?.[t.key]) Object.assign(out, S.paletteDim[t.key]);
+  }
+  return out;
+}
+function pushPalette() {
+  const type = view === 'palette' ? (palScope === 'all' ? palPrev : palScope) : currentSet().list.find((x) => x.id === selOv)?.type;
+  if (type && $('pv')) $('pv').contentWindow?.postMessage({ svoyPalette: pvPalette(type) }, location.origin);
+}
+function setPalFocus(key) {
+  if (palFocus === key) return;
+  palFocus = key;
+  pushPalette();
+}
+document.addEventListener('mouseover', (e) => {
+  if (palEditing || !S) return;
+  const row = e.target.closest?.('.pal-row');
+  setPalFocus(row ? row.querySelector('[data-pal-key]')?.dataset.palKey ?? null : null);
+});
+document.addEventListener('focusin', (e) => {
+  const key = e.target.closest?.('.pal-row')?.querySelector('[data-pal-key]')?.dataset.palKey;
+  if (key) { palEditing = true; setPalFocus(key); }
+});
+document.addEventListener('focusout', (e) => {
+  if (!e.target.closest?.('.pal-row')) return;
+  palEditing = false;
+  setTimeout(() => { if (!document.activeElement?.closest?.('.pal-row')) setPalFocus(null); }, 0);
+});
 const plural = (n, w) => `${n} ${w[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`;
 let palPreviewKey = null;
 function renderPalette() {
@@ -719,7 +756,7 @@ function renderPalPreview() {
     stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${type}/?bg=0.8&scale=1&palette=${palVarsFor(type)}"></iframe></div>`;
     palPreviewKey = type;
   } else {
-    $('pv')?.contentWindow?.postMessage({ svoyPalette: S.paletteVars?.[type] || {} }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyPalette: pvPalette(type) }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = stage.parentElement.getBoundingClientRect();
