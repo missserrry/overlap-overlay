@@ -105,6 +105,7 @@ class LayoutState {
       paletteDim: P.DIM,
       paletteNames: P.NAMES,
       paletteSel: P.SEL,
+      paletteLive: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.liveVars(this.cfg.palette, t)])),
       paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
       categories: L.CATEGORIES,
     };

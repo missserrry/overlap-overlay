@@ -225,4 +225,15 @@ const SEL = {
 for (const k of ['R', 'D', 'C', 'B', 'A', 'P']) SEL[`lic${k}`] = [`.lic[style*="--lic-${k.toLowerCase()},"]`];
 for (const k of Object.keys(CSS)) if (k.startsWith('flag')) SEL[k] = ['.flagbox'];
 
-module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply, DIM, NAMES, SEL };
+// Переменные токена с его текущим значением (своё → общее → стандартное): при подсветке выбранный цвет остаётся настоящим и меняется вживую
+function liveVars(palette, type) {
+  const out = {};
+  for (const [k, t] of Object.entries(TOKENS)) {
+    if (!t.types.includes(type) || !CSS[k]) continue;
+    const v = palette?.types?.[type]?.[k] ?? palette?.all?.[k] ?? t.def;
+    out[k] = CSS[k](v);
+  }
+  return out;
+}
+
+module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply, DIM, NAMES, SEL, liveVars };

@@ -80,41 +80,77 @@ let palVars = {};
 const palListeners = [];
 export const cssVar = (name, fallback) => palVars[name] ?? fallback;
 export const onPalette = (fn) => palListeners.push(fn);
-// Подсветка зоны цвета в превью панели: выбранные элементы обводятся рамкой, остальное (в том числе цвета классов) приглушается.
-// Габариты зоны отправляем панели, чтобы она приблизила превью.
-let focusSel = null, focusTimer = null, focusSig = '';
-function reportBox() {
-  if (!focusSel) return;
-  const els = [...document.querySelectorAll(focusSel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
-  let box = null;
-  if (els.length) {
-    const rs = els.map((e) => e.getBoundingClientRect());
-    const x1 = Math.min(...rs.map((r) => r.left)), y1 = Math.min(...rs.map((r) => r.top));
-    const x2 = Math.max(...rs.map((r) => r.right)), y2 = Math.max(...rs.map((r) => r.bottom));
-    box = { x: x1, y: y1, w: x2 - x1, h: y2 - y1, n: els.length, iw: window.innerWidth, ih: window.innerHeight };
-  }
-  const sig = JSON.stringify(box && [Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h), box.n]);
-  if (sig !== focusSig) { focusSig = sig; window.parent?.postMessage({ svoyFocusBox: box }, location.origin); }
+// Подсветка зоны цвета в превью панели. Показываем тур: для каждой зоны сначала один образец (его приближает панель), потом вся группа
+// одним прямоугольником, в конце общий план со всеми зонами. Фон показываем как пустой прямоугольник. Пока цвет правят, тур стоит.
+let focus = null;
+const FRAME_CSS = `#pal-frames { position: fixed; inset: 0; z-index: 99999; pointer-events: none; }
+#pal-frames i { position: absolute; border: 2px solid #E2B93B; border-radius: 5px; box-shadow: 0 0 0 5px rgba(226, 185, 59, 0.2); transition: left 220ms, top 220ms, width 220ms, height 220ms; }
+body.pal-focus :is(.ctag, .stripe, .brand, .tire, .class-head, .cname) { filter: grayscale(1) opacity(0.45); }`;
+const visibleEls = (sel) => [...document.querySelectorAll(sel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+const rectOf = (els) => {
+  const rs = els.map((e) => e.getBoundingClientRect());
+  const x1 = Math.min(...rs.map((r) => r.left)), y1 = Math.min(...rs.map((r) => r.top));
+  const x2 = Math.max(...rs.map((r) => r.right)), y2 = Math.max(...rs.map((r) => r.bottom));
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+};
+function drawFrames(rects) {
+  const box = document.getElementById('pal-frames');
+  if (!box) return;
+  while (box.children.length < rects.length) box.appendChild(document.createElement('i'));
+  [...box.children].forEach((el, i) => {
+    const r = rects[i];
+    el.style.display = r ? '' : 'none';
+    if (r) Object.assign(el.style, { left: `${r.x - 3}px`, top: `${r.y - 3}px`, width: `${r.w + 6}px`, height: `${r.h + 6}px` });
+  });
 }
-function setFocusSel(list) {
-  let st = document.getElementById('pal-focus-style');
-  clearInterval(focusTimer);
-  if (!Array.isArray(list) || !list.length) {
-    focusSel = null; focusSig = '';
-    document.body.classList.remove('pal-focus');
-    st?.remove();
-    window.parent?.postMessage({ svoyFocusBox: null }, location.origin);
+function focusTick() {
+  if (!focus) return;
+  const zs = focus.zones.map((sel) => ({ sel, els: visibleEls(sel) })).filter((z) => z.els.length);
+  let steps = [];
+  zs.forEach((z, i) => { steps.push({ z: i, mode: 'one' }); if (z.els.length > 1) steps.push({ z: i, mode: 'all' }); });
+  if (zs.length > 1) steps.push({ mode: 'overview' });
+  let rects = [], box = null;
+  if (!steps.length) { drawFrames([]); return reportFocus(null, true); }
+  if (focus.i >= steps.length) focus.i = 0;
+  const st = steps[focus.i];
+  if (focus.solo) rects = [rectOf(zs.flatMap((z) => z.els))];
+  else if (st.mode === 'overview') rects = zs.map((z) => rectOf(z.els));
+  else if (st.mode === 'one') { box = rectOf([zs[st.z].els[0]]); rects = [box]; }
+  else { box = rectOf(zs[st.z].els); rects = [box]; }
+  drawFrames(rects);
+  reportFocus(box, false);
+}
+let focusSig = '';
+function reportFocus(box, empty) {
+  const sig = JSON.stringify([box && [Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h)], empty]);
+  if (sig === focusSig) return;
+  focusSig = sig;
+  window.parent?.postMessage({ svoyFocusBox: box && { ...box, iw: window.innerWidth, ih: window.innerHeight }, svoyFocusEmpty: empty }, location.origin);
+}
+function setFocusSel(cfg) {
+  clearInterval(focus?.tick); clearInterval(focus?.step);
+  document.getElementById('pal-focus-style')?.remove();
+  document.getElementById('pal-frames')?.remove();
+  document.body.classList.remove('pal-focus', 'pal-solo');
+  focusSig = '';
+  if (!cfg || !Array.isArray(cfg.zones) || !cfg.zones.length) {
+    focus = null;
+    window.parent?.postMessage({ svoyFocusBox: null, svoyFocusEmpty: false }, location.origin);
     return;
   }
-  focusSel = list.join(',');
-  if (!st) { st = document.createElement('style'); st.id = 'pal-focus-style'; document.head.appendChild(st); }
-  st.textContent = `body.pal-focus :is(${focusSel}) { outline: 2px solid #E2B93B; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(226, 185, 59, 0.22); position: relative; z-index: 5; }
-body.pal-focus :is(.ctag, .stripe, .brand, .tire, .class-head, .cname, .lic, .badge) { filter: grayscale(1) opacity(0.45); }
-body.pal-focus :is(${focusSel}) { filter: none !important; }`;
+  const st = document.createElement('style');
+  st.id = 'pal-focus-style';
+  st.textContent = FRAME_CSS + (cfg.solo ? `\nbody.pal-solo :is(${cfg.zones.join(',')}) > * { visibility: hidden; }` : '');
+  document.head.appendChild(st);
+  const fr = document.createElement('div');
+  fr.id = 'pal-frames';
+  document.body.appendChild(fr);
   document.body.classList.add('pal-focus');
-  focusSig = '';
-  setTimeout(reportBox, 60);
-  focusTimer = setInterval(reportBox, 350);
+  if (cfg.solo) document.body.classList.add('pal-solo');
+  focus = { zones: cfg.zones, solo: !!cfg.solo, i: 0, paused: false };
+  focus.tick = setInterval(focusTick, 200);
+  focus.step = setInterval(() => { if (!focus.paused) focus.i++; }, 2000);
+  setTimeout(focusTick, 40);
 }
 
 function deliverPalette(vars) {
@@ -211,6 +247,7 @@ export function setupPage() {
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
     if (e.data && 'svoyFocus' in e.data) setFocusSel(e.data.svoyFocus);
+    if (e.data && 'svoyFocusPause' in e.data && focus) focus.paused = !!e.data.svoyFocusPause;
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
     if (Array.isArray(e.data?.svoyFtr)) deliverHf('footer', e.data.svoyFtr);

@@ -662,7 +662,7 @@ function pvPalette(type) {
   const out = {};
   for (const g of S.paletteGroups) for (const t of g.tokens) {
     if (!t.types.includes(type)) continue;
-    if (t.key === palFocus) { for (const n of S.paletteNames?.[t.key] || []) if (n in base) out[n] = base[n]; }
+    if (t.key === palFocus) Object.assign(out, S.paletteLive?.[type]?.[t.key] || {});
     else if (S.paletteDim?.[t.key]) Object.assign(out, S.paletteDim[t.key]);
   }
   return out;
@@ -677,7 +677,7 @@ function setPalFocus(key) {
   pushPalette();
   // рамки на элементах этого цвета; пустой список снимает подсветку
   const type = view === 'palette' ? (palScope === 'all' ? palPrev : palScope) : currentSet().list.find((x) => x.id === selOv)?.type;
-  $('pv')?.contentWindow?.postMessage({ svoyFocus: key ? (S.paletteSel?.[key] || []) : null }, location.origin);
+  $('pv')?.contentWindow?.postMessage({ svoyFocus: key ? { zones: S.paletteSel?.[key] || [], solo: key === 'bg' } : null }, location.origin);
   if (!key) { zoomPreview(null); document.getElementById('palNote')?.remove(); }
 }
 
@@ -702,7 +702,7 @@ window.addEventListener('message', (e) => {
   // у этого цвета нет элементов в превью (например, в демо нет такого события): говорим об этом, а не молчим
   const pane = document.querySelector('.preview');
   let note = document.getElementById('palNote');
-  if (!e.data.svoyFocusBox && pane) {
+  if (e.data.svoyFocusEmpty && pane) {
     if (!note) { note = document.createElement('div'); note.id = 'palNote'; note.className = 'pal-note'; pane.appendChild(note); }
     note.textContent = 'В превью сейчас нет элементов этого цвета (в демо они появляются не всегда)';
   } else note?.remove();
@@ -714,11 +714,12 @@ document.addEventListener('mouseover', (e) => {
 });
 document.addEventListener('focusin', (e) => {
   const key = e.target.closest?.('.pal-row')?.querySelector('[data-pal-key]')?.dataset.palKey;
-  if (key) { palEditing = true; setPalFocus(key); }
+  if (key) { palEditing = true; setPalFocus(key); $('pv')?.contentWindow?.postMessage({ svoyFocusPause: true }, location.origin); }
 });
 document.addEventListener('focusout', (e) => {
   if (!e.target.closest?.('.pal-row')) return;
   palEditing = false;
+  $('pv')?.contentWindow?.postMessage({ svoyFocusPause: false }, location.origin);
   setTimeout(() => { if (!document.activeElement?.closest?.('.pal-row')) setPalFocus(null); }, 0);
 });
 const plural = (n, w) => `${n} ${w[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`;
