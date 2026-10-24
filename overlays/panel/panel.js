@@ -464,7 +464,8 @@ function renderPreview(o) {
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
-  const k = Math.min(1, (box.width - 64) / o.width, (box.height - 64) / o.height);
+  // превью занимает всё доступное место (в обе стороны), чтобы при свёрнутых настройках оверлей был крупным
+  const k = Math.min(3, (box.width - 64) / o.width, (box.height - 64) / o.height);
   pv.style.width = `${o.width}px`;
   pv.style.height = `${o.height}px`;
   pv.style.transform = `scale(${k})`;
@@ -472,7 +473,7 @@ function renderPreview(o) {
   wrap.style.height = `${Math.round(o.height * k)}px`;
   $('ovPreview').classList.toggle('off', !o.enabled);
   $('statePill').innerHTML = o.enabled ? '' : '<i></i>Выключен';
-  tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${k < 1 ? ` · ${Math.round(k * 100)}%` : ''}`;
+  tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${Math.abs(k - 1) > 0.005 ? ` · ${Math.round(k * 100)}%` : ''}`;
 }
 window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
 
