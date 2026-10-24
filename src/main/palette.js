@@ -193,4 +193,30 @@ for (const k of Object.keys(CSS)) {
   if (k !== 'bg') DIM[k] = CSS[k](DIM_GRAY);
 }
 
-module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply, DIM, NAMES };
+// SEL[ключ] — какие элементы оверлеев закрашены этим цветом; в панели они обводятся рамкой при наведении на строку цвета
+const SEL = {
+  primary: ['.row.player', '.pit-tag'],
+  accent: ['.wet .bar2 i', '.compass .arrow', '.sec .fill', '.laps .ico'],
+  text: ['.name', '.row .pos', '.row .gap', '.hf b', '.sec .val', '.laps .cur', '.laps .cell b', '.fuel .stat b', '.pl .spd b'],
+  textDim: ['.bar .label', '.chip', '.inc-icon', '.sc.int-v', '.sc.last-v', '.num', '.hf .k', '.hf .of', '.standings .cols', '.class-head span:not(.cname)', '.laps .cell small', '.fuel .top', '.fuel .stat small', '.rj .top', '.pl .top', '.sec .lbl', '.tr .t small'],
+  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.radarbox'],
+  nameColor: ['.name'],
+  ahead: ['.row.lap-ahead .gap'],
+  behind: ['.row.lap-behind .gap'],
+  good: ['.badge .delta.gain', '.pch.up'],
+  bad: ['.badge .delta.lose', '.pch.down'],
+  best: ['.best.fastest'],
+  badgeBg: ['.badge'],
+  badgeText: ['.badge'],
+  radarWarn: ['.radarbox'], radarDanger: ['.radarbox'], radarFront: ['.radarbox'], radarMe: ['.radarbox'],
+  dashThr: ['.ring .path.thr', '.barcol[data-col=throttle] .pedal', 'canvas[data-graph]'],
+  dashBrk: ['.ring .path.brk', '.barcol[data-col=brake] .pedal', 'canvas[data-graph]'],
+  dashClu: ['.barcol[data-col=clutch] .pedal', 'canvas[data-graph]'],
+  secFast: ['.sec.fast .val', '.sec.ul.fast .line', '.laps .d.fast'],
+  secSlow: ['.sec.slow .val', '.sec.ul.slow .line', '.laps .d.slow'],
+  rjSafe: ['.rj', '.fuel', '.pl'], rjWarn: ['.rj', '.fuel', '.pl'], rjDanger: ['.rj', '.fuel', '.pl'],
+};
+for (const k of ['R', 'D', 'C', 'B', 'A', 'P']) SEL[`lic${k}`] = [`.lic[style*="--lic-${k.toLowerCase()},"]`];
+for (const k of Object.keys(CSS)) if (k.startsWith('flag')) SEL[k] = ['.flagbox'];
+
+module.exports = { GROUPS, PRESETS, TOKENS, emptyPalette, normalize, buildVars, apply, DIM, NAMES, SEL };

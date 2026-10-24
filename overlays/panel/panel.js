@@ -675,7 +675,30 @@ function setPalFocus(key) {
   if (palFocus === key) return;
   palFocus = key;
   pushPalette();
+  // рамки на элементах этого цвета; пустой список снимает подсветку
+  const type = view === 'palette' ? (palScope === 'all' ? palPrev : palScope) : currentSet().list.find((x) => x.id === selOv)?.type;
+  $('pv')?.contentWindow?.postMessage({ svoyFocus: key ? (S.paletteSel?.[key] || []) : null }, location.origin);
+  if (!key) zoomPreview(null);
 }
+
+// Приближение превью к зоне выбранного цвета: габариты зоны присылает сама страница оверлея
+function zoomPreview(box) {
+  const pv = $('pv'); if (!pv) return;
+  const wrap = pv.parentElement, stage = wrap.parentElement;
+  const k = parseFloat(/scale\(([\d.]+)\)/.exec(pv.style.transform || '')?.[1]) || 1;
+  wrap.style.transformOrigin = '0 0';
+  wrap.style.transition = 'transform 260ms cubic-bezier(.2,.8,.2,1)';
+  if (!box || !box.w || !box.h || (box.w * box.h) / (box.iw * box.ih) > 0.45) { wrap.style.transform = 'none'; return; }
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const z = Math.min(4, Math.max(1, Math.min((sw * 0.5) / (box.w * k), (sh * 0.45) / (box.h * k))));
+  if (z < 1.25) { wrap.style.transform = 'none'; return; }   // зона и так крупная: не двигаем превью
+  const cx = (box.x + box.w / 2) * k, cy = (box.y + box.h / 2) * k;
+  wrap.style.transform = `translate(${(sw / 2 - wrap.offsetLeft - cx * z).toFixed(1)}px, ${(sh / 2 - wrap.offsetTop - cy * z).toFixed(1)}px) scale(${z.toFixed(3)})`;
+}
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data || !('svoyFocusBox' in e.data)) return;
+  if (palFocus) zoomPreview(e.data.svoyFocusBox);
+});
 document.addEventListener('mouseover', (e) => {
   if (palEditing || !S) return;
   const row = e.target.closest?.('.pal-row');

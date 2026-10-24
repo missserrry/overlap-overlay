@@ -80,6 +80,43 @@ let palVars = {};
 const palListeners = [];
 export const cssVar = (name, fallback) => palVars[name] ?? fallback;
 export const onPalette = (fn) => palListeners.push(fn);
+// Подсветка зоны цвета в превью панели: выбранные элементы обводятся рамкой, остальное (в том числе цвета классов) приглушается.
+// Габариты зоны отправляем панели, чтобы она приблизила превью.
+let focusSel = null, focusTimer = null, focusSig = '';
+function reportBox() {
+  if (!focusSel) return;
+  const els = [...document.querySelectorAll(focusSel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+  let box = null;
+  if (els.length) {
+    const rs = els.map((e) => e.getBoundingClientRect());
+    const x1 = Math.min(...rs.map((r) => r.left)), y1 = Math.min(...rs.map((r) => r.top));
+    const x2 = Math.max(...rs.map((r) => r.right)), y2 = Math.max(...rs.map((r) => r.bottom));
+    box = { x: x1, y: y1, w: x2 - x1, h: y2 - y1, n: els.length, iw: window.innerWidth, ih: window.innerHeight };
+  }
+  const sig = JSON.stringify(box && [Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h), box.n]);
+  if (sig !== focusSig) { focusSig = sig; window.parent?.postMessage({ svoyFocusBox: box }, location.origin); }
+}
+function setFocusSel(list) {
+  let st = document.getElementById('pal-focus-style');
+  clearInterval(focusTimer);
+  if (!Array.isArray(list) || !list.length) {
+    focusSel = null; focusSig = '';
+    document.body.classList.remove('pal-focus');
+    st?.remove();
+    window.parent?.postMessage({ svoyFocusBox: null }, location.origin);
+    return;
+  }
+  focusSel = list.join(',');
+  if (!st) { st = document.createElement('style'); st.id = 'pal-focus-style'; document.head.appendChild(st); }
+  st.textContent = `body.pal-focus :is(${focusSel}) { outline: 2px solid #E2B93B; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(226, 185, 59, 0.22); position: relative; z-index: 5; }
+body.pal-focus :is(.ctag, .stripe, .brand, .tire, .class-head, .cname, .lic, .badge) { filter: grayscale(1) opacity(0.45); }
+body.pal-focus :is(${focusSel}) { filter: none !important; }`;
+  document.body.classList.add('pal-focus');
+  focusSig = '';
+  setTimeout(reportBox, 60);
+  focusTimer = setInterval(reportBox, 350);
+}
+
 function deliverPalette(vars) {
   const next = vars && typeof vars === 'object' ? vars : {};
   if (JSON.stringify(next) === JSON.stringify(palVars)) return;
@@ -173,6 +210,7 @@ export function setupPage() {
     if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
+    if (e.data && 'svoyFocus' in e.data) setFocusSel(e.data.svoyFocus);
     if (Array.isArray(e.data?.svoyCards)) deliverCards(e.data.svoyCards);
     if (Array.isArray(e.data?.svoyHdr)) deliverHf('header', e.data.svoyHdr);
     if (Array.isArray(e.data?.svoyFtr)) deliverHf('footer', e.data.svoyFtr);
