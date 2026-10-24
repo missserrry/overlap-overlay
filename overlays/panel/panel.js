@@ -35,6 +35,7 @@ let S = null;          // последнее состояние из главн�
 let pending = null;    // состояние, пришедшее во время ввода
 let view = load('panelView', 'overlays');
 let sel = null;        // { layoutId, variation } — какой набор редактируем
+let ovCollapsed = false; // настройки оверлея свёрнуты: превью занимает всё место
 let selOv = null;      // выбранный оверлей
 let selLayout = null;  // выбранная раскладка в разделе «Раскладки»
 let mounted = null;    // какой экран сейчас смонтирован (для постоянного превью и индикатора)
@@ -125,14 +126,16 @@ function renderOverlays() {
   const card = $('card');
   if (mounted !== 'overlays') {
     card.innerHTML = `
-      <div class="ov-screen">
+      <div class="ov-screen${ovCollapsed ? ' collapsed' : ''}" id="ovScreen">
         <section class="col"><div class="list"><i class="list-ind" id="listInd"></i><div id="ovList"></div></div></section>
         <section class="col" id="ovSettings"></section>
-        <section class="preview" id="ovPreview"><div class="stage" id="stage"></div><span class="state-pill" id="statePill"></span><span class="size-tag mono" id="sizeTag"></span></section>
+        <section class="preview" id="ovPreview"><div class="stage" id="stage"></div><span class="state-pill" id="statePill"></span><span class="size-tag mono" id="sizeTag"></span><button class="fold" id="foldBtn" data-ov-fold></button></section>
       </div>`;
     mounted = 'overlays';
     lastPreviewKey = null;
   }
+  const fb = $('foldBtn');
+  if (fb) { fb.innerHTML = icon(ovCollapsed ? 'chevron-right' : 'chevron-left', 'sm'); fb.title = ovCollapsed ? 'Показать настройки' : 'Скрыть настройки'; fb.setAttribute('aria-label', fb.title); fb.setAttribute('aria-expanded', String(!ovCollapsed)); }
   const { layout, list, variation } = currentSet();
   if (selOv !== 'none' && !list.some((o) => o.id === selOv)) selOv = list[0]?.id ?? null;
   const o = list.find((x) => x.id === selOv) || null;
@@ -427,6 +430,20 @@ function renderOverlaySettings(o, layout, variation) {
     </div>`;
 }
 
+// Свернуть/развернуть настройки: ширина колонки анимируется, превью подстраивается под новое место
+function setOvCollapsed(v) {
+  ovCollapsed = v;
+  const scr = $('ovScreen'); if (!scr) return;
+  scr.classList.toggle('collapsed', v);
+  const fb = $('foldBtn');
+  if (fb) { fb.innerHTML = icon(v ? 'chevron-right' : 'chevron-left', 'sm'); fb.title = v ? 'Показать настройки' : 'Скрыть настройки'; fb.setAttribute('aria-label', fb.title); fb.setAttribute('aria-expanded', String(!v)); }
+  const redo = () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); };
+  redo();
+  clearInterval(setOvCollapsed.t);
+  let n = 0;
+  setOvCollapsed.t = setInterval(() => { redo(); if (++n > 14) clearInterval(setOvCollapsed.t); }, 30);
+}
+
 // Превью — живой оверлей в настоящем размере окна; не пересоздаём iframe без нужды
 const cardsOf = (o) => (o.cards || []).filter((c) => c.on).map((c) => c.id).join(',');
 const hfOf = (o, zone) => (o[zone] || []).filter((c) => c.on).map((c) => c.id).join(',');
@@ -438,7 +455,7 @@ function renderPreview(o) {
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
     stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
-    lastPreviewKey = key; fitInfo = null; $('fitNote')?.remove();
+    lastPreviewKey = key;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
@@ -456,7 +473,6 @@ function renderPreview(o) {
   $('ovPreview').classList.toggle('off', !o.enabled);
   $('statePill').innerHTML = o.enabled ? '' : '<i></i>Выключен';
   tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${k < 1 ? ` · ${Math.round(k * 100)}%` : ''}`;
-  renderFitNote();
 }
 window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
 
@@ -696,23 +712,6 @@ function zoomPreview(box) {
   const cx = (box.x + box.w / 2) * k, cy = (box.y + box.h / 2) * k;
   wrap.style.transform = `translate(${(sw / 2 - wrap.offsetLeft - cx * z).toFixed(1)}px, ${(sh / 2 - wrap.offsetTop - cy * z).toFixed(1)}px) scale(${z.toFixed(3)})`;
 }
-// Включённые колонки, которым не хватило ширины окна: говорим об этом под превью и даём расширить окно одной кнопкой
-let fitInfo = null;
-function renderFitNote() {
-  const pane = $('ovPreview'); if (!pane) return;
-  let note = $('fitNote');
-  if (!fitInfo?.hidden.length) { note?.remove(); return; }
-  const cat = S?.columnCatalog || {};
-  const o = currentSet().list.find((x) => x.id === selOv);
-  const names = fitInfo.hidden.map((id) => (cat[id]?.labelBy?.[o?.type] || cat[id]?.label || id).toLowerCase()).join(', ');
-  if (!note) { note = document.createElement('div'); note.id = 'fitNote'; note.className = 'fit-note'; pane.appendChild(note); }
-  note.innerHTML = `<span>Не помещаются в окно: ${esc(names)}</span><button class="btn primary" data-fit-width="${fitInfo.need}">Расширить до ${fitInfo.need} px</button>`;
-}
-window.addEventListener('message', (e) => {
-  if (e.origin !== location.origin || !e.data?.svoyFit || e.source !== $('pv')?.contentWindow) return;
-  fitInfo = e.data.svoyFit;
-  renderFitNote();
-});
 window.addEventListener('message', (e) => {
   if (e.origin !== location.origin || !e.data || !('svoyFocusBox' in e.data)) return;
   if (!palFocus) return;
@@ -1047,7 +1046,6 @@ document.addEventListener('click', (e) => {
   if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
   if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
   if (d.ovTab) { ovTab = d.ovTab; save('ovTab', ovTab); return render(); }
-  if (d.fitWidth) return ovAction('overlay.update', { patch: { width: Number(d.fitWidth) } });
   if ('sizesReset' in d) return ovAction('overlay.update', { patch: { sizes: null } });
   if (d.palResetSc) return act({ type: 'palette.reset', scope: d.palResetSc });
   if (d.palOpen) {
@@ -1072,7 +1070,8 @@ document.addEventListener('click', (e) => {
   if ('enableOv' in d) return ovAction('overlay.update', { patch: { enabled: true } });
 
   // Оверлеи
-  if (d.ov && !e.target.closest('.sw')) { selOv = d.ov; return render(); }
+  if ('ovFold' in d) { setOvCollapsed(!ovCollapsed); return; }
+  if (d.ov && !e.target.closest('.sw')) { selOv = d.ov; if (ovCollapsed) setOvCollapsed(false); return render(); }
   if (d.add) { selOv = null; }
   if ('ovClose' in d) { selOv = 'none'; return render(); }
   if ('rename' in d) { const n = $('ovName'); n?.focus(); n?.select(); return; }

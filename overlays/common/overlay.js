@@ -324,14 +324,13 @@ function addResizeHandles(bridge) {
 
 // ---------- подгонка под размер окна ----------
 // Как картинка: ширина окна задаёт масштаб, высота — сколько строк влезет.
-// Когда масштаб упирается в минимум, переходим на следующий «уровень» — без менее важных колонок.
 //
 //   levels:  массив уровней от полного к минимальному (объекты-флаги колонок)
 //   render(level, rows) — нарисовать содержимое; rows — сколько строк данных показать
 //   key()    — «форма» данных, от которой зависит естественная ширина (например, мультикласс или нет)
 
-// minScale 0.75 ≈ 10.5px текста — мельче уже плохо читается, поэтому дальше прячем колонки
-export function createFitter({ root, levels, render, key = () => '', after = null, minScale = 0.75, maxScale = 3.5, minRows = 2 }) {
+// Колонки не прячем: когда они не помещаются по ширине, масштаб уменьшается (в том числе в превью панели).
+export function createFitter({ root, levels, render, key = () => '', after = null, maxScale = 3.5, minRows = 2 }) {
   const cache = new Map();
   let memo = null, epoch = 0;
   const rootStyle = document.documentElement.style;
@@ -358,23 +357,15 @@ export function createFitter({ root, levels, render, key = () => '', after = nul
   function fitInner() {
     const W = window.innerWidth, H = window.innerHeight;
     const fixed = fixedScale;
-    let idx = 0, m = measure(0), s;
-    if (fixed != null) {
-      // масштаб задан: окно решает, сколько колонок и строк поместится
-      s = fixed;
-      while (m.width * s > W && idx < levels.length - 1) m = measure(++idx);
-      // даже минимальный набор колонок не помещается — не обрезаем, а уменьшаем масштаб
-      if (m.width * s > W) s = Math.max(W / m.width, minScale * 0.7);
-    } else {
+    // Колонки не убираем: если всё не помещается по ширине, уменьшаем масштаб (текст мельче, но видно всё)
+    const idx = 0, m = measure(0);
+    let s;
+    if (fixed != null) s = Math.min(fixed, W / m.width);
+    else {
       s = W / m.width;
-      while (s < minScale && idx < levels.length - 1) {
-        idx++;
-        m = measure(idx);
-        s = W / m.width;
-      }
       // по высоте должно влезать хотя бы minRows строк — иначе уменьшаем масштаб
       const sByHeight = H / (m.chrome + m.row * minRows);
-      s = Math.max(Math.min(s, sByHeight, maxScale), Math.min(minScale, sByHeight));
+      s = Math.min(s, sByHeight, maxScale);
     }
     rootStyle.setProperty('--scale', s.toFixed(4));
 
@@ -401,20 +392,7 @@ export function createFitter({ root, levels, render, key = () => '', after = nul
   }
 
   // after(result) — довести раскладку после подгонки (например, распределить лишнюю ширину между панелями)
-  function fit() { const r = fitInner(); after?.(r); reportFit(r); return r; }
-
-  // Какие включённые колонки не поместились в окно и какая ширина нужна для всех — панель покажет это под превью
-  let fitSig = '';
-  function reportFit(r) {
-    if (window.parent === window) return;
-    const full = levels[0]?.cols || [], shown = new Set(levels[r.level]?.cols || []);
-    const hidden = full.filter((id) => !shown.has(id));
-    const need = hidden.length ? Math.ceil((cache.get(`0|${key()}`)?.width || 0) * r.scale) : 0;
-    const sig = `${hidden}|${need}`;
-    if (sig === fitSig) return;
-    fitSig = sig;
-    window.parent.postMessage({ svoyFit: { hidden, need } }, location.origin);
-  }
+  function fit() { const r = fitInner(); after?.(r); return r; }
 
   window.addEventListener('resize', () => fit.last && fit());
   scaleListeners.push(() => fit.last && fit());
