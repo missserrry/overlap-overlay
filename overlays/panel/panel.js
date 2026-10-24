@@ -449,13 +449,14 @@ const cardsOf = (o) => (o.cards || []).filter((c) => c.on).map((c) => c.id).join
 const hfOf = (o, zone) => (o[zone] || []).filter((c) => c.on).map((c) => c.id).join(',');
 const colsOf = (o) => (o.columns || []).filter((c) => c.on).map((c) => c.id).join(',');
 let lastPreviewKey = null;
+let pvContent = null, pvOff = { x: 0, y: 0 };   // прямоугольник содержимого в окне оверлея (приходит из страницы)
 function renderPreview(o) {
   const stage = $('stage'), tag = $('sizeTag');
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
     stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
-    lastPreviewKey = key;
+    lastPreviewKey = key; pvContent = null;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
@@ -465,12 +466,15 @@ function renderPreview(o) {
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
   // превью занимает всё доступное место (в обе стороны), чтобы при свёрнутых настройках оверлей был крупным
-  const k = Math.min(3, (box.width - 64) / o.width, (box.height - 64) / o.height);
+  // таблицы сообщают, какую часть окна занимает содержимое: растягиваем именно её, а не пустое окно целиком
+  const cb = pvContent && pvContent.key === key ? pvContent : { x: 0, y: 0, w: o.width, h: o.height };
+  pvOff = { x: cb.x, y: cb.y };
+  const k = Math.min(3, (box.width - 64) / cb.w, (box.height - 64) / cb.h);
   pv.style.width = `${o.width}px`;
   pv.style.height = `${o.height}px`;
-  pv.style.transform = `scale(${k})`;
-  wrap.style.width = `${Math.round(o.width * k)}px`;
-  wrap.style.height = `${Math.round(o.height * k)}px`;
+  pv.style.transform = `scale(${k}) translate(${-cb.x}px, ${-cb.y}px)`;
+  wrap.style.width = `${Math.round(cb.w * k)}px`;
+  wrap.style.height = `${Math.round(cb.h * k)}px`;
   $('ovPreview').classList.toggle('off', !o.enabled);
   $('statePill').innerHTML = o.enabled ? '' : '<i></i>Выключен';
   tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${Math.abs(k - 1) > 0.005 ? ` · ${Math.round(k * 100)}%` : ''}`;
@@ -710,9 +714,14 @@ function zoomPreview(box) {
   const sw = stage.clientWidth, sh = stage.clientHeight;
   const z = Math.min(4, Math.max(1, Math.min((sw * 0.5) / (box.w * k), (sh * 0.45) / (box.h * k))));
   if (z < 1.25) { wrap.style.transform = 'none'; return; }   // зона и так крупная: не двигаем превью
-  const cx = (box.x + box.w / 2) * k, cy = (box.y + box.h / 2) * k;
+  const cx = (box.x - pvOff.x + box.w / 2) * k, cy = (box.y - pvOff.y + box.h / 2) * k;
   wrap.style.transform = `translate(${(sw / 2 - wrap.offsetLeft - cx * z).toFixed(1)}px, ${(sh / 2 - wrap.offsetTop - cy * z).toFixed(1)}px) scale(${z.toFixed(3)})`;
 }
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data?.svoyContent || e.source !== $('pv')?.contentWindow || view !== 'overlays') return;
+  pvContent = { ...e.data.svoyContent, key: lastPreviewKey };
+  renderPreview(currentSet().list.find((x) => x.id === selOv));
+});
 window.addEventListener('message', (e) => {
   if (e.origin !== location.origin || !e.data || !('svoyFocusBox' in e.data)) return;
   if (!palFocus) return;

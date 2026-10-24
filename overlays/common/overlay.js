@@ -392,7 +392,20 @@ export function createFitter({ root, levels, render, key = () => '', after = nul
   }
 
   // after(result) — довести раскладку после подгонки (например, распределить лишнюю ширину между панелями)
-  function fit() { const r = fitInner(); after?.(r); return r; }
+  function fit() { const r = fitInner(); after?.(r); reportContent(); return r; }
+
+  // Где в окне лежит содержимое: панель по этому прямоугольнику увеличивает превью (таблица не всегда занимает всё окно)
+  let contentSig = '';
+  function reportContent() {
+    if (window.parent === window) return;
+    const r = root.getBoundingClientRect();
+    if (r.width < 20 || r.height < 20) return;
+    const box = { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    const sig = JSON.stringify(box);
+    if (sig === contentSig) return;
+    contentSig = sig;
+    window.parent.postMessage({ svoyContent: box }, location.origin);
+  }
 
   window.addEventListener('resize', () => fit.last && fit());
   scaleListeners.push(() => fit.last && fit());
