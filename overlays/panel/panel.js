@@ -752,6 +752,7 @@ function renderPalette() {
   const allTokens = S.paletteGroups.flatMap((g) => g.tokens);
   const quick = scope === 'all' ? ['primary', 'accent'].map((k) => allTokens.find((t) => t.key === k)) : [];
   const relevant = (k) => scope === 'all' || allTokens.some((t) => t.key === k && t.types.includes(scope));
+  const presetsApply = scope === 'all' || S.palettePresets.some((p) => Object.keys(p.values).some(relevant));
   const presetOn = (p) => sameValues(Object.fromEntries(Object.entries(p.values).filter(([k]) => relevant(k))), own);
   const swatch = (p) => ['primary', 'accent', 'bg', 'good'].map((k) => `<i style="background:${p.values[k] || allTokens.find((t) => t.key === k).def}"></i>`).join('');
   const groups = palTokens(scope);
@@ -763,9 +764,9 @@ function renderPalette() {
 
       ${quick.length ? `<div class="block"><div class="label">Быстрая настройка</div>${quick.map((t) => palField(t, scope)).join('')}</div>` : ''}
 
-      <div class="block"><div class="label">Готовые палитры</div>
+      ${presetsApply ? `<div class="block"><div class="label">Готовые палитры</div>
         <div class="pal-presets">${S.palettePresets.map((p) => `<button class="pal-preset ${presetOn(p) ? 'on' : ''}" data-pal-preset="${p.id}"><span class="pal-sw">${swatch(p)}</span><span>${esc(p.name)}</span></button>`).join('')}</div>
-      </div>
+      </div>` : ''}
 
       <div class="block"><div class="label">${scope === 'all' ? 'Общие цвета' : 'Подробная настройка'}</div>
         ${scope !== 'all' ? `<p class="hint">Подробные цвета этого оверлея теперь в его настройках, вкладка «Цвета».</p><div class="actions" style="margin:12px 0 0"><button class="btn" data-pal-open="${scope}">${icon('external-link', 'sm')}Открыть настройки ${esc(S.types[scope].title)}</button></div>` : groups.slice(0, 1).map((g) => {

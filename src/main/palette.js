@@ -3,17 +3,20 @@
 // В страницы оверлеев уходит готовая карта CSS-переменных ({'--player-strong': '#eabe11', ...}), поэтому логика только здесь.
 
 const TABLE = ['relative', 'standings'];
+// Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
+const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic'];
+const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic'];
 const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
   {
     title: 'Основные', tokens: [
-      { key: 'primary', label: 'Основной цвет', hint: 'Вы в таблице, рамки, подсветка', def: '#EABE11', types: ALL },
-      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps', 'fuel'] },
-      { key: 'text', label: 'Текст', def: '#FFFFFF', types: ALL },
-      { key: 'textDim', label: 'Подписи', def: '#8A8A8F', types: ALL },
-      { key: 'bg', label: 'Фон оверлея', hint: 'Прозрачность — в настройках оверлея', def: '#0A0A0B', types: ALL },
+      { key: 'primary', label: 'Основной цвет', hint: 'Ваша строка в таблице и метка PIT', def: '#EABE11', types: TABLE },
+      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps'] },
+      { key: 'text', label: 'Текст', def: '#FFFFFF', types: WITH_TEXT },
+      { key: 'textDim', label: 'Подписи', def: '#8A8A8F', types: WITH_TEXT },
+      { key: 'bg', label: 'Фон оверлея', hint: 'Прозрачность — в настройках оверлея', def: '#0A0A0B', types: WITH_BG },
     ],
   },
   {
@@ -63,8 +66,8 @@ const GROUPS = [
   },
   {
     title: 'Rejoin, Fuel и Pit Limiter', tokens: [
-      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
-      { key: 'rjWarn', label: 'Осторожно / впритык', def: '#FFB020', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
+      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit'] },
+      { key: 'rjWarn', label: 'Осторожно / впритык', def: '#FFB020', types: ['rejoin', 'fuel'] },
       { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic'] },
     ],
   },
