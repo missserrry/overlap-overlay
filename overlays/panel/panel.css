@@ -396,3 +396,5 @@ details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
 .mode button { min-height: 32px; }
 
 .sum-n { min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pal-note { position: absolute; left: 16px; right: 16px; bottom: 44px; padding: 8px 12px; border-radius: 8px; background: var(--raised); color: var(--muted); font-size: var(--fs-label); text-align: center; }

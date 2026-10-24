@@ -253,8 +253,8 @@ body.edit .rz { display: block; }
 /* Изменение позиции с момента старта: зелёная стрелка вверх — отыграл, красная вниз — потерял */
 .pch { display: inline-flex; align-items: center; justify-content: center; gap: 0.1em; width: 2.6em; flex: none; font-size: 0.857em; font-variant-numeric: tabular-nums; }
 .pch svg { width: 0.7em; height: 0.7em; }
-.pch.up { color: var(--green); }
-.pch.down { color: var(--red); }
+.pch.up { color: var(--pch-up, var(--green)); }
+.pch.down { color: var(--pch-down, var(--red)); }
 /* Состав шин: кольцо цвета состава с буквой того же цвета (рисуется в SVG, см. columns.js) */
 .tire { width: 1.55em; height: 1.55em; vertical-align: middle; font-family: inherit; }
 

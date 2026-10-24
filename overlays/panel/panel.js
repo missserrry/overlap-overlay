@@ -678,7 +678,7 @@ function setPalFocus(key) {
   // рамки на элементах этого цвета; пустой список снимает подсветку
   const type = view === 'palette' ? (palScope === 'all' ? palPrev : palScope) : currentSet().list.find((x) => x.id === selOv)?.type;
   $('pv')?.contentWindow?.postMessage({ svoyFocus: key ? (S.paletteSel?.[key] || []) : null }, location.origin);
-  if (!key) zoomPreview(null);
+  if (!key) { zoomPreview(null); document.getElementById('palNote')?.remove(); }
 }
 
 // Приближение превью к зоне выбранного цвета: габариты зоны присылает сама страница оверлея
@@ -697,7 +697,15 @@ function zoomPreview(box) {
 }
 window.addEventListener('message', (e) => {
   if (e.origin !== location.origin || !e.data || !('svoyFocusBox' in e.data)) return;
-  if (palFocus) zoomPreview(e.data.svoyFocusBox);
+  if (!palFocus) return;
+  zoomPreview(e.data.svoyFocusBox);
+  // у этого цвета нет элементов в превью (например, в демо нет такого события): говорим об этом, а не молчим
+  const pane = document.querySelector('.preview');
+  let note = document.getElementById('palNote');
+  if (!e.data.svoyFocusBox && pane) {
+    if (!note) { note = document.createElement('div'); note.id = 'palNote'; note.className = 'pal-note'; pane.appendChild(note); }
+    note.textContent = 'В превью сейчас нет элементов этого цвета (в демо они появляются не всегда)';
+  } else note?.remove();
 });
 document.addEventListener('mouseover', (e) => {
   if (palEditing || !S) return;
