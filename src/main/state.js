@@ -136,6 +136,7 @@ class LayoutState {
 
       case 'layout.create': {
         const l = L.createLayout(a.name || 'Новая раскладка', [L.createOverlay('relative', { x: 500, y: 40 })]);
+        L.ensureLayoutTypes(l);
         this.layouts.push(l);
         this.panelSelection = { layoutId: l.id, variation: 'base' };
         break;
@@ -205,25 +206,12 @@ class LayoutState {
         touch(l);
         break;
       }
-      case 'overlay.add': {
-        const list = this.overlayList(a.layoutId, a.variation);
-        if (!list || !L.OVERLAY_TYPES[a.overlayType]) return;
-        const n = list.length;
-        list.push(L.createOverlay(a.overlayType, { x: 80 + n * 30, y: 80 + n * 30 }));
-        break;
-      }
-      case 'overlay.duplicate': {
-        const list = this.overlayList(a.layoutId, a.variation);
-        const src = list?.find((o) => o.id === a.overlayId);
-        if (!src) return;
-        const copy = { ...L.clone(src), id: L.uid(src.type), x: src.x + 30, y: src.y + 30, name: `${src.name} 2` };
-        list.splice(list.indexOf(src) + 1, 0, copy);
-        break;
-      }
+      // Оверлеи не добавляются и не удаляются: каждый тип всегда есть в наборе, его включают и выключают.
+      // Удалить можно только лишнюю копию, оставшуюся от старых версий, где было «Дублировать».
       case 'overlay.remove': {
         const list = this.overlayList(a.layoutId, a.variation);
         const i = list?.findIndex((o) => o.id === a.overlayId) ?? -1;
-        if (i < 0) return;
+        if (i < 0 || list.filter((o) => o.type === list[i].type).length < 2) return;
         list.splice(i, 1);
         break;
       }

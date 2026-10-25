@@ -141,10 +141,8 @@ function renderOverlays() {
   if (selOv !== 'none' && !list.some((o) => o.id === selOv)) selOv = list[0]?.id ?? null;
   const o = list.find((x) => x.id === selOv) || null;
 
-  // список: что уже в наборе (с переключателем «показывать») и что можно добавить
+  // список: все оверлеи набора по группам, у каждого переключатель «показывать» (добавлять и удалять нечего)
   const varNote = variation !== 'base' ? `, ${VAR_LABELS[variation].toLowerCase()}` : '';
-  // тип, который уже есть в наборе, второй раз не предлагаем (копия — через «Дублировать»)
-  const addable = Object.entries(S.types).filter(([t]) => !list.some((x) => x.type === t));
   $('ovList').innerHTML = `
     <div class="group">
       <div class="label"><span>Раскладка</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>
@@ -157,11 +155,7 @@ function renderOverlays() {
         </div>`).join('')}` : '';
       }).join('') : '<div class="empty-list">Пока пусто.</div>'}
     </div>
-    ${addable.length ? `<div class="group">
-      <div class="label">Добавить</div>
-      ${addable.map(([t, m]) => `
-        <div class="row adder" data-add="${t}" title="${esc(TYPE_INFO[t] || '')}">${icon('plus', 'sm')}<span class="name">${esc(m.title)}</span></div>`).join('')}
-    </div>` : ''}`;
+`;
   const placeInd = () => moveIndicator($('listInd'), document.querySelector(`#ovList .row[data-ov="${selOv}"]`), 34);
   placeInd();
   requestAnimationFrame(placeInd);
@@ -412,10 +406,11 @@ function renderOverlaySettings(o, layout, variation) {
           <div class="urlbox"><div class="field mono" title="${esc(url)}">${esc(url.replace(/^https?:\/\//, ''))}</div></div>
         </details>
       </div>`;
-  const bActions = `<div class="actions">
-        <button class="btn quiet" data-ov-act="overlay.duplicate">${icon('copy', 'sm')}Дублировать</button>
-        <button class="btn danger" data-ov-act="overlay.remove">${icon('trash-2', 'sm')}Удалить</button>
-      </div>`;
+  // удалить можно только лишнюю копию из старых версий (тогда было «Дублировать»); сам тип остаётся в наборе всегда
+  const isCopy = currentSet().list.filter((x) => x.type === o.type).length > 1;
+  const bActions = isCopy ? `<div class="actions">
+        <button class="btn danger" data-ov-act="overlay.remove">${icon('trash-2', 'sm')}Удалить копию</button>
+      </div>` : '';
   if (!OV_TABS.some(([k]) => k === ovTab)) ovTab = 'main';
   const pane = ovTab === 'main' ? bWhere + bScale + bBg + bSplit + bWin + bActions
     : ovTab === 'view' ? (o.type === 'sr' ? srBlock(o) : o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
@@ -1086,7 +1081,6 @@ document.addEventListener('click', (e) => {
   // Оверлеи
   if ('ovFold' in d) { setOvCollapsed(!ovCollapsed); return; }
   if (d.ov && !e.target.closest('.sw')) { selOv = d.ov; if (ovCollapsed) setOvCollapsed(false); return render(); }
-  if (d.add) { selOv = null; }
   if ('ovClose' in d) { selOv = 'none'; return render(); }
   if ('rename' in d) { const n = $('ovName'); n?.focus(); n?.select(); return; }
   if (d.vis) {
@@ -1094,9 +1088,8 @@ document.addEventListener('click', (e) => {
     const cur = d.vis === 'onTrack' ? o?.visibility?.onTrack !== false : !!o?.visibility?.[d.vis];
     return ovAction('overlay.update', { patch: { visibility: { [d.vis]: !cur } } });
   }
-  if (d.add) { act({ type: 'overlay.add', layoutId: sel.layoutId, variation: currentSet().variation, overlayType: d.add }); return; }
   if (d.ovAct) {
-    if (d.ovAct === 'overlay.remove' && !confirm('Удалить оверлей из набора?')) return;
+    if (d.ovAct === 'overlay.remove' && !confirm('Удалить эту копию оверлея?')) return;
     return ovAction(d.ovAct);
   }
 

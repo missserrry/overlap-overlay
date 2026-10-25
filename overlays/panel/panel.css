@@ -203,8 +203,6 @@ select.field { appearance: none; background-image: linear-gradient(45deg, transp
 .urlbox .btn { position: absolute; right: 2px; top: 2px; height: 32px; width: 32px; padding: 0; background: transparent; color: var(--muted); }
 .urlbox .btn:hover { color: var(--text); background: var(--card); }
 .row.muted.on { color: var(--muted); }
-.row.adder { color: var(--muted); }
-.row.adder .ico { opacity: 0.8; }
 .settings .head input:hover { border-color: var(--line); }
 .settings .head input:focus { border-color: rgba(255, 255, 255, 0.16); background: var(--raised); }
 .settings .kind { color: var(--muted); margin: 0 0 4px; }

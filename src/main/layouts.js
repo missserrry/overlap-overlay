@@ -445,6 +445,23 @@ function findMatchingLayout(layouts, ctx) {
 // ---------- активный набор оверлеев ----------
 
 // Какой вариант раскладки сейчас действует: споттинг важнее типа сессии
+// Каждый тип оверлея всегда есть в наборе раскладки: в панели его только включают и выключают.
+// Недостающие (новые типы после обновления, наборы из старых версий) добавляются выключенными.
+function ensureAllTypes(list) {
+  if (!Array.isArray(list)) return false;
+  let n = list.length, added = false;
+  for (const type of Object.keys(OVERLAY_TYPES)) {
+    if (list.some((o) => o.type === type)) continue;
+    const o = createOverlay(type, { x: 80 + n * 30, y: 80 + n * 30 });
+    o.enabled = false;
+    list.push(o);
+    n++;
+    added = true;
+  }
+  return added;
+}
+const ensureLayoutTypes = (l) => [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)].map(ensureAllTypes).some(Boolean);
+
 function activeVariation(layout, { session, spotting }) {
   const v = layout?.variations || {};
   if (spotting && v.spotting?.enabled) return 'spotting';
@@ -460,7 +477,7 @@ function overlaysOf(layout, variation) {
 
 module.exports = {
   OVERLAY_TYPES, VARIATIONS, SESSION_TYPES, CATEGORIES,
-  createOverlay, createLayout, clone, uid,
+  createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
   DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr,

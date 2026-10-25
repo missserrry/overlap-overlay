@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const P = require('./palette');
-const { createLayout, createOverlay, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeSizes, normalizeRel, normalizeTraffic } = require('./layouts');
+const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeSizes, normalizeRel, normalizeTraffic } = require('./layouts');
 
 const DEFAULTS = {
   port: 8900,
@@ -32,6 +32,7 @@ function defaultLayouts(oldOverlays) {
     fromOld('relative', { x: 500, y: 40 }),
   ]);
   main.isDefault = true;
+  ensureLayoutTypes(main);
   return [main];
 }
 
@@ -48,6 +49,7 @@ function load(dir) {
   cfg.palette = P.normalize(cfg.palette);
   // у оверлеев из старых конфигов колонок ещё нет
   for (const l of cfg.layouts) {
+    ensureLayoutTypes(l);
     const lists = [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)];
     for (const list of lists) for (const o of list || []) {
       o.columns = normalizeColumns(o.type, o.columns);
