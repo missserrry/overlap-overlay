@@ -236,6 +236,9 @@ body.edit .rz { display: block; }
 /* ---------- Дополнительные колонки ---------- */
 /* Боковая ячейка: ширину задаёт колонка (--w), как у заголовка боковой панели */
 .sc { width: calc(var(--w) + var(--sx, 0px)); flex: none; box-sizing: content-box; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* дельта круга к вашему: быстрее вас — красным (он вас опережает), медленнее — зелёным */
+.sc.ld-fast { color: var(--red); }
+.sc.ld-slow { color: var(--green); }
 /* второстепенные времена потише, чтобы столбец отрыва и лучший круг читались первыми */
 .sc.int-v, .sc.last-v { color: var(--text-dim); }
 .row.player .sc.int-v, .row.player .sc.last-v { color: var(--text); }

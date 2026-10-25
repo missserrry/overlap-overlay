@@ -3,6 +3,9 @@
 
 function buildStandings(race) {
   const classes = [...race.classes.values()].sort((a, b) => b.relSpeed - a.relSpeed);
+  // Дельта круга: прошлый круг пилота минус ваш прошлый круг. Только внутри вашего класса: сравнивать GT3 с гиперкаром бессмысленно
+  const mine = classes.find((cls) => cls.cars.some((c) => c.isPlayer));
+  const myLap = mine?.cars.find((c) => c.isPlayer)?.lastLap;
   return {
     kind: race.kind,
     sessionName: race.sessionName,
@@ -27,6 +30,7 @@ function buildStandings(race) {
         int: c.int,
         bestLap: c.bestLap,
         lastLap: c.lastLap,
+        lapDelta: cls === mine && !c.isPlayer && myLap > 0 && c.lastLap > 0 ? c.lastLap - myLap : null,
         isFastest: !!c.bestLap && c.bestLap === cls.fastest,
         isPlayer: c.isPlayer,
         onPitRoad: c.onPitRoad,

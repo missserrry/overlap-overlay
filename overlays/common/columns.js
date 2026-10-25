@@ -19,6 +19,7 @@ export const DEFS = {
   int:   { prio: 30, zone: 'side', w: 3.6, head: 'Int' },
   last:  { prio: 20, zone: 'side', w: 6.4, head: 'Last' },
   best:  { prio: 25, zone: 'side', w: 6.4, head: 'Fastest' },
+  lapDelta: { prio: 22, zone: 'side', w: 4.4, head: 'Δ Lap' },
   tire:  { prio: 38, zone: 'side', w: 2.6, head: 'Tyre' },
   pit:   { prio: 35, zone: 'side', w: 3.2, head: 'Pit' },
 };
@@ -29,7 +30,7 @@ const DEFAULTS = {
 };
 const SUPPORTED = {
   relative: new Set(['pos', 'cls', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'last', 'pit']),
-  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'pit']),
+  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'lapDelta', 'pit']),
 };
 
 // ---------- какие колонки включены (адрес ?cols=..., настройки из приложения, сообщение панели) ----------
@@ -103,6 +104,11 @@ function cellRaw(id, r, ctx) {
       const d = r.posChange;
       if (!d) return '<span class="pch"></span>';
       return `<span class="pch ${d > 0 ? 'up' : 'down'}">${d > 0 ? ARROW_UP : ARROW_DOWN}${Math.abs(d)}</span>`;
+    }
+    case 'lapDelta': {
+      const d = r.lapDelta;      // секунды: меньше нуля — пилот проехал круг быстрее вас
+      if (d == null || !Number.isFinite(d) || Math.abs(d) >= 100) return side('lapDelta', 'ld-v', '');
+      return side('lapDelta', `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
     }
     case 'tire': return side('tire', 'tire-v', r.tire ? tireHtml(r.tire) : '');
     case 'cls': return `<span class="ctag" style="--cls:${esc(r.classColor)}" title="${esc(r.className)}">${esc((r.className || '').slice(0, 5))}</span>`;
