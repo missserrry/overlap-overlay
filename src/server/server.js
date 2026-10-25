@@ -140,7 +140,7 @@ function startServer(options = {}) {
     if (snap.connected) {
       try {
         race = buildRaceState(snap);
-        attachSr(race, srTracker.frame(), snap.vars?.PlayerCarIdx);
+        attachSr(race, srTracker.frame(), snap.vars?.PlayerCarIdx, snap.demoSr);
       } catch (e) {
         console.error('[server] model error:', e);
       }
@@ -177,8 +177,10 @@ function startServer(options = {}) {
 }
 
 // Оценка SR известна только для вас: кладём её в вашу машину (рядом с лицензией в таблицах) и в сводку для шапки
-function attachSr(race, sr, playerIdx) {
+function attachSr(race, sr, playerIdx, demoSr = null) {
   race.sr = sr;
+  // демо: примеры роста и падения у соперников, чтобы в превью было видно, как выглядит прирост SR
+  if (demoSr) for (const c of race.cars) if (demoSr[c.carIdx] != null) c.srDelta = demoSr[c.carIdx];
   const me = race.cars.find((c) => c.carIdx === playerIdx);
   if (me && sr?.active && sr.weight > 0 && sr.delta != null) me.srDelta = sr.delta;
 }
