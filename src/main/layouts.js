@@ -327,6 +327,12 @@ const normalizeSr = (cur, patch) => normalizeSchema(SR_ITEMS, cur, patch);
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
+// Игры: для каждой — какие оверлеи в ней работают (null — все)
+const GAMES = {
+  iracing: { name: 'iRacing', types: null },
+  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'rejoin', 'traffic'] },
+};
+const gameAllows = (game, type) => { const t = (GAMES[game] || GAMES.iracing).types; return !t || t.includes(type); };
 
 const uid = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -476,7 +482,7 @@ function overlaysOf(layout, variation) {
 }
 
 module.exports = {
-  OVERLAY_TYPES, VARIATIONS, SESSION_TYPES, CATEGORIES,
+  OVERLAY_TYPES, VARIATIONS, SESSION_TYPES, CATEGORIES, GAMES, gameAllows,
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,

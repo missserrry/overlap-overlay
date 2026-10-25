@@ -7,6 +7,7 @@ const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normal
 const DEFAULTS = {
   port: 8900,
   demo: 'auto',            // auto | on | off
+  game: 'iracing',         // для какой игры оверлеи: iracing | lmu (см. GAMES в layouts.js)
   autoSwitch: true,        // выбирать раскладку по машине/сессии
   locked: true,            // оверлеи закреплены (клики проходят в игру)
   hiddenAll: false,

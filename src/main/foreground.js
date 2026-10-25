@@ -69,5 +69,8 @@ function isShown(hwnd) {
 }
 
 const isIRacing = (exe) => /^iracingsim/.test(exe);   // iRacingSim64DX11.exe, iRacingSim64.exe
+const isLMU = (exe) => /^le mans ultimate/.test(exe);  // Le Mans Ultimate.exe
+// Окно какой-либо из поддерживаемых игр: бывает, что запущены обе, поэтому выбор игры в панели тут не важен
+const isSim = (exe) => isIRacing(exe) || isLMU(exe);
 
-module.exports = { foreground, isIRacing, monitorOf, isShown };
+module.exports = { foreground, isIRacing, isLMU, isSim, monitorOf, isShown };

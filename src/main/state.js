@@ -44,13 +44,13 @@ class LayoutState {
     // В режиме редактирования показываем то, что выбрано в панели, — так можно расставить любой вариант
     if (editing && this.panelSelection && this.layout(this.panelSelection.layoutId)) {
       const l = this.layout(this.panelSelection.layoutId);
-      return L.overlaysOf(l, this.panelSelection.variation).filter((o) => o.enabled);
+      return L.overlaysOf(l, this.panelSelection.variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type));
     }
     const { layout } = this.resolve();
     const variation = L.activeVariation(layout, this.sim);
     // Не в режиме редактирования: прячем всё, пока игра не в фокусе (alt-tab, рабочий стол), если так включено
     if (!editing && this.cfg.onlyWhenFocused !== false && !this.gameFocused) return [];
-    return L.overlaysOf(layout, variation).filter((o) => o.enabled && (editing || this.visibleNow(o, variation)));
+    return L.overlaysOf(layout, variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type) && (editing || this.visibleNow(o, variation)));
   }
 
   // Показывать ли оверлей прямо сейчас (по галочкам «Где показывать»):
@@ -109,6 +109,7 @@ class LayoutState {
       paletteLive: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.liveVars(this.cfg.palette, t)])),
       paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
       categories: L.CATEGORIES,
+      games: L.GAMES,
     };
   }
 
@@ -123,6 +124,7 @@ class LayoutState {
     switch (a.type) {
       case 'app.set': {
         for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo', 'onlyWhenFocused', 'autoUpdate', 'lastSeenVersion']) if (k in a) this.cfg[k] = a[k];
+        if ('game' in a && L.GAMES[a.game]) this.cfg.game = a.game;
         if ('autoSwitch' in a) this.manual = null;
         break;
       }

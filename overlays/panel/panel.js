@@ -1,5 +1,5 @@
 // Панель Overlap. Состояние живёт в главном процессе; здесь отрисовка и отправка действий.
-// Разделы: Оверлеи (список | настройки | живое превью), Раскладки, Ливреи, Настройки.
+// Разделы: Оверлеи (список | настройки | живое превью), Раскладки, Палитра, Ливреи, внизу Игра и Настройки.
 
 const bridge = window.panelBridge;
 const $ = (id) => document.getElementById(id);
@@ -10,7 +10,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 const icon = (name, cls = '') => `<i class="ico ${cls}" style="--i:url(/vendor/icons/${name}.svg)"></i>`;
 const sw = (attrs, on) => `<label class="sw"><input type="checkbox" ${attrs} ${on ? 'checked' : ''}><i></i></label>`;
 
-const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', liveries: 'Ливреи', settings: 'Настройки' };
+const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', game: 'Игра', liveries: 'Ливреи', settings: 'Настройки' };
 const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
@@ -83,13 +83,22 @@ function currentSet() {
 
 // ---------- каркас ----------
 
+// Выбранная игра: в LMU работает только часть оверлеев, а ливреи Trading Paints — только в iRacing
+const game = () => (S.games[S.cfg.game] ? S.cfg.game : 'iracing');
+const gameName = () => S.games[game()].name;
+const gameAllows = (type) => { const t = S.games[game()].types; return !t || t.includes(type); };
+
 function render() {
+  const lmu = game() === 'lmu';
+  $('liveriesBtn').hidden = lmu;
+  if (lmu && view === 'liveries') view = 'overlays';
   $('title').textContent = TITLES[view];
   renderStatus();
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
   if (view === 'overlays') renderOverlays();
   else if (view === 'layouts') renderLayouts();
   else if (view === 'palette') renderPalette();
+  else if (view === 'game') renderGame();
   else if (view === 'liveries') renderLiveries();
   else renderSettings();
 }
@@ -107,7 +116,8 @@ function moveIndicator(ind, target, h) {
 function renderStatus() {
   const sim = S.sim;
   let dot = '', text;
-  if (sim.source === 'iracing' && sim.connected) { dot = 'live'; text = sim.car ? `iRacing · ${sim.car}` : 'iRacing подключён'; }
+  if (game() === 'lmu') { dot = sim.source === 'demo' ? '' : 'bad'; text = `LMU: чтение данных в разработке${sim.source === 'demo' ? ' · демо' : ''}`; }
+  else if (sim.source === 'iracing' && sim.connected) { dot = 'live'; text = sim.car ? `iRacing · ${sim.car}` : 'iRacing подключён'; }
   else if (sim.source === 'demo') text = 'iRacing не в сессии · демо';
   else { dot = 'bad'; text = 'iRacing не запущен'; }
   const editing = !S.cfg.locked;
@@ -137,7 +147,8 @@ function renderOverlays() {
   }
   const fb = $('foldBtn');
   if (fb) { fb.innerHTML = icon(ovCollapsed ? 'chevron-right' : 'chevron-left', 'sm'); fb.title = ovCollapsed ? 'Показать настройки' : 'Скрыть настройки'; fb.setAttribute('aria-label', fb.title); fb.setAttribute('aria-expanded', String(!ovCollapsed)); }
-  const { layout, list, variation } = currentSet();
+  const { layout, variation } = currentSet();
+  const list = currentSet().list.filter((x) => gameAllows(x.type));
   if (selOv !== 'none' && !list.some((o) => o.id === selOv)) selOv = list[0]?.id ?? null;
   const o = list.find((x) => x.id === selOv) || null;
 
@@ -762,10 +773,10 @@ function renderPalette() {
     mounted = 'palette';
     palPreviewKey = null;
   }
-  if (palScope !== 'all' && !S.types[palScope]) palScope = 'all';
+  if (palScope !== 'all' && !(S.types[palScope] && gameAllows(palScope))) palScope = 'all';
   const scope = palScope;
   const own = palOwn(scope);
-  const types = Object.entries(S.types);
+  const types = Object.entries(S.types).filter(([t]) => gameAllows(t));
   const dotOf = (t) => (Object.keys(S.cfg.palette?.types?.[t] || {}).length ? '<i class="pal-dot" title="Своя палитра"></i>' : '');
 
   $('palList').innerHTML = `
@@ -807,9 +818,10 @@ function renderPalette() {
 }
 
 function renderPalPreview() {
+  if (!gameAllows(palPrev)) palPrev = Object.keys(S.types).find(gameAllows);
   const type = palScope === 'all' ? palPrev : palScope;
   const m = S.types[type];
-  $('palTypes').innerHTML = palScope === 'all' ? `<span class="seg">${Object.entries(S.types).map(([t, x]) => `<button class="${t === type ? 'on' : ''}" data-pal-prev="${t}">${esc(x.title)}</button>`).join('')}</span>` : '';
+  $('palTypes').innerHTML = palScope === 'all' ? `<span class="seg">${Object.entries(S.types).filter(([t]) => gameAllows(t)).map(([t, x]) => `<button class="${t === type ? 'on' : ''}" data-pal-prev="${t}">${esc(x.title)}</button>`).join('')}</span>` : '';
   const stage = $('palStage');
   if (palPreviewKey !== type) {
     stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${type}/?bg=0.8&scale=1&palette=${palVarsFor(type)}"></iframe></div>`;
@@ -993,7 +1005,7 @@ function renderSettings() {
           </select>
           <span>Автовыбор раскладки</span>
           <span>${sw('data-app="autoSwitch"', c.autoSwitch)}</span>
-          <span>Показывать только когда iRacing в фокусе</span>
+          <span>Показывать только когда игра в фокусе</span>
           <span>${sw('data-app="onlyWhenFocused"', c.onlyWhenFocused !== false)}</span>
         </div>
         <details class="hf-details" data-cfg-details="obs:server" style="margin-top:14px" ${cfgOpen['obs:server'] ? 'open' : ''}>
@@ -1028,6 +1040,32 @@ function renderSettings() {
         </div>
       </div>
     </div></div>`;
+}
+
+// ---------- Игра ----------
+
+// Две большие плитки: iRacing и LMU. Логотипы — overlays/common/games/<id>.svg или .png; если файла нет, пишем название.
+const GAME_NOTES = { iracing: 'Все оверлеи и ливреи Trading Paints' };
+function renderGame() {
+  mounted = 'game';
+  const cur = game();
+  $('card').innerHTML = `
+    <div class="game-screen fade" role="radiogroup" aria-label="Игра">
+      ${Object.entries(S.games).map(([id, g]) => `
+        <button class="game-tile ${id === cur ? 'on' : ''} ${g.short ? '' : 'same-word'}" data-game="${id}" role="radio" aria-checked="${id === cur}">
+          <span class="game-logo"><img alt="" draggable="false" data-logo="${id}"><span class="game-word">${esc(g.short || g.name)}</span></span>
+          <span class="game-name">${esc(g.name)}</span>
+          <span class="game-note">${esc(GAME_NOTES[id] || (g.types || []).map((t) => S.types[t]?.title || t).join(', '))}</span>
+          <span class="game-check">${icon('check', 'sm')}${id === cur ? 'Выбрана' : 'Выбрать'}</span>
+        </button>`).join('')}
+    </div>`;
+  document.querySelectorAll('img[data-logo]').forEach((img) => {
+    const exts = ['svg', 'png'];
+    const next = () => { const e = exts.shift(); if (e) img.src = `/common/games/${img.dataset.logo}.${e}`; else img.closest('.game-logo').classList.add('no-img'); };
+    img.addEventListener('error', next);
+    img.addEventListener('load', () => img.closest('.game-logo').classList.add('has-img'));
+    next();
+  });
 }
 
 // ---------- события ----------
@@ -1068,6 +1106,7 @@ document.addEventListener('click', (e) => {
   if (d.palPreset) return act({ type: 'palette.preset', scope: palScope, id: d.palPreset });
   if ('palReset' in d) return act({ type: 'palette.reset', scope: palScope });
   if (d.palClear) return act({ type: 'palette.set', scope: d.palSc || palScope, key: d.palClear, value: null });
+  if (d.game) return act({ type: 'app.set', game: d.game });
   if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
   if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });

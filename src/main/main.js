@@ -5,7 +5,7 @@
 const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification } = require('electron');
 const logger = require('./logger');
-const { foreground, isIRacing, monitorOf, isShown } = require('./foreground');
+const { foreground, isSim, monitorOf, isShown } = require('./foreground');
 const { startServer } = require('../server/server');
 const config = require('./config');
 const P = require('./palette');
@@ -161,7 +161,7 @@ function watchForeground() {
     const f = foreground();
     if (!f.exe && !f.pid) return;
     if (f.pid === process.pid) return;
-    let focused = isIRacing(f.exe);
+    let focused = isSim(f.exe);
     if (focused) simWindow = f.hwnd;
     else if (simWindow && isShown(simWindow)) {
       const simMonitor = monitorOf(simWindow), fgMonitor = monitorOf(f.hwnd);

@@ -402,3 +402,32 @@ details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
 .sum-n { min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pal-note { position: absolute; left: 16px; right: 16px; bottom: 44px; padding: 8px 12px; border-radius: 8px; background: var(--raised); color: var(--muted); font-size: var(--fs-label); text-align: center; }
+
+/* ---------- Игра: две большие плитки на весь экран ---------- */
+.game-screen { height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; }
+.game-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); color: var(--text);
+  padding: 32px 24px; text-align: center; min-height: 0;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+}
+.game-tile:hover { background: #20242a; }
+.game-tile.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.game-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.game-logo { width: min(60%, 280px); aspect-ratio: 1; display: grid; place-items: center; margin-bottom: 18px; }
+.game-logo img { display: none; max-width: 100%; max-height: 100%; object-fit: contain; }
+.game-logo.has-img img { display: block; }
+.game-logo.has-img .game-word { display: none; }
+/* пока нет файла логотипа — название крупно */
+.game-word { font-size: clamp(32px, 6vw, 64px); font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.game-name { font-size: var(--fs-title); font-weight: 600; }
+/* без логотипа крупно уже написано полное название — второй раз не повторяем */
+.game-tile.same-word .game-logo:not(.has-img) + .game-name { display: none; }
+.game-note { color: var(--muted); max-width: 32ch; }
+.game-check {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; height: 28px; padding: 0 12px; border-radius: 999px;
+  background: var(--card); color: var(--muted); font-weight: 600;
+}
+.game-check .ico { display: none; }
+.game-tile.on .game-check { background: var(--accent); color: #15171A; }
+.game-tile.on .game-check .ico { display: inline-block; }
