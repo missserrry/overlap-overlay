@@ -185,20 +185,11 @@ function renderOverlays() {
   renderPreview(o);
 }
 
-// Вид таблицы (Relative, Standings): сначала то, что включено, ниже расширенное в закрытых блоках
+// Вид таблицы (Relative, Standings): все колонки одним списком, у каждой переключатель — как в шапке и подвале
 function tableView(o) {
-  const cat = S.columnCatalog || {};
-  const cols = (o.columns || []).filter((c) => !cat[c.id]?.sub);
-  const onCount = cols.filter((c) => c.on).length;
-  const rowsOn = columnRows(o, true), rowsOff = columnRows(o, false);
-  const offCount = cols.length - onCount;
   return `<div class="block">
         <div class="label">Колонки</div>
-        <div class="cols-list" id="colsList">${rowsOn}</div>
-        ${offCount ? `<details class="hf-details" data-cfg-details="cols:more" style="margin-top:10px" ${cfgOpen['cols:more'] ? 'open' : ''}>
-          <summary><span class="hf-sum">Ещё поля (${offCount})</span>${icon('chevron-down', 'sm')}</summary>
-          <div class="cols-list" style="margin-top:8px">${rowsOff}</div>
-        </details>` : ''}
+        <div class="cols-list" id="colsList">${columnRows(o)}</div>
         <p class="hint" style="margin-top:8px">Порядок меняется перетаскиванием. В узком окне лишние колонки уходят сами.</p>
       </div>
       ${o.type === 'relative' ? relBlock(o) : ''}
@@ -208,7 +199,7 @@ function tableView(o) {
 }
 
 // Строки колонок: «прирост iRating» — вложенный переключатель под iRating, в порядок не входит
-function columnRows(o, showOn = null) {
+function columnRows(o, showOn = null) {   // showOn: null — все колонки, true/false — только включённые/выключенные
   const cat = S.columnCatalog || {};
   const cols = o.columns || [];
   const on = (id) => !!cols.find((c) => c.id === id)?.on;
