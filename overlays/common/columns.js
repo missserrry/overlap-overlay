@@ -104,7 +104,25 @@ export function brandHtml(b) {
 }
 
 // Состав шин: кольцо цвета состава и такая же буква по центру (SVG — буква встаёт ровно, без зависимости от шрифта)
-const tireHtml = (t) => `<svg class="tire" viewBox="0 0 20 20" role="img" aria-label="${esc(t.name)}"><title>${esc(t.name)}</title><circle cx="10" cy="10" r="8.2" fill="rgba(0,0,0,0.35)" stroke="${esc(t.color)}" stroke-width="2.2"/><text x="10" y="10.4" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="700" fill="${esc(t.color)}">${esc(t.code)}</text></svg>`;
+// Буквы шин нарисованы контурами, а не шрифтом: у шрифта буквы центруются по-своему и «плывут» внутри кольца.
+// Каждая буква вписана в рамку 7.2 в высоту, по центру кольца (10, 10), и симметрична относительно своей оси.
+const TIRE_GLYPHS = {
+  S: 'M12.3 7.9C12.3 6.7 11.3 6.4 10 6.4C8.6 6.4 7.7 7.1 7.7 8.2C7.7 9.3 8.6 9.7 10 10C11.4 10.3 12.3 10.7 12.3 11.8C12.3 12.9 11.4 13.6 10 13.6C8.7 13.6 7.7 13.3 7.7 12.1',
+  M: 'M7 13.6V6.4L10 11L13 6.4V13.6',
+  H: 'M7.2 6.4V13.6M12.8 6.4V13.6M7.2 10H12.8',
+  D: 'M7.3 6.4V13.6H9.2C11.7 13.6 12.7 12 12.7 10C12.7 8 11.7 6.4 9.2 6.4Z',
+  W: 'M6.6 6.4L8.3 13.6L10 8.6L11.7 13.6L13.4 6.4',
+  I: 'M8.4 6.4H11.6M10 6.4V13.6M8.4 13.6H11.6',
+  P: 'M7.7 13.6V6.4H10.1C11.7 6.4 12.3 7.3 12.3 8.4C12.3 9.5 11.7 10.4 10.1 10.4H7.7',
+  A: 'M6.9 13.6L10 6.4L13.1 13.6M8.2 11.2H11.8',
+};
+const tireHtml = (t) => {
+  const c = esc(t.color), g = TIRE_GLYPHS[t.code];
+  const mark = g
+    ? `<path d="${g}" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<text x="10" y="10.4" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="700" fill="${c}">${esc(t.code)}</text>`;
+  return `<svg class="tire" viewBox="0 0 20 20" role="img" aria-label="${esc(t.name)}"><title>${esc(t.name)}</title><circle cx="10" cy="10" r="8.2" fill="rgba(0,0,0,0.35)" stroke="${c}" stroke-width="2.2"/>${mark}</svg>`;
+};
 
 const gapStandings = (g) => {
   if (!g || g.type === 'leader' || g.type === 'none') return '-';
