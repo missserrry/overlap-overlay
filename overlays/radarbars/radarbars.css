@@ -1,0 +1,11 @@
+/* Radar Bars: две вертикальные полосы по краям окна — слева и справа от вашей машины. Закрашенный участок — где сейчас кузов
+   соперника относительно вашей машины (внизу — сзади, вверху — впереди). Высота полос = высота окна, расстояние между ними =
+   ширина окна, толщина — в настройках. Цвет — --bar-color из палитры. */
+html, body { height: 100%; }
+.rbw { position: fixed; inset: 0; --thick: 14px; }
+.rbb { position: absolute; top: 0; bottom: 0; width: var(--thick); border-radius: calc(var(--thick) / 2); overflow: hidden; background: transparent; transition: background 200ms; }
+.rbb.l { left: 0; }
+.rbb.r { right: 0; }
+.rbw.track .rbb { background: rgba(255, 255, 255, 0.08); }
+body.edit .rbb { background: rgba(255, 255, 255, 0.16); }
+.rbb .rbs { position: absolute; left: 0; right: 0; border-radius: calc(var(--thick) / 2); background: var(--bar-color, #ffb020); box-shadow: 0 0 calc(var(--thick) * 0.8) color-mix(in srgb, var(--bar-color, #ffb020) 55%, transparent); opacity: 0; transition: top 90ms linear, height 90ms linear, opacity 140ms ease-out; }

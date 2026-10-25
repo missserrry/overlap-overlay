@@ -19,6 +19,7 @@ const OVERLAY_TYPES = {
   traffic: { title: 'Traffic', width: 300, height: 56 },
   sr: { title: 'Safety Rating', width: 300, height: 130 },
   forecast: { title: 'Forecast', width: 360, height: 190 },
+  radarbars: { title: 'Radar Bars', width: 360, height: 220 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -341,6 +342,17 @@ const FORECAST_SCHEMA = [
 const FORECAST_ITEMS = FORECAST_SCHEMA.flatMap((g) => g.items);
 const normalizeForecast = (cur, patch) => normalizeSchema(FORECAST_ITEMS, cur, patch);
 
+// Настройки Radar Bars (полосы машин на бортах)
+const RADARBARS_SCHEMA = [
+  { group: 'Вид', items: [
+    range('thickness', 'Толщина полос', 14, 4, 60, 2, ' px'),
+    range('range', 'Зона вдоль борта', 10, 6, 14, 1, ' м'),
+    bool('track', 'Тусклая основа полос', true),
+  ] },
+];
+const RADARBARS_ITEMS = RADARBARS_SCHEMA.flatMap((g) => g.items);
+const normalizeRadarbars = (cur, patch) => normalizeSchema(RADARBARS_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -376,6 +388,7 @@ function createOverlay(type, at = {}) {
     pitlimit: normalizePitlimit(),
     sr: normalizeSr(),
     forecast: normalizeForecast(),
+    radarbars: normalizeRadarbars(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -504,5 +517,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
 };

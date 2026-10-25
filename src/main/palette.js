@@ -6,7 +6,7 @@ const TABLE = ['relative', 'standings'];
 // Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
 const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
 const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -49,6 +49,7 @@ const GROUPS = [
       { key: 'radarDanger', label: 'Машина вплотную', def: '#FF2A1F', types: ['radar'] },
       { key: 'radarFront', label: 'Дуга спереди и сзади', def: '#FFD000', types: ['radar'] },
       { key: 'radarMe', label: 'Ваша машина', def: '#FFFFFF', types: ['radar'] },
+      { key: 'barColor', label: 'Цвет полос', def: '#FFB020', types: ['radarbars'] },
     ],
   },
   {
@@ -112,6 +113,7 @@ const CSS = {
   radarDanger: (c) => ({ '--radar-danger': c }),
   radarFront: (c) => ({ '--radar-front': c }),
   radarMe: (c) => ({ '--radar-me': c }),
+  barColor: (c) => ({ '--bar-color': c }),
   rjSafe: (c) => ({ '--rj-safe': c }),
   rjWarn: (c) => ({ '--rj-warn': c }),
   rjDanger: (c) => ({ '--rj-danger': c }),
@@ -217,7 +219,7 @@ const SEL = {
   best: ['.best.fastest'],
   badgeBg: ['.badge'],
   badgeText: ['.badge'],
-  radarWarn: ['.radarbox'], radarDanger: ['.radarbox'], radarFront: ['.radarbox'], radarMe: ['.radarbox'],
+  radarWarn: ['.radarbox'], radarDanger: ['.radarbox'], radarFront: ['.radarbox'], radarMe: ['.radarbox'], barColor: ['.rbw .rbs'],
   dashThr: ['.ring .path.thr', '.barcol[data-col=throttle] .pedal', 'canvas[data-graph]'],
   dashBrk: ['.ring .path.brk', '.barcol[data-col=brake] .pedal', 'canvas[data-graph]'],
   dashClu: ['.barcol[data-col=clutch] .pedal', 'canvas[data-graph]'],

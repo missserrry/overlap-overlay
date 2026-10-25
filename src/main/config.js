@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const P = require('./palette');
-const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeForecast, normalizeSizes, normalizeRel, normalizeTraffic } = require('./layouts');
+const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeForecast, normalizeRadarbars, normalizeSizes, normalizeRel, normalizeTraffic } = require('./layouts');
 
 const DEFAULTS = {
   port: 8900,
@@ -68,6 +68,7 @@ function load(dir) {
       if (o.type === 'pitlimit') o.pitlimit = normalizePitlimit(o.pitlimit);
       if (o.type === 'sr') o.sr = normalizeSr(o.sr);
       if (o.type === 'forecast') o.forecast = normalizeForecast(o.forecast);
+      if (o.type === 'radarbars') o.radarbars = normalizeRadarbars(o.radarbars);
     }
   }
 

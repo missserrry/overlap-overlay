@@ -80,4 +80,11 @@ function buildRadar(race) {
   };
 }
 
-module.exports = { buildRadar, CAR_LENGTH };
+// Radar Bars: только машины на бортах — смещение центра соперника вдоль вашей машины (м, плюс — впереди) и длина машины;
+// какая часть полосы закрашена, оверлей считает сам по заданной зоне
+function buildRadarBars(race) {
+  const r = buildRadar(race);
+  return { active: r.active, spotter: !!r.spotter, carLength: r.carLength, left: r.left.map((c) => ({ d: c.d })), right: r.right.map((c) => ({ d: c.d })) };
+}
+
+module.exports = { buildRadar, buildRadarBars, CAR_LENGTH };

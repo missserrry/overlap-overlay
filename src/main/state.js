@@ -102,6 +102,7 @@ class LayoutState {
       pitlimitSchema: L.PITLIMIT_SCHEMA,
       srSchema: L.SR_SCHEMA,
       forecastSchema: L.FORECAST_SCHEMA,
+      radarbarsSchema: L.RADARBARS_SCHEMA,
       paletteGroups: P.GROUPS,
       palettePresets: P.PRESETS,
       paletteDim: P.DIM,
@@ -249,6 +250,7 @@ class LayoutState {
         if (p.pitlimit && typeof p.pitlimit === 'object') o.pitlimit = L.normalizePitlimit(o.pitlimit, p.pitlimit);
         if (p.sr && typeof p.sr === 'object') o.sr = L.normalizeSr(o.sr, p.sr);
         if (p.forecast && typeof p.forecast === 'object') o.forecast = L.normalizeForecast(o.forecast, p.forecast);
+        if (p.radarbars && typeof p.radarbars === 'object') o.radarbars = L.normalizeRadarbars(o.radarbars, p.radarbars);
         if (p.fuel && typeof p.fuel === 'object') o.fuel = L.normalizeFuel(o.fuel, p.fuel);
         if (p.rejoin && typeof p.rejoin === 'object') o.rejoin = L.normalizeRejoin(o.rejoin, p.rejoin);
         if (p.laps && typeof p.laps === 'object') o.laps = L.normalizeLaps(o.laps, p.laps);
