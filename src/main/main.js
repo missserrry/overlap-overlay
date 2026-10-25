@@ -5,7 +5,7 @@
 const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification } = require('electron');
 const logger = require('./logger');
-const { foreground, isIRacing } = require('./foreground');
+const { foreground, isIRacing, monitorOf, isShown } = require('./foreground');
 const { startServer } = require('../server/server');
 const config = require('./config');
 const P = require('./palette');
@@ -151,14 +151,22 @@ function applyLiveryAction(a) {
   sendPanelState();
 }
 
-// Следим, какое окно на переднем плане: игра свернута или вы на рабочем столе — оверлеи прячутся.
+// Следим, какое окно на переднем плане: игра свернута или её закрыло другое окно — оверлеи прячутся.
 // Своё окно (панель, оверлеи) не считается уходом из игры: тогда остаётся прежнее состояние.
+// Клик по другому монитору — не уход из игры: если окно iRacing не свёрнуто, а на передний план вышло окно
+// с другого монитора (браузер, Discord, рабочий стол второго экрана), игра по-прежнему видна, и оверлеи остаются.
+let simWindow = null;   // окно iRacing, каким его видели на переднем плане в последний раз
 function watchForeground() {
   const check = () => {
     const f = foreground();
     if (!f.exe && !f.pid) return;
     if (f.pid === process.pid) return;
-    const focused = isIRacing(f.exe);
+    let focused = isIRacing(f.exe);
+    if (focused) simWindow = f.hwnd;
+    else if (simWindow && isShown(simWindow)) {
+      const simMonitor = monitorOf(simWindow), fgMonitor = monitorOf(f.hwnd);
+      focused = !!simMonitor && !!fgMonitor && simMonitor !== fgMonitor;
+    }
     if (focused !== state.gameFocused) {
       state.gameFocused = focused;
       logger.debug(`передний план: ${f.exe || '?'} → оверлеи ${focused ? 'показаны' : 'скрыты'}`);
