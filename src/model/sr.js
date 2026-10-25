@@ -50,6 +50,15 @@ function sinceBase(start, key, current) {
   return current - start[key];
 }
 
+// ---------- журнал: всё, что нужно, чтобы по логу понять, почему SR вышел таким ----------
+const f2 = (x) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(2));
+const ratingText = (r) => (r ? `${CLASS_LETTERS[r.cls] || '?'} ${f2(r.sr)}` : '—');
+function cornersSource(weekend) {
+  if (CORNERS.tracks[String(weekend?.TrackID)]) return 'таблица iRacing';
+  const n = parseInt(weekend?.TrackNumTurns, 10);
+  return Number.isFinite(n) && n > 0 ? 'TrackNumTurns из сессии (в таблице трека нет)' : 'нет данных';
+}
+
 class SrTracker {
   constructor({ stateFile = null } = {}) {
     this.stateFile = stateFile;
@@ -77,17 +86,23 @@ class SrTracker {
 
   update(snap) {
     const { vars = {}, session } = snap || {};
-    if (!snap?.connected || !session) { this.out = { active: false }; return; }
+    if (!snap?.connected || !session) {
+      if (this.out?.active) this.logSummary('игра закрыта или данных сессии нет');
+      this.out = { active: false };
+      return;
+    }
 
     const w = session.WeekendInfo || {};
     const eventKey = `${snap.source}|${w.SubSessionID ?? 0}`;
     if (eventKey !== this.eventKey) {
+      this.logSummary('событие сменилось');
       this.reset(eventKey);
       this.tryRestore(snap.source, w.SubSessionID);
     }
 
     const sessionNum = vars.SessionNum;
     if (this.start.sessionNum !== sessionNum) {
+      this.logSummary('сессия сменилась');
       // новая сессия события стартует с оценки предыдущей: iRacing переписывает SR в YAML только после события
       const carried = this.start.sessionNum != null ? this.outcome : null;
       this.start = this.freshStart(sessionNum, carried);
@@ -125,7 +140,38 @@ class SrTracker {
       if (weight > 0) out.cleanNeeded = M.cleanCornersNeeded(incidents, corners, M.cpiFromSr(rating.sr, rating.cls, rating.band));
     }
     this.out = out;
+    this.logProgress(w, session, sessionNum, out, rating);
     this.save(w.SubSessionID);
+  }
+
+  // Шапка при старте каждой сессии события и строка хода: при смене числа инцидентов и не чаще раза в минуту
+  logProgress(w, session, sessionNum, out, rating) {
+    const now = Date.now();
+    const key = `${this.eventKey}|${sessionNum}`;
+    if (this.loggedKey !== key) {
+      this.loggedKey = key;
+      this.lastLogAt = now;
+      this.lastLogInc = out.incidents;
+      console.log(`[sr] событие ${w.SubSessionID ?? '—'} (${this.eventKey?.split('|')[0]}): тип ${w.EventType || '—'}, официальное: ${w.Official == null ? '—' : Number(w.Official) ? 'да' : 'нет'}; `
+        + `сессия ${sessionNum} «${out.sessionType || '—'}», вес ${out.weight}${out.weight === 0 ? ' (SR не меняется)' : ''}; `
+        + `трек ${w.TrackID ?? '—'} «${w.TrackDisplayName || w.TrackName || '—'}», поворотов на круге ${out.cornersPerLap ?? '—'} (${cornersSource(w)}); `
+        + `старт SR ${ratingText(rating)}${this.start.carried ? ' (перенесён из прошлой сессии)' : ''}`);
+      return;
+    }
+    const incChanged = out.incidents !== this.lastLogInc;
+    if (!incChanged && now - this.lastLogAt < 60000) return;
+    this.lastLogAt = now;
+    this.lastLogInc = out.incidents;
+    console.log(`[sr] сессия ${sessionNum}: пройдено ${f2(this.distance)} кр., поворотов ${f2(out.corners)}, инцидентов ${out.incidents}${incChanged ? ' (изменилось)' : ''}, `
+      + `SR ${f2(out.srStart)} → ${f2(out.srNow)} (${out.delta == null ? '—' : (out.delta >= 0 ? '+' : '') + f2(out.delta)})`);
+  }
+
+  // Итог сессии в журнал: вызывается, когда сессия или событие закончились
+  logSummary(reason) {
+    const o = this.out;
+    if (!o?.active || this.eventKey == null || this.start.sessionNum == null || this.distance <= 0) return;
+    console.log(`[sr] итог сессии ${this.start.sessionNum} (${reason}): пройдено ${f2(this.distance)} кр., поворотов ${f2(o.corners)}, инцидентов ${o.incidents}, вес ${o.weight}, `
+      + `SR ${f2(o.srStart)} → ${f2(o.srNow)} (${o.delta == null ? '—' : (o.delta >= 0 ? '+' : '') + f2(o.delta)})`);
   }
 
   // Повороты по дистанции: только пока вы сами в машине, на трассе и не в боксе
