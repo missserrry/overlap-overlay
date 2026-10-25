@@ -346,7 +346,6 @@ const normalizeForecast = (cur, patch) => normalizeSchema(FORECAST_ITEMS, cur, p
 const RADARBARS_SCHEMA = [
   { group: 'Вид', items: [
     range('thickness', 'Толщина полос', 14, 4, 60, 2, ' px'),
-    range('range', 'Зона вдоль борта', 10, 6, 14, 1, ' м'),
     bool('track', 'Тусклая основа полос', true),
   ] },
 ];
