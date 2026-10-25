@@ -183,6 +183,11 @@ let pitHook = null, lastPit = null;
 const deliverPit = (obj) => { lastPit = obj; pitHook?.(obj); };
 export const onPitChange = (fn) => { pitHook = fn; if (lastPit) fn(lastPit); };
 
+// Настройки Safety Rating (JSON): ?sr=..., настройки приложения, панель
+let srHook = null, lastSr = null;
+const deliverSr = (obj) => { lastSr = obj; srHook?.(obj); };
+export const onSrChange = (fn) => { srHook = fn; if (lastSr) fn(lastSr); };
+
 // Размеры полей таблицы (JSON {id: %}): ?sizes=..., настройки приложения, панель
 let sizesHook = null, lastSizes = null;
 const deliverSizes = (obj) => { lastSizes = obj; sizesHook?.(obj); };
@@ -218,6 +223,7 @@ export function setupPage() {
   if (params.has('traffic')) { try { deliverTraffic(JSON.parse(params.get('traffic'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('rel')) { try { deliverRel(JSON.parse(params.get('rel'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('sizes')) { try { deliverSizes(JSON.parse(params.get('sizes'))); } catch { /* размеры по умолчанию */ } }
+  if (params.has('sr')) { try { deliverSr(JSON.parse(params.get('sr'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('pitlimit')) { try { deliverPit(JSON.parse(params.get('pitlimit'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('fuel')) { try { deliverFuel(JSON.parse(params.get('fuel'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('rejoin')) { try { deliverRejoin(JSON.parse(params.get('rejoin'))); } catch { /* настройки по умолчанию */ } }
@@ -242,6 +248,7 @@ export function setupPage() {
     if (e.data?.svoyRejoin) deliverRejoin(e.data.svoyRejoin);
     if (e.data?.svoyFuel) deliverFuel(e.data.svoyFuel);
     if (e.data?.svoyPit) deliverPit(e.data.svoyPit);
+    if (e.data?.svoySr) deliverSr(e.data.svoySr);
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
     if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
@@ -271,6 +278,7 @@ export function setupPage() {
       if (s.rel && !params.has('rel')) deliverRel(s.rel);
       if (s.sizes && !params.has('sizes')) deliverSizes(s.sizes);
       if (s.pitlimit && !params.has('pitlimit')) deliverPit(s.pitlimit);
+      if (s.sr && !params.has('sr')) deliverSr(s.sr);
       if (s.fuel && !params.has('fuel')) deliverFuel(s.fuel);
       if (s.rejoin && !params.has('rejoin')) deliverRejoin(s.rejoin);
       if (s.laps && !params.has('laps')) deliverLaps(s.laps);

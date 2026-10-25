@@ -131,7 +131,7 @@ function strengthOfField(iratings) {
 
 module.exports = {
   TELEMETRY_VARS, driverIndex, currentSession, sessionKind, sessionLetter, parseSessionTime,
-  referenceCar, strengthOfField, formatIrating, hexColor, simContext, tireNames, tireInfo,
+  referenceCar, strengthOfField, formatIrating, hexColor, simContext, tireNames, tireInfo, LICENSE_COLORS,
 };
 
 // Шины: индекс состава из телеметрии (CarIdxTireCompound) + названия составов из YAML (DriverInfo.DriverTires)

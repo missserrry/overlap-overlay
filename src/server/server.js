@@ -1,6 +1,6 @@
 // Сервер телеметрии: читает iRacing (или демо), считает модели и раздаёт их по WebSocket.
 //   HTTP:  http://127.0.0.1:<port>/relative/   /standings/   — страницы оверлеев (работают и в OBS/браузере)
-//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic
+//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic   /ws/sr
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -22,6 +22,7 @@ const { buildRejoin } = require('../model/rejoin');
 const { buildFuel } = require('../model/fuel');
 const { buildPit } = require('../model/pitlimit');
 const { buildTraffic } = require('../model/traffic');
+const { SrTracker } = require('../model/sr');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const STATIC_DIRS = {
@@ -49,6 +50,7 @@ const CHANNELS = {
   fuel: (race) => buildFuel(race),
   pitlimit: (race) => buildPit(race),
   traffic: (race) => buildTraffic(race),
+  sr: (race, opts, sr) => sr.frame(),
 };
 
 function startServer(options = {}) {
@@ -62,6 +64,8 @@ function startServer(options = {}) {
   };
 
   const sdk = new IRacingSdk();
+  // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
+  const srTracker = new SrTracker({ stateFile: opts.srStateFile || null });
   let demo = null;
   let lastOpenAttempt = 0;
   const listeners = new Set();
@@ -127,6 +131,8 @@ function startServer(options = {}) {
       listeners.forEach((fn) => fn(status));
     }
 
+    try { srTracker.update(snap); } catch (e) { console.error('[server] sr error:', e); }
+
     let race = null;
     if (snap.connected) {
       try {
@@ -139,7 +145,7 @@ function startServer(options = {}) {
       const subs = clients.get(name);
       if (!subs.size) { delete lastMessages[name]; continue; }
       const msg = JSON.stringify(race
-        ? { type: 'model', source: snap.source, data: build(race, opts) }
+        ? { type: 'model', source: snap.source, data: build(race, opts, srTracker) }
         : { type: 'model', source: snap.source, data: null });
       lastMessages[name] = msg;
       for (const ws of subs) if (ws.readyState === 1) ws.send(msg);

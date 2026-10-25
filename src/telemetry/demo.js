@@ -56,6 +56,7 @@ class DemoSource {
     return {
       WeekendInfo: {
         TrackDisplayName: 'Demo Raceway', TrackLength: '5.51 km', Category: 'SportsCar',
+        TrackID: 0, TrackNumTurns: 14, EventType: 'Race', Official: 1, SubSessionID: 0,
         WeekendOptions: { IncidentLimit: 25 },
       },
       DriverInfo: {
@@ -71,6 +72,7 @@ class DemoSource {
             CarClassID: c.cls.id, CarClassShortName: c.cls.short, CarClassRelSpeed: c.cls.relSpeed,
             CarClassColor: c.cls.color, CarClassEstLapTime: c.cls.estLap,
             IRating: c.irating, LicString: `${c.lic} ${c.sr}`, LicColor: c.licColor,
+            ...(c === this.player ? { LicString: 'C 2.75', LicLevel: 10, LicSubLevel: 275 } : {}),
           })),
         ],
       },
@@ -165,7 +167,8 @@ class DemoSource {
         SessionTime: t, SessionTimeRemain: Math.max(2700 - t, 0), SessionTimeTotal: 2700,
         SessionLapsRemainEx: 32767, SessionLapsTotal: 32767,
         SessionState: 4, IsOnTrack: true, IsInGarage: false, IsReplayPlaying: false,
-        PlayerCarMyIncidentCount: 6, PlayerCarDriverIncidentCount: 6,
+        // инциденты растут: +2 раз в 4 минуты, чтобы оценка SR в демо то росла, то падала
+        PlayerCarMyIncidentCount: 6 + 2 * Math.floor(t / 240), PlayerCarDriverIncidentCount: 6 + 2 * Math.floor(t / 240),
         CarIdxLapDistPct: pct, CarIdxLap: lap, CarIdxLapCompleted: lap.map((x) => Math.max(x - 1, -1)),
         CarIdxEstTime: est, CarIdxPosition: pos, CarIdxClassPosition: cpos, CarIdxF2Time: f2,
         CarIdxBestLapTime: best, CarIdxLastLapTime: last, CarIdxOnPitRoad: onPit,

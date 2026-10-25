@@ -17,6 +17,7 @@ const OVERLAY_TYPES = {
   fuel: { title: 'Fuel', width: 320, height: 230 },
   pitlimit: { title: 'Pit Limiter', width: 380, height: 150 },
   traffic: { title: 'Traffic', width: 300, height: 56 },
+  sr: { title: 'Safety Rating', width: 300, height: 130 },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -305,6 +306,22 @@ const TRAFFIC_SCHEMA = [
 const TRAFFIC_ITEMS = TRAFFIC_SCHEMA.flatMap((g) => g.items);
 const normalizeTraffic = (cur, patch) => normalizeSchema(TRAFFIC_ITEMS, cur, patch);
 
+// Настройки Safety Rating (оценка SR по ходу сессии)
+const SR_SCHEMA = [
+  { group: 'Что показывать', items: [
+    bool('delta', 'Изменение за сессию', true),
+    bool('start', 'SR на старте сессии', true),
+    bool('stats.incidents', 'Инциденты', true),
+    bool('stats.clean', 'Чистых поворотов до нуля', true),
+    bool('stats.corners', 'Пройдено поворотов', false),
+  ] },
+  { group: 'Когда', items: [
+    bool('hideUnranked', 'Скрывать, когда сессия не влияет на SR', true),
+  ] },
+];
+const SR_ITEMS = SR_SCHEMA.flatMap((g) => g.items);
+const normalizeSr = (cur, patch) => normalizeSchema(SR_ITEMS, cur, patch);
+
 const VARIATIONS = ['practice', 'qualify', 'race', 'spotting'];
 const SESSION_TYPES = ['practice', 'qualify', 'race'];
 const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
@@ -332,6 +349,7 @@ function createOverlay(type, at = {}) {
     rel: normalizeRel(),
     traffic: normalizeTraffic(),
     pitlimit: normalizePitlimit(),
+    sr: normalizeSr(),
     flagLayout: 'big',   // DigiFlag: big — квадрат, strip — две вертикальные полосы
     hideEmpty: false,    // DigiFlag: прятать панель, когда флага нет
     radarRange: 15,      // Radar: на сколько метров видно машины спереди и сзади
@@ -443,5 +461,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr,
 };

@@ -1,0 +1,73 @@
+import { connect, setupPage, onSrChange } from '/common/overlay.js';
+
+const params = setupPage();
+const FORCE = params.get('force') === '1';   // превью в панели: пример, который то растёт, то падает
+const root = document.getElementById('root');
+
+// по умолчанию совпадает со схемой в src/main/layouts.js (SR_SCHEMA)
+const DEFAULTS = { start: true, delta: true, 'stats.incidents': true, 'stats.corners': false, 'stats.clean': true, hideUnranked: true };
+let cfg = { ...DEFAULTS };
+let model = null;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const WEIGHT_NAME = { 1: 'гонка', 0.5: 'открытая сессия', 0.35: 'одиночная сессия' };
+
+// Пример для превью: 40 секунд по кругу — чистые повороты поднимают оценку, инцидент роняет
+function demoModel() {
+  const t = (Date.now() / 1000) % 40;
+  const incidents = t < 20 ? 0 : 4;
+  const delta = t < 20 ? 0.004 * t : 0.08 - 0.15 * Math.min((t - 20) / 4, 1) + 0.002 * Math.max(t - 24, 0);
+  const corners = 120 + t * 6;
+  return { active: true, weight: 1, srStart: 2.75, srNow: 2.75 + delta, delta, incidents, corners, cleanNeeded: incidents ? Math.max(4 * 22.4 - corners * 0.2, 0) : 0, licence: 'C', licColor: '#CA8A04' };
+}
+
+// изменение меньше 0.005 на экране — «±0.00», без знака роста или падения
+const fmtDelta = (d) => (Math.abs(d) < 0.005 ? '±0.00' : `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}`);
+
+function render() {
+  const m = FORCE ? demoModel() : model;
+  if (!m || !m.active || m.srStart == null) { root.classList.add('hidden'); return; }
+  const counts = m.weight > 0;
+  if (!counts && cfg.hideUnranked) { root.classList.add('hidden'); return; }
+  root.classList.remove('hidden');
+
+  const now = counts && m.srNow != null ? m.srNow : m.srStart;
+  // ±0.005 и меньше на экране всё равно «0.00»: не красим это ни в рост, ни в падение
+  const d = counts && m.delta != null ? m.delta : 0;
+  const dir = d >= 0.005 ? 'up' : d <= -0.005 ? 'down' : 'flat';
+  root.className = `srw ${dir}${counts ? '' : ' off'}`;
+
+  const stats = [];
+  if (counts && cfg['stats.incidents']) stats.push(`<span class="st"><small>Инциденты</small><b>${m.incidents}x</b></span>`);
+  if (counts && cfg['stats.corners']) stats.push(`<span class="st"><small>Поворотов</small><b>${Math.floor(m.corners)}</b></span>`);
+  if (counts && cfg['stats.clean'] && m.cleanNeeded != null) {
+    const n = Math.ceil(m.cleanNeeded);
+    stats.push(`<span class="st"><small>До нуля</small><b class="${n > 0 ? 'need' : 'ok'}">${n > 0 ? `${n} пов.` : 'в плюсе'}</b></span>`);
+  }
+
+  const top = counts ? `оценка · ${esc(WEIGHT_NAME[m.weight] || `вес ${m.weight}`)}` : 'не влияет на SR';
+  root.innerHTML = `<div class="top"><span>SAFETY RATING</span><span class="note">${top}</span></div>`
+    + `<div class="main"><span class="slic" style="--lic:${esc(m.licColor || '#888')}">${esc(m.licence || '')}</span>`
+    + `<b class="now">${now.toFixed(2)}</b>`
+    + (counts && cfg.delta ? `<span class="delta">${fmtDelta(d)}</span>` : '')
+    + (counts && cfg.start ? `<span class="from">было ${m.srStart.toFixed(2)}</span>` : '')
+    + `</div>`
+    + (stats.length ? `<div class="stats">${stats.join('')}</div>` : '');
+  layout();
+}
+
+// Карточка вписывается в окно: измеряем при базовом размере и подбираем масштаб
+function layout() {
+  root.style.setProperty('--scale', 1);
+  root.style.width = '300px';
+  const w0 = root.offsetWidth, h0 = root.offsetHeight;
+  if (!w0 || !h0) return;
+  const k = Math.min(window.innerWidth / w0, window.innerHeight / h0);
+  root.style.setProperty('--scale', k.toFixed(4));
+  root.style.width = `${window.innerWidth}px`;
+}
+
+onSrChange((obj) => { cfg = { ...DEFAULTS, ...obj }; render(); });
+window.addEventListener('resize', layout);
+connect('sr', (msg) => { model = msg.data; render(); });
+if (FORCE) setInterval(render, 200);

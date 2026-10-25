@@ -1,0 +1,20 @@
+/* Safety Rating: оценка SR по ходу сессии. Крупно — SR сейчас, рядом изменение за сессию (зелёное — растёт, красное — падает).
+   Снизу — инциденты и сколько чистых поворотов нужно, чтобы выйти в ноль. Размер задаёт --scale. */
+html, body { height: 100%; }
+.srw { --c: var(--text-dim); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.6em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px var(--border); }
+.srw.up { --c: var(--rj-safe, #2ee34a); }
+.srw.down { --c: var(--rj-danger, #ff3b30); }
+.srw .top { display: flex; align-items: center; justify-content: space-between; gap: 1em; font-size: 0.65em; letter-spacing: 0.12em; color: var(--text-dim); line-height: 1; white-space: nowrap; }
+.srw .top .note { letter-spacing: 0.04em; text-transform: uppercase; }
+.srw .main { display: flex; align-items: center; gap: 0.55em; line-height: 1; white-space: nowrap; }
+.srw .slic { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; border-radius: 0.35em; background: var(--lic); color: #fff; font-size: 1.05em; }
+.srw .now { font-size: 2.6em; color: var(--text); }
+.srw .delta { font-size: 1.25em; color: var(--c); transition: color 200ms; }
+.srw .from { margin-left: auto; font-size: 0.8em; font-weight: 600; color: var(--text-dim); }
+.srw .stats { display: flex; gap: 1.2em; padding-top: 0.55em; border-top: 1px solid var(--border); line-height: 1.15; white-space: nowrap; }
+.srw .st { display: flex; flex-direction: column; gap: 0.15em; }
+.srw .st small { font-size: 0.65em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+.srw .st b { font-size: 1em; color: var(--text); }
+.srw .st b.need { color: var(--rj-danger, #ff3b30); }
+.srw .st b.ok { color: var(--rj-safe, #2ee34a); }
+.srw.off .now { color: var(--text-dim); }
