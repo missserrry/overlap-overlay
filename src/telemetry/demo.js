@@ -159,8 +159,6 @@ class DemoSource {
     return {
       connected: true,
       demo: true,
-      // только для превью: примерный прирост SR у части соперников (в живой игре он известен лишь для вас)
-      demoSr: Object.fromEntries(this.cars.filter((c) => c !== this.player && c.idx % 3 !== 0).map((c) => [c.idx, ((c.idx % 2 ? 1 : -1) * (0.02 + ((c.idx * 37) % 11) / 100)) + Math.sin(t / 60 + c.idx) * 0.01])),
       tick: Math.floor(t * 60),
       sessionVersion: 1,
       session: this.session,

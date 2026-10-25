@@ -216,14 +216,6 @@ body.edit .rz { display: block; }
 .badge .delta.gain { color: var(--green); }
 .badge .delta.lose { color: var(--red); }
 .badge .delta svg { width: 0.7em; height: 0.7em; }
-/* Оценка изменения SR внутри плашки лицензии (цифра только у вашей строки, ширина — у всех) */
-.lic.with-sr { width: 6.6em; }
-.srd { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.1em; margin: 0 0.25em 0 auto; padding: 0 0.25em; border-radius: 2px; font-size: 0.857em; font-weight: 700; font-variant-numeric: tabular-nums; }
-/* тёмная подложка: цифра читается и на красной плашке Rookie, и на оранжевой D */
-.srd.gain, .srd.lose { background: rgba(0, 0, 0, 0.45); }
-.srd.gain { color: var(--sr-up, var(--green)); }
-.srd.lose { color: var(--sr-down, var(--red)); }
-.srd svg { width: 0.75em; height: 0.75em; }
 
 .gap {
   width: 3.4em;

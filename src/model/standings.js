@@ -22,7 +22,6 @@ function buildStandings(race) {
         classColor: c.classColor,
         irating: c.irating,
         iratingDelta: c.iratingDelta ?? null,
-        srDelta: c.srDelta ?? null,
         license: c.license,
         gap: c.gap,
         int: c.int,

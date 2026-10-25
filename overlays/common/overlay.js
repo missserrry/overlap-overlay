@@ -472,11 +472,7 @@ export function iratingBadge(ir, delta, showDelta = delta != null) {
   return `<span class="badge with-delta">${fmtIrating(ir)}<span class="delta ${cls}">${d}</span></span>`;
 }
 
-// srDelta — оценка изменения SR за сессию (есть только у вашей строки). Как у iRating: при включённом приросте
-// плашка шире у всех строк, а цифра стоит внутри неё между SR и буквой — колонка не «гуляет».
-export function licenseBadge(lic, srDelta = null, showSr = false) {
+export function licenseBadge(lic) {
   if (!lic) return '';
-  const has = srDelta != null && Math.abs(srDelta) >= 0.005;
-  const d = !showSr ? '' : `<span class="srd ${has ? (srDelta > 0 ? 'gain' : 'lose') : ''}">${has ? `${srDelta > 0 ? ARROW_UP : ARROW_DOWN}${Math.abs(srDelta).toFixed(2)}` : ''}</span>`;
-  return `<span class="lic${showSr ? ' with-sr' : ''}" style="--lic:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}, ${esc(lic.bgColor)});--lic-dark:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}-d, ${esc(lic.darkBgColor)})"><span class="sr">${esc(lic.safetyRank)}</span>${d}<span class="letter">${esc(lic.name)}</span></span>`;
+  return `<span class="lic" style="--lic:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}, ${esc(lic.bgColor)});--lic-dark:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}-d, ${esc(lic.darkBgColor)})"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
 }

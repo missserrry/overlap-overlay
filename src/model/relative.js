@@ -57,7 +57,6 @@ function row(car, t, d, ref, race) {
     license: car.license,
     irating: car.irating,
     iratingDelta: car.iratingDelta ?? null,
-    srDelta: car.srDelta ?? null,
     gap: Math.abs(t),
     isPlayer: car === ref,
     onPitRoad: car.onPitRoad,

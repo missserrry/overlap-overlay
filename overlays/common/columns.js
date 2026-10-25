@@ -13,7 +13,6 @@ export const DEFS = {
   brand: { prio: 45, zone: 'main' },
   name:  { prio: 99, zone: 'main' },
   lic:   { prio: 50, zone: 'main' },
-  srDelta: { prio: 10, zone: 'main' },
   ir:    { prio: 60, zone: 'main' },
   delta: { prio: 10, zone: 'main' },
   gap:   { prio: 90, zone: 'side', w: 3.6, head: 'Gap' },
@@ -29,8 +28,8 @@ const DEFAULTS = {
   standings: ['pos', 'name', 'ir', 'delta', 'gap', 'best'],
 };
 const SUPPORTED = {
-  relative: new Set(['pos', 'cls', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'srDelta', 'ir', 'delta', 'gap', 'last', 'pit']),
-  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'srDelta', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'pit']),
+  relative: new Set(['pos', 'cls', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'last', 'pit']),
+  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'pit']),
 };
 
 // ---------- какие колонки включены (адрес ?cols=..., настройки из приложения, сообщение панели) ----------
@@ -110,7 +109,7 @@ function cellRaw(id, r, ctx) {
     case 'num': return `<span class="num">${esc(r.number)}</span>`;
     case 'brand': return brandHtml(r.brand);
     case 'name': return `<span class="stripe" style="--cls:${esc(r.classColor)}"></span><span class="name">${esc(r.name)}</span>`;
-    case 'lic': return licenseBadge(r.license, r.srDelta, ctx.showSr);
+    case 'lic': return licenseBadge(r.license);
     case 'ir': return iratingBadge(r.irating, r.iratingDelta, ctx.showDelta);
     case 'gap':
       return ctx.overlay === 'relative'

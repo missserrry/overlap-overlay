@@ -29,7 +29,6 @@ const COLUMN_CATALOG = {
   brand: { label: 'Марка машины' },
   name: { label: 'Имя', fixed: true },
   lic: { label: 'Лицензия и SR' },
-  srDelta: { label: 'Прирост SR (оценка, только ваш)', sub: 'lic' },
   ir: { label: 'iRating' },
   delta: { label: 'Прирост iRating', sub: 'ir' },
   gap: { label: 'Отрыв', labelBy: { standings: 'Отрыв до лидера' } },
@@ -40,8 +39,8 @@ const COLUMN_CATALOG = {
   pit: { label: 'Питлейн' },
 };
 const COLUMN_DEFAULTS = {
-  relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, srDelta: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
-  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, srDelta: 1, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, tire: 0, pit: 0 },
+  relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
+  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, tire: 0, pit: 0 },
 };
 
 // Привести список колонок к актуальному виду: неизвестные убрать, недостающие добавить в конец
