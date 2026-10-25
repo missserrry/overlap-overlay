@@ -23,11 +23,21 @@
       "!design/**",
       "!reverse/**",
       "!scripts/**",
-      "!node_modules/koffi/build/koffi/!(win32_x64)/**"
+      "!node_modules/koffi/build/koffi/!(win32_x64)/**",
+      "!node_modules/lucide-static/!(icons|package.json|LICENSE)",
+      "!node_modules/lucide-static/!(icons|package.json|LICENSE)/**",
+      "!node_modules/@fontsource/montserrat/files/!(montserrat-@(latin|latin-ext|cyrillic)-@(600|700)-normal.woff2)",
+      "!node_modules/@fontsource-variable/inter/files/!(inter-@(latin|cyrillic)-wght-normal.woff2)",
+      "!node_modules/@fontsource/jetbrains-mono/files/!(jetbrains-mono-@(latin|cyrillic)-400-normal.woff2)"
     ],
     "asarUnpack": [
       "node_modules/koffi/**"
     ],
+    "electronLanguages": [
+      "ru",
+      "en-US"
+    ],
+    "compression": "maximum",
     "win": {
       "target": [
         "nsis",
