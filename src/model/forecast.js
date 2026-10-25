@@ -66,6 +66,36 @@ function toPercent(entries) {
 
 const SNAP = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 30, 32, 48, 60];
 
+// ---------- диагностика погоды: что игра вообще отдаёт про погоду (в журнал, раз за сессию) ----------
+const WEATHER_KEY_RE = /weather|forecast|rain|precip|skies|cloud/i;
+const WEATHER_VAR_RE = /weather|rain|precip|wet|sky|skies|wind|humid|fog|forecast|cloud|solar|pressure|density|temp/i;
+const short = (v) => { const s = typeof v === 'object' ? JSON.stringify(v) : String(v); return s.length > 80 ? `${s.slice(0, 77)}…` : s; };
+function weatherPaths(node, path = '', depth = 0, out = []) {
+  if (!node || typeof node !== 'object' || depth > 6 || out.length > 40) return out;
+  if (Array.isArray(node)) { node.slice(0, 2).forEach((x, i) => weatherPaths(x, `${path}[${i}]`, depth + 1, out)); return out; }
+  for (const [k, v] of Object.entries(node)) {
+    const p = path ? `${path}.${k}` : k;
+    if (WEATHER_KEY_RE.test(k)) out.push(`${p}=${Array.isArray(v) ? `список из ${v.length}` : v && typeof v === 'object' ? `блок {${Object.keys(v).slice(0, 8).join(',')}}` : short(v)}`);
+    weatherPaths(v, p, depth + 1, out);
+  }
+  return out;
+}
+function weatherDiag(snap) {
+  const s = snap.session || {}, w = s.WeekendInfo || {};
+  const wi = Object.entries(w).filter(([k]) => WEATHER_KEY_RE.test(k) || /temp|wind|humid|fog|date|time/i.test(k)).map(([k, v]) => `${k}=${short(v)}`);
+  const vars = Object.entries(snap.vars || {}).filter(([k, v]) => WEATHER_VAR_RE.test(k) && !Array.isArray(v) && v != null)
+    .map(([k, v]) => `${k}=${typeof v === 'number' ? +v.toFixed(3) : short(v)}`);
+  return {
+    lines: [
+      `[weather-diag] верхний уровень описания сессии: ${Object.keys(s).join(', ')}`,
+      `[weather-diag] WeekendInfo, погода и время: ${wi.join('; ') || '—'}`,
+      `[weather-diag] блоки про погоду в описании сессии: ${weatherPaths(s).join('; ') || 'нет'}`,
+      `[weather-diag] телеметрия про погоду (${vars.length}): ${vars.join('; ') || 'нет'}`,
+    ],
+    sig: JSON.stringify([Object.keys(s), weatherPaths(s).map((x) => x.split('=')[0]), Object.keys(snap.vars || {}).filter((k) => WEATHER_VAR_RE.test(k))]),
+  };
+}
+
 class ForecastTracker {
   constructor() {
     this.reset();
@@ -101,6 +131,7 @@ class ForecastTracker {
     if (!snap?.connected || !session) { this.out = { active: false }; return; }
 
     if (snap.sessionVersion !== this.version) this.load(snap);
+    this.diagnose(snap);
 
     const tod = num(vars.SessionTimeOfDay);
     const st = num(vars.SessionTime);
@@ -142,6 +173,24 @@ class ForecastTracker {
     this.out = { ...base, available: true, mult, multKnown: this.mult != null, entries: list.slice(0, 24), anchor: this.anchor };
   }
 
+  // Раз за сессию (и ещё раз через полторы минуты, если описание успело измениться) пишем в журнал, что игра отдаёт про погоду
+  diagnose(snap) {
+    const w = snap.session?.WeekendInfo || {};
+    const key = `${snap.source}|${w.SubSessionID ?? 0}|${snap.vars?.SessionNum ?? 0}`;
+    const now = Date.now();
+    if (this.diagKey !== key) {
+      this.diagKey = key;
+      const d = weatherDiag(snap);
+      this.diagSig = d.sig;
+      this.diagAgain = now + 90000;
+      for (const l of d.lines) console.log(l);
+    } else if (this.diagAgain && now >= this.diagAgain) {
+      this.diagAgain = 0;
+      const d = weatherDiag(snap);
+      if (d.sig !== this.diagSig) { this.diagSig = d.sig; console.log('[weather-diag] описание сессии изменилось, повторяю'); for (const l of d.lines) console.log(l); }
+    }
+  }
+
   // Новая версия описания сессии: заново ищем прогноз и пишем в журнал, что нашли (чтобы по логу видеть структуру)
   load(snap) {
     this.version = snap.sessionVersion;
@@ -154,8 +203,13 @@ class ForecastTracker {
       const e = this.parsed.entries;
       console.log(`[forecast] прогноз найден: ${this.parsed.path}, записей ${e.length}, первая ${JSON.stringify(e[0])}, тип погоды ${w.TrackWeatherType ?? '?'}`);
     } else {
-      const keys = Object.keys(session).filter((k) => /weather|forecast|precip/i.test(k));
-      console.log(`[forecast] прогноза в описании сессии нет; тип погоды ${w.TrackWeatherType ?? '?'}, похожие блоки: ${keys.join(', ') || '—'}`);
+      // сообщение «нет прогноза» один раз на сессию: описание сессии обновляется часто, а повторять одно и то же незачем
+      const noKey = `${snap.source}|${w.SubSessionID ?? 0}|${snap.vars?.SessionNum ?? 0}`;
+      if (this.noFcKey !== noKey) {
+        this.noFcKey = noKey;
+        const keys = Object.keys(session).filter((k) => /weather|forecast|precip/i.test(k));
+        console.log(`[forecast] прогноза в описании сессии нет; тип погоды ${w.TrackWeatherType ?? '?'}, похожие блоки: ${keys.join(', ') || '—'}`);
+      }
     }
   }
 

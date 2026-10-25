@@ -7,6 +7,7 @@ const MEM_MAP_NAME = 'Local\\IRSDKMemMapFileName';
 const FILE_MAP_READ = 0x0004;
 const STATUS_CONNECTED = 1;
 
+const WEATHER_VAR_RE = /weather|rain|precip|wet|sky|skies|wind|humid|fog|forecast|cloud|solar|pressure|density|temp/i;
 const HEADER_SIZE = 112;      // irsdk_header (48 байт) + 4 * irsdk_varBuf (16 байт)
 const VAR_HEADER_SIZE = 144;  // irsdk_varHeader
 
@@ -114,6 +115,8 @@ class IRacingSdk {
       vars.set(name, { type, offset, count });
     }
     this.vars = vars;
+    // переменные про погоду (одиночные значения): читаем все, чтобы диагностика погоды видела, что игра вообще отдаёт
+    this.weatherVars = [...vars].filter(([n, m]) => m.count === 1 && WEATHER_VAR_RE.test(n)).map(([n]) => n);
     this.varHeaderSig = sig;
   }
 
@@ -161,6 +164,7 @@ class IRacingSdk {
       const meta = this.vars.get(name);
       if (meta) out[name] = readVar(snapshot.data, meta);
     }
+    for (const name of this.weatherVars || []) if (!(name in out)) out[name] = readVar(snapshot.data, this.vars.get(name));
     return {
       connected: fresh,
       tick: snapshot.tick,
