@@ -89,13 +89,30 @@ function startServer(options = {}) {
     if (!clients.has(name)) return socket.destroy();
     wss.handleUpgrade(req, socket, head, (ws) => {
       clients.get(name).add(ws);
+      debug(`[server] канал ${name}: страница подключилась (${clients.get(name).size})`);
       if (lastMessages[name]) ws.send(lastMessages[name]);
-      ws.on('close', () => clients.get(name).delete(ws));
+      ws.on('close', () => { clients.get(name).delete(ws); debug(`[server] канал ${name}: страница отключилась (${clients.get(name).size})`); });
     });
   });
 
   const lastMessages = {};
   let status = { source: 'none', connected: false };
+
+  // Здоровье каналов (по одному на оверлей): сколько страниц подключено, когда последний раз данные ушли без ошибки,
+  // какая была последняя ошибка модели. Идёт в отчёт и в сторожа главного процесса.
+  const debug = opts.debug || (() => {});
+  const health = new Map(Object.keys(CHANNELS).map((k) => [k, { errors: 0, failing: false, lastError: '', lastOkAt: 0 }]));
+  function markOk(name) {
+    const h = health.get(name);
+    h.lastOkAt = Date.now();
+    if (h.failing) { h.failing = false; console.log(`[server] канал ${name}: снова работает`); }
+  }
+  function markError(name, e) {
+    const h = health.get(name);
+    h.errors++;
+    h.lastError = String(e?.message || e);
+    if (!h.failing) { h.failing = true; console.error(`[server] канал ${name}: ошибка модели, оверлей не обновляется: ${e?.stack || e}`); }
+  }
 
   function readSnapshot() {
     let snap = null;
@@ -153,9 +170,16 @@ function startServer(options = {}) {
     for (const [name, build] of Object.entries(CHANNELS)) {
       const subs = clients.get(name);
       if (!subs.size) { delete lastMessages[name]; continue; }
-      const msg = JSON.stringify(race
-        ? { type: 'model', source: snap.source, data: build(race, opts, srTracker, forecastTracker) }
-        : { type: 'model', source: snap.source, data: null });
+      let msg;
+      try {
+        msg = JSON.stringify(race
+          ? { type: 'model', source: snap.source, data: build(race, opts, srTracker, forecastTracker) }
+          : { type: 'model', source: snap.source, data: null });
+      } catch (e) {
+        markError(name, e);   // этот оверлей остаётся с прошлыми данными, остальные продолжают работать
+        continue;
+      }
+      markOk(name);
       lastMessages[name] = msg;
       for (const ws of subs) if (ws.readyState === 1) ws.send(msg);
     }
@@ -173,6 +197,13 @@ function startServer(options = {}) {
         onStatus(fn) { listeners.add(fn); },
         onSession(fn) { sessionListeners.add(fn); },
         get lastSession() { return lastSession; },
+        health() {
+          const now = Date.now();
+          return Object.fromEntries([...health].map(([k, h]) => [k, {
+            clients: clients.get(k).size, errors: h.errors, failing: h.failing, lastError: h.lastError,
+            okAgo: h.lastOkAt ? Math.round((now - h.lastOkAt) / 1000) : null,
+          }]));
+        },
         setDemo(mode) { opts.demo = mode; },
         get demoMode() { return opts.demo; },
         close() { clearInterval(timer); wss.close(); server.close(); sdk.close(); },

@@ -128,7 +128,7 @@ function tail(lines = 400) {
 }
 
 // Отчёт для отправки: окружение, краткая сводка настроек и хвост лога
-function buildReport({ app, screen, cfg, status }) {
+function buildReport({ app, screen, cfg, status, overlays: overlayLines = [] }) {
   const displays = screen.getAllDisplays().map((d) => `${d.size.width}×${d.size.height} @${d.scaleFactor}`).join(', ');
   const overlays = [];
   for (const l of cfg.layouts || []) {
@@ -143,6 +143,9 @@ function buildReport({ app, screen, cfg, status }) {
     `Источник данных: ${status ? JSON.stringify(status) : 'нет данных'}`,
     `Настройки: демо=${cfg.demo}, автовыбор раскладки=${cfg.autoSwitch}, закреплены=${cfg.locked}, скрыты все=${cfg.hiddenAll}, ливреи=${cfg.liveries?.enabled ? 'вкл' : 'выкл'}`,
     `Раскладок: ${(cfg.layouts || []).length}; оверлеи: ${overlays.join('; ') || 'нет'}`,
+    '',
+    '=== Оверлеи сейчас ===',
+    ...overlayLines,
     '',
     '=== Последние строки лога ===',
     tail(400) || '(лог пуст)',

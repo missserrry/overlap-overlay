@@ -53,6 +53,27 @@ class LayoutState {
     return L.overlaysOf(layout, variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type) && (editing || this.visibleNow(o, variation)));
   }
 
+  // Для диагностики: у каждого оверлея набора — на экране ли он и, если нет, почему
+  overlayStatus() {
+    const editing = !this.cfg.locked;
+    const { layout, reason } = this.resolve();
+    const variation = L.activeVariation(layout, this.sim);
+    const shown = new Set(this.desiredOverlays().map((o) => o.id));
+    const sim = this.sim.connected ? (this.sim.source === 'demo' ? 'демо' : (this.sim.inGarage ? 'в гараже' : this.sim.onTrack ? 'на трассе' : 'в меню или повторе')) : 'игры нет';
+    const why = (o) => {
+      if (!o.enabled) return 'выключен';
+      if (!L.gameAllows(this.cfg.game, o.type)) return `недоступен в игре ${this.cfg.game}`;
+      if (this.cfg.hiddenAll) return 'скрыты все оверлеи';
+      if (!editing && this.cfg.onlyWhenFocused !== false && !this.gameFocused) return 'окно игры не в фокусе';
+      if (!editing && !this.visibleNow(o, variation)) return `не подходит «Где показывать» (сейчас: ${sim})`;
+      return shown.has(o.id) ? '' : 'в режиме редактирования показывается набор, выбранный в панели';
+    };
+    return {
+      layout: layout?.name || '—', variation, reason, sim, editing,
+      list: L.overlaysOf(layout, variation).map((o) => ({ id: o.id, type: o.type, enabled: o.enabled, shown: shown.has(o.id), why: shown.has(o.id) ? '' : why(o) })),
+    };
+  }
+
   // Показывать ли оверлей прямо сейчас (по галочкам «Где показывать»):
   //   «Без игры» — iRacing не запущен (демо-режим тоже считается «без игры»);
   //   «Боксы» — вы в гараже; «Трасса» — вы за рулём и машина на трассе (включая питлейн);

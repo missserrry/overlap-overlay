@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
   logger.setVerbose(cfg.verboseLog);
   console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
-    server = await startServer({ port: cfg.port, demo: cfg.demo, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json') });
+    server = await startServer({ port: cfg.port, demo: cfg.demo, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json') });
   } catch (e) {
     console.error('Не удалось запустить сервер:', e);
     app.quit();
@@ -73,6 +73,7 @@ app.whenReady().then(async () => {
   }
   state = new LayoutState(cfg, onStateChanged);
   watchForeground();
+  watchOverlayHealth();
   state.sim = server.status;
   server.onStatus((s) => { state.sim = s; onStateChanged(); });
 
@@ -193,8 +194,25 @@ function watchOtherDownloaders() {
 
 // ---------- окна оверлеев ----------
 
+// Что сейчас на экране и почему не показаны включённые: пишем в журнал только при изменении
+let overlaySetSig = '';
+function logOverlaySet() {
+  let st;
+  try { st = state.overlayStatus(); } catch { return; }
+  const shown = st.list.filter((o) => o.shown).map((o) => o.type);
+  // скрытые включённые оверлеи группируем по причине: «окно игры не в фокусе: relative, fuel, …»
+  const byWhy = new Map();
+  for (const o of st.list) if (o.enabled && !o.shown) byWhy.set(o.why, [...(byWhy.get(o.why) || []), o.type]);
+  const hidden = [...byWhy].map(([why, types]) => `${why}: ${types.join(', ')}`);
+  const sig = JSON.stringify([st.layout, st.variation, shown, hidden]);
+  if (sig === overlaySetSig) return;
+  overlaySetSig = sig;
+  logger.write('INFO', `оверлеи: раскладка «${st.layout}» (${st.variation}), на экране: ${shown.join(', ') || 'ничего'}${hidden.length ? `; включены, но скрыты — ${hidden.join('; ')}` : ''}`);
+}
+
 function syncWindows() {
   const desired = state.desiredOverlays();
+  logOverlaySet();
   const editing = !cfg.locked;
   const ids = new Set(desired.map((o) => o.id));
 
@@ -229,10 +247,14 @@ function createOverlayWindow(o) {
   win.overlayType = o.type;
   hideFromAltTab(win);
   logger.attachWindow(win, `оверлей ${o.type}`);
+  const born = Date.now();
+  win.bornAt = born;
+  logger.write('INFO', `оверлей ${o.type}: окно создано ${o.width}×${o.height} в (${o.x}, ${o.y})`);
   win.setAlwaysOnTop(true, 'screen-saver');
   win.loadURL(`http://127.0.0.1:${server.port}/${o.type}/`);
   win.webContents.on('did-finish-load', () => {
     win.ready = true;
+    logger.write('INFO', `оверлей ${o.type}: страница загружена за ${Date.now() - born} мс`);
     const cur = state.findOverlay(win.overlayId);
     if (cur) applyOverlay(win, cur, !cfg.locked, true);
     win.showInactive();
@@ -247,7 +269,7 @@ function createOverlayWindow(o) {
   };
   win.on('moved', saveBounds);
   win.on('resized', saveBounds);
-  win.on('closed', () => windows.delete(o.id));
+  win.on('closed', () => { windows.delete(o.id); logger.write('INFO', `оверлей ${o.type}: окно закрыто`); });
   windows.set(o.id, win);
   return win;
 }
@@ -414,9 +436,44 @@ function openPanel() {
   });
 }
 
+// Сторож: оверлей на экране, а его страница так и не подключилась к серверу, или данные перестали идти
+const watchdogSeen = new Set();
+function watchOverlayHealth() {
+  setInterval(() => {
+    const health = server?.health?.() || {};
+    for (const win of windows.values()) {
+      if (win.isDestroyed() || !win.isVisible()) continue;
+      const h = health[win.overlayType];
+      if (!h) continue;
+      const age = Date.now() - (win.bornAt || Date.now());
+      const problem = h.clients === 0 && age > 20000 ? 'страница не подключена к каналу данных'
+        : h.clients > 0 && h.okAgo != null && h.okAgo > 10 ? `данные не обновляются ${h.okAgo} с` : '';
+      const key = `${win.overlayId}|${problem}`;
+      if (problem && !watchdogSeen.has(key)) { watchdogSeen.add(key); logger.write('WARN', `оверлей ${win.overlayType}: ${problem}`); }
+      if (!problem) for (const k of [...watchdogSeen]) if (k.startsWith(`${win.overlayId}|`)) { watchdogSeen.delete(k); logger.write('INFO', `оверлей ${win.overlayType}: снова в порядке`); }
+    }
+  }, 15000);
+}
+
+// Строки отчёта по оверлеям: что на экране, окно, канал данных, последняя ошибка
+function overlayReportLines() {
+  if (!state || !server) return ['(приложение ещё запускается)'];
+  const health = server.health();
+  const st = state.overlayStatus();
+  const lines = [`Игра: ${cfg.game || 'iracing'}   Раскладка: «${st.layout}» (${st.variation}, выбрана: ${st.reason})   Сейчас: ${st.sim}${st.editing ? ', режим редактирования' : ''}`];
+  for (const o of st.list) {
+    const win = windows.get(o.id);
+    const h = health[o.type] || {};
+    const winText = win && !win.isDestroyed() ? `окно ${win.isVisible() ? 'видно' : 'скрыто'}, ${win.ready ? 'страница загружена' : 'страница не загрузилась'}, ${win.getBounds().width}×${win.getBounds().height}` : 'окна нет';
+    const dataText = win && !win.isDestroyed() ? `канал: подключено ${h.clients ?? 0}, данные ${h.okAgo == null ? 'не шли' : `${h.okAgo} с назад`}${h.errors ? `, ошибок модели ${h.errors}${h.failing ? ' (сейчас сбоит)' : ''}: ${h.lastError}` : ''}` : '';
+    lines.push(`- ${o.type}: ${o.shown ? 'НА ЭКРАНЕ' : o.enabled ? `включён, скрыт — ${o.why}` : 'выключен'}${winText && o.shown ? `; ${winText}; ${dataText}` : ''}`);
+  }
+  return lines;
+}
+
 // Диагностика: папка логов, отчёт в буфер обмена или в файл
 function report() {
-  return logger.buildReport({ app, screen, cfg: cfg || {}, status: server?.status });
+  return logger.buildReport({ app, screen, cfg: cfg || {}, status: server?.status, overlays: overlayReportLines() });
 }
 function applyDiagAction(a) {
   if (a.type === 'diag.openFolder') {
