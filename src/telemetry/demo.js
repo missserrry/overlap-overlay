@@ -56,7 +56,7 @@ class DemoSource {
     return {
       WeekendInfo: {
         TrackDisplayName: 'Demo Raceway', TrackLength: '5.51 km', Category: 'SportsCar',
-        TrackID: 0, TrackNumTurns: 14, EventType: 'Race', Official: 1, SubSessionID: 0,
+        TrackID: 0, TrackNumTurns: 14, EventType: 'Race', Official: 1, SubSessionID: 0, TrackWeatherType: 'Forecast',
         WeekendOptions: { IncidentLimit: 25 },
       },
       DriverInfo: {
@@ -77,6 +77,11 @@ class DemoSource {
         ],
       },
       SplitTimeInfo: { Sectors: [0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((p, i) => ({ SectorNum: i, SectorStartPct: p })) },
+      // прогноз погоды на сутки вперёд с шагом 10 минут игровых часов: дожди приходят волнами, чтобы в превью было что показать
+      WeatherForecast: Array.from({ length: 144 }, (_, k) => ({
+        Time: k * 600, Temp: 21 + 4 * Math.sin(k / 23), WindSpeed: 3, WindDir: 1.2, Skies: 2, Humidity: 0.5, Fog: 0,
+        RainPct: Math.min(Math.max(Math.round(30 + 75 * Math.sin(k / 5.2) * Math.sin(k / 11.7 + 1)), 0), 100),
+      })),
       QualifyResultsInfo: {
         Results: [...this.cars].sort((a, b) => b.startDist - a.startDist).map((c) => ({
           CarIdx: c.idx, ClassPosition: this.cars.filter((x) => x.cls === c.cls && x.startDist > c.startDist).length,

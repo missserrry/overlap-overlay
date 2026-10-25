@@ -1,6 +1,6 @@
 // Сервер телеметрии: читает iRacing (или демо), считает модели и раздаёт их по WebSocket.
 //   HTTP:  http://127.0.0.1:<port>/relative/   /standings/   — страницы оверлеев (работают и в OBS/браузере)
-//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic   /ws/sr
+//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic   /ws/sr   /ws/forecast
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +23,7 @@ const { buildFuel } = require('../model/fuel');
 const { buildPit } = require('../model/pitlimit');
 const { buildTraffic } = require('../model/traffic');
 const { SrTracker } = require('../model/sr');
+const { ForecastTracker } = require('../model/forecast');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const STATIC_DIRS = {
@@ -51,6 +52,7 @@ const CHANNELS = {
   pitlimit: (race) => buildPit(race),
   traffic: (race) => buildTraffic(race),
   // к оценке SR — прогноз iRating игрока: в оверлее их можно показать вместе
+  forecast: (race, opts, sr, fc) => fc.frame(),
   sr: (race, opts, sr) => ({ ...sr.frame(), kind: race.kind, irDelta: race.kind === 'race' ? (playerCar(race)?.iratingDelta ?? null) : null, iratingNow: playerCar(race)?.irating ?? null }),
 };
 
@@ -69,6 +71,7 @@ function startServer(options = {}) {
   const sdk = new IRacingSdk();
   // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
   const srTracker = new SrTracker({ stateFile: opts.srStateFile || null });
+  const forecastTracker = new ForecastTracker();
   let demo = null;
   let lastOpenAttempt = 0;
   const listeners = new Set();
@@ -135,6 +138,7 @@ function startServer(options = {}) {
     }
 
     try { srTracker.update(snap); } catch (e) { console.error('[server] sr error:', e); }
+    try { forecastTracker.update(snap); } catch (e) { console.error('[server] forecast error:', e); }
 
     let race = null;
     if (snap.connected) {
@@ -149,7 +153,7 @@ function startServer(options = {}) {
       const subs = clients.get(name);
       if (!subs.size) { delete lastMessages[name]; continue; }
       const msg = JSON.stringify(race
-        ? { type: 'model', source: snap.source, data: build(race, opts, srTracker) }
+        ? { type: 'model', source: snap.source, data: build(race, opts, srTracker, forecastTracker) }
         : { type: 'model', source: snap.source, data: null });
       lastMessages[name] = msg;
       for (const ws of subs) if (ws.readyState === 1) ws.send(msg);

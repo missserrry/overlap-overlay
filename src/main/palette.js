@@ -4,9 +4,9 @@
 
 const TABLE = ['relative', 'standings'];
 // Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
-const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr'];
-const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr'];
+const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
+const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -66,9 +66,9 @@ const GROUPS = [
   },
   {
     title: 'Rejoin, Fuel и Pit Limiter', tokens: [
-      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме / SR растёт', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'sr'] },
-      { key: 'rjWarn', label: 'Осторожно / впритык', def: '#FFB020', types: ['rejoin', 'fuel'] },
-      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом / SR падает', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic', 'sr'] },
+      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме / SR растёт / дождя нет', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'sr', 'forecast'] },
+      { key: 'rjWarn', label: 'Осторожно / впритык / дождь скоро', def: '#FFB020', types: ['rejoin', 'fuel', 'forecast'] },
+      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом / SR падает / дождь идёт', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'] },
     ],
   },
   {
@@ -204,9 +204,9 @@ for (const k of Object.keys(CSS)) {
 const SEL = {
   primary: ['.row.player', '.pit-tag'],
   accent: ['.wet .bar2 i', '.compass .arrow', '.sec .fill', '.laps .ico'],
-  text: ['.name', '.row .pos', '.row .gap', '.hf b', '.sec .val', '.laps .cur', '.laps .cell b', '.fuel .stat b', '.pl .spd b', '.srw .now', '.srw .st b', '.srw .irb b'],
-  textDim: ['.bar .label', '.chip', '.inc-icon', '.sc.int-v', '.sc.last-v', '.num', '.hf .k', '.hf .of', '.standings .cols', '.class-head span:not(.cname)', '.laps .cell small', '.fuel .top', '.fuel .stat small', '.rj .top', '.pl .top', '.sec .lbl', '.tr .t small', '.srw .top', '.srw .st small', '.srw .irb small'],
-  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.radarbox', '.srw'],
+  text: ['.name', '.row .pos', '.row .gap', '.hf b', '.sec .val', '.laps .cur', '.laps .cell b', '.fuel .stat b', '.pl .spd b', '.srw .now', '.srw .st b', '.srw .irb b', '.fc .pct', '.fc .sky .ico'],
+  textDim: ['.bar .label', '.chip', '.inc-icon', '.sc.int-v', '.sc.last-v', '.num', '.hf .k', '.hf .of', '.standings .cols', '.class-head span:not(.cname)', '.laps .cell small', '.fuel .top', '.fuel .stat small', '.rj .top', '.pl .top', '.sec .lbl', '.tr .t small', '.srw .top', '.srw .st small', '.srw .irb small', '.fc .top', '.fc .when', '.fc .clk', '.fc .tmp', '.fc .none'],
+  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.radarbox', '.srw', '.fc'],
   nameColor: ['.name'],
   ahead: ['.row.lap-ahead .gap'],
   behind: ['.row.lap-behind .gap'],
@@ -223,7 +223,7 @@ const SEL = {
   dashClu: ['.barcol[data-col=clutch] .pedal', 'canvas[data-graph]'],
   secFast: ['.sec.fast .val', '.sec.ul.fast .line', '.laps .d.fast'],
   secSlow: ['.sec.slow .val', '.sec.ul.slow .line', '.laps .d.slow'],
-  rjSafe: ['.rj', '.fuel', '.pl', '.srw.up .delta', '.srw .st b.ok', '.srw .irb.up .idelta'], rjWarn: ['.rj', '.fuel', '.pl'], rjDanger: ['.rj', '.fuel', '.pl', '.tr', '.srw.down .delta', '.srw .st b.need', '.srw .irb.down .idelta'],
+  rjSafe: ['.rj', '.fuel', '.pl', '.srw.up .delta', '.srw .st b.ok', '.srw .irb.up .idelta', '.fc.dry .head'], rjWarn: ['.rj', '.fuel', '.pl', '.fc.soon .head', '.fc .cell.mid .rain'], rjDanger: ['.rj', '.fuel', '.pl', '.tr', '.srw.down .delta', '.srw .st b.need', '.srw .irb.down .idelta', '.fc.wet .head', '.fc .cell.hi .rain'],
 };
 for (const k of ['R', 'D', 'C', 'B', 'A', 'P']) SEL[`lic${k}`] = [`.lic[style*="--lic-${k.toLowerCase()},"]`];
 for (const k of Object.keys(CSS)) if (k.startsWith('flag')) SEL[k] = ['.flagbox'];

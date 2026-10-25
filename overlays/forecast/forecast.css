@@ -1,0 +1,25 @@
+/* Forecast: прогноз погоды. Сверху строка «дождь через N мин · шанс» (цвет по ситуации), ниже полоса ячеек по времени вперёд:
+   небо, шанс дождя столбиком и числом, температура. Размер задаёт --scale. */
+html, body { height: 100%; }
+.fc { --c: var(--text-dim); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.6em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px var(--border); }
+.fc.dry { --c: var(--rj-safe, #2ee34a); }
+.fc.soon { --c: var(--rj-warn, #ffb020); }
+.fc.wet { --c: var(--rj-danger, #ff3b30); }
+.fc .top { display: flex; align-items: center; font-size: 0.65em; letter-spacing: 0.12em; color: var(--text-dim); line-height: 1; }
+.fc .ico { display: inline-block; flex: none; background: var(--text-dim); -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.fc .top .ico { width: 1.3em; height: 1.3em; margin-right: 0.5em; vertical-align: -0.25em; }
+.fc .head { font-size: 1.15em; line-height: 1.15; color: var(--c); white-space: nowrap; }
+.fc .none { font-size: 0.9em; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+.fc .strip { display: flex; gap: 0.35em; }
+.fc .cell { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.3em; padding: 0.45em 0.2em; border-radius: 0.5em; background: rgba(255, 255, 255, 0.04); }
+.fc .cell.now { background: rgba(255, 255, 255, 0.09); }
+.fc .when { font-size: 0.65em; letter-spacing: 0.04em; color: var(--text-dim); white-space: nowrap; line-height: 1; text-transform: uppercase; }
+.fc .clk { font-size: 0.65em; color: var(--text-dim); line-height: 1; }
+.fc .sky .ico { width: 1.5em; height: 1.5em; background-color: var(--text); }
+.fc .rain { position: relative; width: 0.7em; height: 2.4em; border-radius: 0.35em; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.fc .rain i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text-dim); border-radius: 0.35em; transition: height 300ms; }
+.fc .cell.mid .rain i { background: var(--rj-warn, #ffb020); }
+.fc .cell.hi .rain i { background: var(--rj-danger, #ff3b30); }
+.fc .pct { font-size: 0.95em; color: var(--text); line-height: 1; }
+.fc .cell.hi .pct { color: var(--rj-danger, #ff3b30); }
+.fc .tmp { font-size: 0.8em; color: var(--text-dim); line-height: 1; }
