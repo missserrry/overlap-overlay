@@ -49,6 +49,7 @@ const RENDER = {
     if (d == null) return null;
     return item('', d ? `${d > 0 ? ARROW_UP : ARROW_DOWN}${Math.abs(d)}` : '0', d > 0 ? 'up' : d < 0 ? 'down' : '');
   },
+  sr: (i) => (i.sr?.now == null ? null : item('SR', `${i.sr.now.toFixed(2)}${i.sr.delta != null && Math.abs(i.sr.delta) >= 0.005 ? ` <small>${i.sr.delta > 0 ? '+' : '−'}${Math.abs(i.sr.delta).toFixed(2)}</small>` : ''}`, i.sr.delta >= 0.005 ? 'up' : i.sr.delta <= -0.005 ? 'down' : '')),
   irating: (i) => (i.irDelta == null || i.kind !== 'race' ? null : item('iR', `${i.irDelta > 0 ? '+' : ''}${i.irDelta}`, i.irDelta > 0 ? 'up' : i.irDelta < 0 ? 'down' : '')),
   last: (i) => item('Last', fmtLap(i.last)),
   best: (i) => item('Best', fmtLap(i.best)),

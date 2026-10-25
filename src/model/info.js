@@ -46,6 +46,8 @@ function buildInfo(race) {
     drivers: race.cars.length,
     posChange: ref?.posChange ?? null,
     irDelta: ref?.iratingDelta ?? null,
+    // оценка SR (только своя): SR сейчас и изменение, если сессия влияет на SR
+    sr: race.sr?.active && race.sr.srStart != null ? { now: race.sr.weight > 0 ? race.sr.srNow : race.sr.srStart, delta: race.sr.weight > 0 ? race.sr.delta : null } : null,
     last: ref?.lastLap ?? null,
     best: ref?.bestLap ?? null,
     delta: num(vars.LapDeltaToBestLap),

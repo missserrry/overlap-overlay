@@ -50,8 +50,11 @@ const CHANNELS = {
   fuel: (race) => buildFuel(race),
   pitlimit: (race) => buildPit(race),
   traffic: (race) => buildTraffic(race),
-  sr: (race, opts, sr) => sr.frame(),
+  // к оценке SR — прогноз iRating игрока: в оверлее их можно показать вместе
+  sr: (race, opts, sr) => ({ ...sr.frame(), kind: race.kind, irDelta: race.kind === 'race' ? (playerCar(race)?.iratingDelta ?? null) : null, iratingNow: playerCar(race)?.irating ?? null }),
 };
+
+const playerCar = (race) => race.cars.find((c) => c.carIdx === race.vars?.PlayerCarIdx) || null;
 
 function startServer(options = {}) {
   const opts = {
@@ -137,6 +140,7 @@ function startServer(options = {}) {
     if (snap.connected) {
       try {
         race = buildRaceState(snap);
+        attachSr(race, srTracker.frame(), snap.vars?.PlayerCarIdx);
       } catch (e) {
         console.error('[server] model error:', e);
       }
@@ -170,6 +174,13 @@ function startServer(options = {}) {
       });
     });
   });
+}
+
+// Оценка SR известна только для вас: кладём её в вашу машину (рядом с лицензией в таблицах) и в сводку для шапки
+function attachSr(race, sr, playerIdx) {
+  race.sr = sr;
+  const me = race.cars.find((c) => c.carIdx === playerIdx);
+  if (me && sr?.active && sr.weight > 0 && sr.delta != null) me.srDelta = sr.delta;
 }
 
 function serveStatic(req, res) {

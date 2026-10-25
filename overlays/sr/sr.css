@@ -10,7 +10,14 @@ html, body { height: 100%; }
 .srw .slic { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; border-radius: 0.35em; background: var(--lic); color: #fff; font-size: 1.05em; }
 .srw .now { font-size: 2.6em; color: var(--text); }
 .srw .delta { font-size: 1.25em; color: var(--c); transition: color 200ms; }
-.srw .from { margin-left: auto; font-size: 0.8em; font-weight: 600; color: var(--text-dim); }
+/* Прогноз iRating справа от SR, через разделитель */
+.srw .irb { display: inline-flex; align-items: baseline; gap: 0.35em; margin-left: auto; padding-left: 0.8em; border-left: 1px solid var(--border); }
+.srw .irb small { font-size: 0.7em; letter-spacing: 0.06em; color: var(--text-dim); }
+.srw .irb b { font-size: 1.1em; color: var(--text); }
+.srw .irb .idelta { font-size: 1.1em; color: var(--text-dim); }
+.srw .irb.up .idelta { color: var(--rj-safe, #2ee34a); }
+.srw .irb.down .idelta { color: var(--rj-danger, #ff3b30); }
+
 .srw .stats { display: flex; gap: 1.2em; padding-top: 0.55em; border-top: 1px solid var(--border); line-height: 1.15; white-space: nowrap; }
 .srw .st { display: flex; flex-direction: column; gap: 0.15em; }
 .srw .st small { font-size: 0.65em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }

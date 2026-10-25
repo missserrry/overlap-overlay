@@ -216,6 +216,12 @@ body.edit .rz { display: block; }
 .badge .delta.gain { color: var(--green); }
 .badge .delta.lose { color: var(--red); }
 .badge .delta svg { width: 0.7em; height: 0.7em; }
+/* Оценка изменения SR внутри плашки лицензии (цифра только у вашей строки, ширина — у всех) */
+.lic.with-sr { width: 6.6em; }
+.srd { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.1em; margin: 0 0.3em 0 auto; font-size: 0.857em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.srd.gain { color: var(--sr-up, var(--green)); }
+.srd.lose { color: var(--sr-down, var(--red)); }
+.srd svg { width: 0.75em; height: 0.75em; }
 
 .gap {
   width: 3.4em;

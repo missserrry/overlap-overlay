@@ -73,6 +73,6 @@ function rowHtml(r, m, level, wide) {
   if (r.lapState === 'behind') cls.push('lap-behind');
   // угроза: машина на круг впереди вас догоняет сзади и уже близко
   if (rel.pulse && r.lapState === 'ahead' && r.behind && r.gap < rel.pulseSec) cls.push('threat');
-  const ctx = { overlay: 'relative', showDelta: level.cols.includes('delta') && m.kind === 'race', wideGap: wide, lapLabel: rel.label };
-  return `<div class="${cls.join(' ')}">${level.cols.filter((id) => id !== 'delta').map((id) => cellHtml(id, r, ctx)).join('')}</div>`;
+  const ctx = { overlay: 'relative', showDelta: level.cols.includes('delta') && m.kind === 'race', showSr: level.cols.includes('srDelta'), wideGap: wide, lapLabel: rel.label };
+  return `<div class="${cls.join(' ')}">${level.cols.filter((id) => id !== 'delta' && id !== 'srDelta').map((id) => cellHtml(id, r, ctx)).join('')}</div>`;
 }

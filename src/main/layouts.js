@@ -29,6 +29,7 @@ const COLUMN_CATALOG = {
   brand: { label: 'Марка машины' },
   name: { label: 'Имя', fixed: true },
   lic: { label: 'Лицензия и SR' },
+  srDelta: { label: 'Прирост SR (оценка, только ваш)', sub: 'lic' },
   ir: { label: 'iRating' },
   delta: { label: 'Прирост iRating', sub: 'ir' },
   gap: { label: 'Отрыв', labelBy: { standings: 'Отрыв до лидера' } },
@@ -39,8 +40,8 @@ const COLUMN_CATALOG = {
   pit: { label: 'Питлейн' },
 };
 const COLUMN_DEFAULTS = {
-  relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
-  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, tire: 0, pit: 0 },
+  relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, srDelta: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
+  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, srDelta: 1, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, tire: 0, pit: 0 },
 };
 
 // Привести список колонок к актуальному виду: неизвестные убрать, недостающие добавить в конец
@@ -90,6 +91,7 @@ const HF_CATALOG = {
   pos: { label: 'Позиция', group: 'Гонка' },
   posGain: { label: 'Изменение позиции', group: 'Гонка' },
   irating: { label: 'Прогноз iRating', group: 'Гонка' },
+  sr: { label: 'Оценка SR', group: 'Гонка' },
   last: { label: 'Прошлый круг', group: 'Круги' },
   best: { label: 'Лучший круг', group: 'Круги' },
   delta: { label: 'Дельта к лучшему', group: 'Круги' },
@@ -311,6 +313,7 @@ const SR_SCHEMA = [
   { group: 'Что показывать', items: [
     bool('delta', 'Изменение за сессию', true),
     bool('start', 'SR на старте сессии', true),
+    bool('ir', 'Прогноз iRating (в гонке)', true),
     bool('stats.incidents', 'Инциденты', true),
     bool('stats.clean', 'Чистых поворотов до нуля', true),
     bool('stats.corners', 'Пройдено поворотов', false),

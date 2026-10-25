@@ -38,12 +38,12 @@ function render(level, budget) {
   rowScale(level.cols);
   renderBar($('hdr'), hf.ids('header'), m.info);
   renderBar($('foot'), hf.ids('footer'), m.info);
-  const mainIds = level.cols.filter((id) => DEFS[id].zone === 'main' && id !== 'delta');
+  const mainIds = level.cols.filter((id) => DEFS[id].zone === 'main' && id !== 'delta' && id !== 'srDelta');
   const sideIds = level.cols.filter((id) => DEFS[id].zone === 'side');
   $('rightPanel').classList.toggle('hidden', !sideIds.length);
   $('spacer').classList.toggle('hidden', !sideIds.length);
   $('cols').innerHTML = sideIds.map((id) => `<span class="c-h${id === sideIds[0] ? ' first' : ''}" style="--w:${(DEFS[id].w * sizeOf(id)).toFixed(2)}em">${DEFS[id].head}</span>`).join('');
-  const ctx = { overlay: 'standings', showDelta: level.cols.includes('delta') && m.kind === 'race' };
+  const ctx = { overlay: 'standings', showDelta: level.cols.includes('delta') && m.kind === 'race', showSr: level.cols.includes('srDelta') };
   let left = '', right = '';
   for (const c of sliceClasses(m, budget)) {
     if (m.multiClass) {

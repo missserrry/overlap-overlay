@@ -5,7 +5,7 @@ const FORCE = params.get('force') === '1';   // превью в панели: п
 const root = document.getElementById('root');
 
 // по умолчанию совпадает со схемой в src/main/layouts.js (SR_SCHEMA)
-const DEFAULTS = { start: true, delta: true, 'stats.incidents': true, 'stats.corners': false, 'stats.clean': true, hideUnranked: true };
+const DEFAULTS = { start: true, delta: true, ir: true, 'stats.incidents': true, 'stats.corners': false, 'stats.clean': true, hideUnranked: true };
 let cfg = { ...DEFAULTS };
 let model = null;
 
@@ -18,10 +18,11 @@ function demoModel() {
   const incidents = t < 20 ? 0 : 4;
   const delta = t < 20 ? 0.004 * t : 0.08 - 0.15 * Math.min((t - 20) / 4, 1) + 0.002 * Math.max(t - 24, 0);
   const corners = 120 + t * 6;
-  return { active: true, weight: 1, srStart: 2.75, srNow: 2.75 + delta, delta, incidents, corners, cleanNeeded: incidents ? Math.max(4 * 22.4 - corners * 0.2, 0) : 0, licence: 'C', licColor: '#CA8A04' };
+  return { active: true, weight: 1, srStart: 2.75, srNow: 2.75 + delta, delta, incidents, corners, cleanNeeded: incidents ? Math.max(4 * 22.4 - corners * 0.2, 0) : 0, licence: 'C', licColor: '#CA8A04', kind: 'race', iratingNow: 2912, irDelta: t < 20 ? Math.round(t * 1.5) : Math.round(30 - (t - 20) * 2) };
 }
 
 // изменение меньше 0.005 на экране — «±0.00», без знака роста или падения
+const fmtIr = (ir) => (ir >= 1000 ? `${(ir / 1000).toFixed(1)}k` : String(ir));
 const fmtDelta = (d) => (Math.abs(d) < 0.005 ? '±0.00' : `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}`);
 
 function render() {
@@ -38,6 +39,7 @@ function render() {
   root.className = `srw ${dir}${counts ? '' : ' off'}`;
 
   const stats = [];
+  if (counts && cfg.start) stats.push(`<span class="st"><small>Было</small><b>${m.srStart.toFixed(2)}</b></span>`);
   if (counts && cfg['stats.incidents']) stats.push(`<span class="st"><small>Инциденты</small><b>${m.incidents}x</b></span>`);
   if (counts && cfg['stats.corners']) stats.push(`<span class="st"><small>Поворотов</small><b>${Math.floor(m.corners)}</b></span>`);
   if (counts && cfg['stats.clean'] && m.cleanNeeded != null) {
@@ -50,10 +52,18 @@ function render() {
     + `<div class="main"><span class="slic" style="--lic:${esc(m.licColor || '#888')}">${esc(m.licence || '')}</span>`
     + `<b class="now">${now.toFixed(2)}</b>`
     + (counts && cfg.delta ? `<span class="delta">${fmtDelta(d)}</span>` : '')
-    + (counts && cfg.start ? `<span class="from">было ${m.srStart.toFixed(2)}</span>` : '')
+    + irBlock(m)
     + `</div>`
     + (stats.length ? `<div class="stats">${stats.join('')}</div>` : '');
   layout();
+}
+
+// Прогноз iRating рядом с SR: только в гонке (в практике и квалификации iRating не меняется)
+function irBlock(m) {
+  if (!cfg.ir || m.kind !== 'race' || m.irDelta == null) return '';
+  const dir = m.irDelta > 0 ? 'up' : m.irDelta < 0 ? 'down' : 'flat';
+  const d = m.irDelta === 0 ? '±0' : `${m.irDelta > 0 ? '+' : '−'}${Math.abs(m.irDelta)}`;
+  return `<span class="irb ${dir}"><small>iR</small><b>${m.iratingNow ? fmtIr(m.iratingNow) : ''}</b><span class="idelta">${d}</span></span>`;
 }
 
 // Карточка вписывается в окно: измеряем при базовом размере и подбираем масштаб
