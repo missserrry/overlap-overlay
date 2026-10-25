@@ -37,6 +37,75 @@ function trackPits(snap, cars) {
   }
 }
 
+// История кругов и секторов каждой машины: время круга по его номеру, время каждого из первых трёх секторов по номеру круга.
+// Нужна, чтобы сравнивать пилотов «по прохождению»: дельта считается по одному и тому же кругу (и сектору), а не по текущему положению
+// на трассе, поэтому не бегает вживую. Круги и секторы с заездом на питлейн в историю не попадают (пустое значение).
+// Времена секторов считаем сами: iRacing не отдаёт чужие сектора — берём момент пересечения границы (по CarIdxLapDistPct, с интерполяцией
+// между двумя тиками) из SplitTimeInfo.Sectors.
+let timing = { key: null, cars: new Map() };
+const KEEP_LAPS_HIST = 8, MAX_SECTORS = 3, MAX_STEP = 0.1;   // шаг по трассе больше 10% за тик — телепорт, эвакуатор: не считаем
+function trimHist(map) { while (map.size > KEEP_LAPS_HIST) map.delete(Math.min(...map.keys())); }
+function trackTiming(snap, cars, sectorsInfo) {
+  const { vars, session } = snap;
+  const key = `${snap.source}|${session?.WeekendInfo?.SubSessionID ?? 0}|${vars.SessionNum}`;
+  if (timing.key !== key) timing = { key, cars: new Map() };
+  const t = vars.SessionTime;
+  if (!Number.isFinite(t)) return;
+  const starts = (sectorsInfo || []).map((s) => Number(s.SectorStartPct)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (starts[0] !== 0) starts.unshift(0);                       // первый сектор начинается на линии
+  for (const c of cars) {
+    let s = timing.cars.get(c.carIdx);
+    if (!s) {
+      s = { laps: new Map(), secs: new Map(), dirty: new Set(), lap: null, last: null, pend: null, wait: null, prev: null, enter: null };
+      timing.cars.set(c.carIdx, s);
+    }
+    c.timing = s;
+    if (!c.inWorld || !(c.lapDistPct >= 0)) { s.prev = null; s.enter = null; s.lap = c.lap; continue; }
+    if (c.onPitRoad) { s.dirty.add(c.lap); if (s.enter) s.enter.dirty = true; }
+
+    // --- круги: номер завершённого круга и время приходят на границе круга; порядок двух обновлений может быть любым
+    if (c.lap > (s.lap ?? c.lap)) {
+      s.pend = c.lap - 1;
+      if (s.wait != null) { s.laps.set(s.pend, s.dirty.has(s.pend) ? null : s.wait); s.wait = null; s.pend = null; trimHist(s.laps); }
+    }
+    if (!s.seen) { s.seen = true; s.last = c.lastLap; }          // значение, которое уже было, когда мы увидели машину, — не наш круг
+    else if (c.lastLap != null && c.lastLap !== s.last) {
+      if (s.pend != null) { s.laps.set(s.pend, s.dirty.has(s.pend) ? null : c.lastLap); s.pend = null; trimHist(s.laps); }
+      else s.wait = c.lastLap;
+      s.last = c.lastLap;
+    }
+
+    // --- сектора: пересечения границ между прошлым и этим тиком
+    const p = c.lapDistPct;
+    if (s.prev && starts.length > 1) {
+      let dp = p - s.prev.p;
+      if (dp < -0.5) dp += 1;
+      if (dp > 0 && dp <= MAX_STEP) {
+        const a = s.prev.p, b = a + dp;                          // b может быть больше 1: линия старта внутри шага
+        for (let j = 0; j < starts.length; j++) {
+          for (const bound of [starts[j], starts[j] + 1]) {
+            if (!(bound > a && bound <= b)) continue;
+            const tc = s.prev.t + ((bound - a) / dp) * (t - s.prev.t);
+            if (s.enter && s.enter.sector === (j + starts.length - 1) % starts.length) {
+              const idx = s.enter.sector;
+              if (idx < MAX_SECTORS) {
+                const row = s.secs.get(s.enter.lap) || [null, null, null];
+                row[idx] = s.enter.dirty ? null : tc - s.enter.t;
+                s.secs.set(s.enter.lap, row);
+                trimHist(s.secs);
+              }
+            }
+            const lapNow = j === 0 && c.lap === s.lap ? c.lap + 1 : c.lap;   // линия пересечена, а счётчик кругов ещё не обновился
+            s.enter = { sector: j, t: tc, lap: lapNow, dirty: !!c.onPitRoad };
+          }
+        }
+      } else if (dp > MAX_STEP || dp <= 0) s.enter = null;
+    }
+    s.prev = { p, t };
+    s.lap = c.lap;
+  }
+}
+
 function buildRaceState(snap) {
   const { vars, session } = snap;
   if (driverCache.version !== snap.sessionVersion) {
@@ -119,6 +188,7 @@ function buildRaceState(snap) {
 
   updateGrid(snap, kind, cars);
   trackPits(snap, cars);
+  trackTiming(snap, cars, snap.session?.SplitTimeInfo?.Sectors);
   for (const c of cars) {
     const start = kind === 'race' ? grid.map.get(c.carIdx) : null;
     c.posChange = start && c.classPos ? start - c.classPos : null; // > 0 — отыграл позиции
@@ -202,4 +272,4 @@ function gapToLeader(car, leader, kind, live = false) {
   return { type: 'none' };
 }
 
-module.exports = { buildRaceState, trackPits };
+module.exports = { buildRaceState, trackPits, trackTiming };

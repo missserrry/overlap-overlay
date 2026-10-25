@@ -20,6 +20,9 @@ export const DEFS = {
   last:  { prio: 20, zone: 'side', w: 6.4, head: 'Last' },
   best:  { prio: 25, zone: 'side', w: 6.4, head: 'Fastest' },
   lapDelta: { prio: 22, zone: 'side', w: 4.4, head: 'Δ Lap' },
+  sec1: { prio: 24, zone: 'side', w: 4.2, head: 'Δ S1' },
+  sec2: { prio: 24, zone: 'side', w: 4.2, head: 'Δ S2' },
+  sec3: { prio: 24, zone: 'side', w: 4.2, head: 'Δ S3' },
   pitTime: { prio: 21, zone: 'side', w: 4.4, head: 'Pit time' },
   pitLap: { prio: 23, zone: 'side', w: 3.6, head: 'Pit lap' },
   tire:  { prio: 38, zone: 'side', w: 2.6, head: 'Tyre' },
@@ -32,7 +35,7 @@ const DEFAULTS = {
 };
 const SUPPORTED = {
   relative: new Set(['pos', 'cls', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'last', 'pit']),
-  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'lapDelta', 'pitTime', 'pitLap', 'pit']),
+  standings: new Set(['pos', 'posChange', 'tire', 'num', 'brand', 'name', 'lic', 'ir', 'delta', 'gap', 'int', 'last', 'best', 'lapDelta', 'sec1', 'sec2', 'sec3', 'pitTime', 'pitLap', 'pit']),
 };
 
 // ---------- какие колонки включены (адрес ?cols=..., настройки из приложения, сообщение панели) ----------
@@ -111,6 +114,11 @@ function cellRaw(id, r, ctx) {
       const d = r.lapDelta;      // секунды: меньше нуля — пилот проехал круг быстрее вас
       if (d == null || !Number.isFinite(d) || Math.abs(d) >= 100) return side('lapDelta', 'ld-v', '');
       return side('lapDelta', `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
+    }
+    case 'sec1': case 'sec2': case 'sec3': {   // дельта сектора к вашему: меньше нуля — пилот проехал сектор быстрее вас
+      const d = r.secDelta?.[Number(id.slice(3)) - 1];
+      if (d == null || !Number.isFinite(d) || Math.abs(d) >= 30) return side(id, 'ld-v', '');
+      return side(id, `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
     }
     case 'pitTime': {      // секунды на питлейне при последнем стопе; пусто — стопа ещё не было или чужой класс
       const t = r.pitTime;

@@ -1,11 +1,25 @@
 // Модель Standings: полные списки по классам. Сколько строк показать, решает сам оверлей —
 // по высоте своего окна (см. overlays/standings/standings.js).
 
+// Дельта к вашему времени по одному и тому же кругу: берём последний круг (сектор), который есть и у вас, и у пилота, без заездов на питлейн.
+// Значение меняется только когда кто-то из вас закончил круг (сектор), а не вживую по ходу круга.
+function sameLapDelta(my, their, pick) {
+  const laps = [...my.laps.keys(), ...my.secs.keys()];
+  for (const k of [...new Set(laps)].sort((a, b) => b - a).slice(0, 6)) {
+    const a = pick(my, k), b = pick(their, k);
+    if (a != null && b != null) return b - a;
+  }
+  return null;
+}
+const pickLap = (st, k) => st.laps.get(k) ?? null;
+const pickSector = (i) => (st, k) => st.secs.get(k)?.[i] ?? null;
+const SECTOR_COLUMNS = 3;
+
 function buildStandings(race) {
   const classes = [...race.classes.values()].sort((a, b) => b.relSpeed - a.relSpeed);
   // Дельта круга: прошлый круг пилота минус ваш прошлый круг. Только внутри вашего класса: сравнивать GT3 с гиперкаром бессмысленно
   const mine = classes.find((cls) => cls.cars.some((c) => c.isPlayer));
-  const myLap = mine?.cars.find((c) => c.isPlayer)?.lastLap;
+  const me = mine?.cars.find((c) => c.isPlayer)?.timing;
   return {
     kind: race.kind,
     sessionName: race.sessionName,
@@ -33,7 +47,8 @@ function buildStandings(race) {
         // последний пит-стоп пилота (только ваш класс): время на питлейне и круг въезда
         pitTime: cls === mine ? c.lastPit?.time ?? null : null,
         pitLap: cls === mine ? c.lastPit?.lap ?? null : null,
-        lapDelta: cls === mine && !c.isPlayer && myLap > 0 && c.lastLap > 0 ? c.lastLap - myLap : null,
+        lapDelta: cls === mine && !c.isPlayer && me && c.timing ? sameLapDelta(me, c.timing, pickLap) : null,
+        secDelta: Array.from({ length: SECTOR_COLUMNS }, (_, i) => (cls === mine && !c.isPlayer && me && c.timing ? sameLapDelta(me, c.timing, pickSector(i)) : null)),
         isFastest: !!c.bestLap && c.bestLap === cls.fastest,
         isPlayer: c.isPlayer,
         onPitRoad: c.onPitRoad,
