@@ -1,5 +1,5 @@
 import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
-import { DEFS, buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, sizeOf, sizesKey } from '/common/columns.js';
+import { DEFS, buildLevels, cellHtml, currentColumns, headOf, secView, onColumns, rowScale, setColumns, setSizes, sizeOf, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -42,8 +42,9 @@ function render(level, budget) {
   const sideIds = level.cols.filter((id) => DEFS[id].zone === 'side');
   $('rightPanel').classList.toggle('hidden', !sideIds.length);
   $('spacer').classList.toggle('hidden', !sideIds.length);
-  $('cols').innerHTML = sideIds.map((id) => `<span class="c-h${id === sideIds[0] ? ' first' : ''}" style="--w:${(DEFS[id].w * sizeOf(id)).toFixed(2)}em">${DEFS[id].head}</span>`).join('');
-  const ctx = { overlay: 'standings', showDelta: level.cols.includes('delta') && m.kind === 'race' };
+  const sec = secView(m.secInfo);
+  $('cols').innerHTML = sideIds.map((id) => `<span class="c-h${id === sideIds[0] ? ' first' : ''}" style="--w:${(DEFS[id].w * sizeOf(id)).toFixed(2)}em">${headOf(id, sec)}</span>`).join('');
+  const ctx = { overlay: 'standings', showDelta: level.cols.includes('delta') && m.kind === 'race', sec };
   let left = '', right = '';
   for (const c of sliceClasses(m, budget)) {
     if (m.multiClass) {

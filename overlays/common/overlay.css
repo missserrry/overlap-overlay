@@ -239,6 +239,12 @@ body.edit .rz { display: block; }
 /* дельта круга к вашему: быстрее вас — красным (он вас опережает), медленнее — зелёным */
 .sc.ld-fast { color: var(--red); }
 .sc.ld-slow { color: var(--green); }
+/* секторные дельты: значение появляется и уходит плавно (см. secView в columns.js) */
+@keyframes secIn { from { opacity: 0; transform: translateY(0.35em); } to { opacity: 1; transform: none; } }
+@keyframes secOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-0.8em); } }
+.sc.sec-in { animation: secIn 0.32s ease-out both; }
+.sc.sec-out { animation: secOut 0.26s ease-in both; }
+@media (prefers-reduced-motion: reduce) { .sc.sec-in, .sc.sec-out { animation: none; } }
 /* второстепенные времена потише, чтобы столбец отрыва и лучший круг читались первыми */
 .sc.int-v, .sc.last-v { color: var(--text-dim); }
 .row.player .sc.int-v, .row.player .sc.last-v { color: var(--text); }

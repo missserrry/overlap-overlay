@@ -43,7 +43,7 @@ function trackPits(snap, cars) {
 // Времена секторов считаем сами: iRacing не отдаёт чужие сектора — берём момент пересечения границы (по CarIdxLapDistPct, с интерполяцией
 // между двумя тиками) из SplitTimeInfo.Sectors.
 let timing = { key: null, cars: new Map() };
-const KEEP_LAPS_HIST = 8, MAX_SECTORS = 3, MAX_STEP = 0.1;   // шаг по трассе больше 10% за тик — телепорт, эвакуатор: не считаем
+const KEEP_LAPS_HIST = 8, MAX_SECTORS = 64, MAX_STEP = 0.1;   // шаг по трассе больше 10% за тик — телепорт, эвакуатор: не считаем
 function trimHist(map) { while (map.size > KEEP_LAPS_HIST) map.delete(Math.min(...map.keys())); }
 function trackTiming(snap, cars, sectorsInfo) {
   const { vars, session } = snap;
@@ -60,6 +60,7 @@ function trackTiming(snap, cars, sectorsInfo) {
       timing.cars.set(c.carIdx, s);
     }
     c.timing = s;
+    s.count = starts.length;
     if (!c.inWorld || !(c.lapDistPct >= 0)) { s.prev = null; s.enter = null; s.lap = c.lap; continue; }
     if (c.onPitRoad) { s.dirty.add(c.lap); if (s.enter) s.enter.dirty = true; }
 
@@ -89,10 +90,11 @@ function trackTiming(snap, cars, sectorsInfo) {
             if (s.enter && s.enter.sector === (j + starts.length - 1) % starts.length) {
               const idx = s.enter.sector;
               if (idx < MAX_SECTORS) {
-                const row = s.secs.get(s.enter.lap) || [null, null, null];
+                const row = s.secs.get(s.enter.lap) || new Array(starts.length).fill(null);
                 row[idx] = s.enter.dirty ? null : tc - s.enter.t;
                 s.secs.set(s.enter.lap, row);
                 trimHist(s.secs);
+                s.secDone = { idx, n: (s.secDone?.n ?? 0) + 1 };      // какой сектор закончен последним и сколько их закончено за сессию
               }
             }
             const lapNow = j === 0 && c.lap === s.lap ? c.lap + 1 : c.lap;   // линия пересечена, а счётчик кругов ещё не обновился

@@ -61,6 +61,42 @@ export function buildLevels(type, ids) {
   return levels;
 }
 
+// ---------- сектора: три колонки листают сектора трассы тройками ----------
+// Закончили сектор — в колонке появляется дельта; закончили третий в тройке (или последний на трассе) — через паузу показ плавно
+// переезжает на следующие три сектора. Трасса не длиннее трёх секторов — листать нечего, колонки держат последние значения.
+const SEC_SLOTS = 3, HOLD_MS = 3500, OUT_MS = 260, IN_MS = 320;
+let sv = { n: null, seq: -1, done: -1, page: 0, prev: null, flipAt: 0, pending: null, appear: new Map() };
+export function secView(info, now = Date.now()) {
+  if (!info || !(info.count > 1)) return null;
+  const N = info.count, pages = Math.ceil(N / SEC_SLOTS), paged = N > SEC_SLOTS;
+  if (sv.n !== N || info.seq < sv.seq) sv = { n: N, seq: -1, done: -1, page: 0, prev: null, flipAt: 0, pending: null, appear: new Map() };
+  if (sv.seq === -1) {                                                  // первый взгляд: просто встаём на текущее место, без анимации
+    sv.seq = info.seq; sv.done = info.done;
+    sv.page = paged && info.done >= 0 ? Math.floor(info.done / SEC_SLOTS) : 0;
+  } else if (info.seq !== sv.seq) {                                     // закончили очередной сектор
+    sv.seq = info.seq; sv.done = info.done; sv.appear.set(info.done, now);
+    if (paged) {
+      const pg = Math.floor(info.done / SEC_SLOTS);
+      if (pg !== sv.page) { sv.prev = sv.page; sv.page = pg; sv.flipAt = now; }
+      sv.pending = (info.done % SEC_SLOTS === SEC_SLOTS - 1 || info.done === N - 1) ? { at: now + HOLD_MS, to: pg + 1 < pages ? pg + 1 : 0 } : null;
+    }
+  }
+  if (sv.pending && now >= sv.pending.at) { sv.prev = sv.page; sv.page = sv.pending.to; sv.flipAt = now; sv.pending = null; }
+  const leaving = paged && sv.prev != null && now - sv.flipAt < OUT_MS;
+  const page = leaving ? sv.prev : sv.page;
+  const slots = [];
+  for (let i = 0; i < SEC_SLOTS; i++) {
+    const k = page * SEC_SLOTS + i;
+    if (k >= N) { slots.push({ k, label: '', show: false }); continue; }
+    const show = !paged || leaving || k <= sv.done;
+    const since = sv.appear.has(k) ? now - sv.appear.get(k) : null;
+    slots.push({ k, label: `S${k + 1}`, show, anim: leaving ? { kind: 'out', ms: now - sv.flipAt } : since != null && since < IN_MS ? { kind: 'in', ms: since } : null });
+  }
+  return { slots, paged };
+}
+// Подпись колонки: у секторных — номер сектора, который она сейчас показывает
+export const headOf = (id, sec) => (/^sec[123]$/.test(id) ? `Δ ${sec?.slots[Number(id.slice(3)) - 1]?.label || `S${id.slice(3)}`}` : DEFS[id].head);
+
 // ---------- ячейки ----------
 export function brandHtml(b) {
   if (!b) return '<span class="brand none"></span>';
@@ -116,9 +152,15 @@ function cellRaw(id, r, ctx) {
       return side('lapDelta', `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
     }
     case 'sec1': case 'sec2': case 'sec3': {   // дельта сектора к вашему: меньше нуля — пилот проехал сектор быстрее вас
-      const d = r.secDelta?.[Number(id.slice(3)) - 1];
-      if (d == null || !Number.isFinite(d) || Math.abs(d) >= 30) return side(id, 'ld-v', '');
-      return side(id, `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
+      const slot = ctx.sec?.slots[Number(id.slice(3)) - 1];
+      const d = slot?.show ? r.secDelta?.[slot.k] : null;
+      const a = slot?.anim;
+      // анимация с отрицательной задержкой: таблица перерисовывается чаще, чем идёт анимация, и без этого она бы начиналась заново
+      const anim = a ? ` sec-${a.kind}` : '';
+      const style = a ? `;animation-delay:-${Math.round(a.ms)}ms` : '';
+      const text = d == null || !Number.isFinite(d) || Math.abs(d) >= 30 ? '' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
+      const cls = text ? (d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : '') : '';
+      return `<span class="sc ld-v ${cls}${anim}" style="--w:${DEFS[id].w}em${style}">${text}</span>`;
     }
     case 'pitTime': {      // секунды на питлейне при последнем стопе; пусто — стопа ещё не было или чужой класс
       const t = r.pitTime;

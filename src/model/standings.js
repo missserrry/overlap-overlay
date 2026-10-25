@@ -13,18 +13,20 @@ function sameLapDelta(my, their, pick) {
 }
 const pickLap = (st, k) => st.laps.get(k) ?? null;
 const pickSector = (i) => (st, k) => st.secs.get(k)?.[i] ?? null;
-const SECTOR_COLUMNS = 3;
 
 function buildStandings(race) {
   const classes = [...race.classes.values()].sort((a, b) => b.relSpeed - a.relSpeed);
   // Дельта круга: прошлый круг пилота минус ваш прошлый круг. Только внутри вашего класса: сравнивать GT3 с гиперкаром бессмысленно
   const mine = classes.find((cls) => cls.cars.some((c) => c.isPlayer));
   const me = mine?.cars.find((c) => c.isPlayer)?.timing;
+  const sectorCount = me?.count > 1 ? me.count : 0;
   return {
     kind: race.kind,
     sessionName: race.sessionName,
     session: race.session,
     multiClass: race.multiClass,
+    // где вы на трассе по секторам: сколько секторов, какой закончили последним и сколько закончено (по этому счёту оверлей листает тройки секторов)
+    secInfo: sectorCount ? { count: sectorCount, done: me.secDone ? me.secDone.idx : -1, seq: me.secDone ? me.secDone.n : 0 } : null,
     classes: classes.map((cls) => ({
       id: cls.id, name: cls.name, color: cls.color, sof: cls.sof,
       drivers: cls.cars.length,
@@ -48,7 +50,7 @@ function buildStandings(race) {
         pitTime: cls === mine ? c.lastPit?.time ?? null : null,
         pitLap: cls === mine ? c.lastPit?.lap ?? null : null,
         lapDelta: cls === mine && !c.isPlayer && me && c.timing ? sameLapDelta(me, c.timing, pickLap) : null,
-        secDelta: Array.from({ length: SECTOR_COLUMNS }, (_, i) => (cls === mine && !c.isPlayer && me && c.timing ? sameLapDelta(me, c.timing, pickSector(i)) : null)),
+        secDelta: sectorCount && cls === mine && !c.isPlayer && c.timing ? Array.from({ length: sectorCount }, (_, i) => sameLapDelta(me, c.timing, pickSector(i))) : null,
         isFastest: !!c.bestLap && c.bestLap === cls.fastest,
         isPlayer: c.isPlayer,
         onPitRoad: c.onPitRoad,
