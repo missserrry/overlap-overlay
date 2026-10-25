@@ -133,7 +133,11 @@ class SrTracker {
       licColor: rating ? (LICENSE_COLORS[CLASS_LETTERS[rating.cls]] || LICENSE_COLORS.R)[0] : null,
     };
     if (rating && cpl) {
-      const p = M.project(rating.sr, rating.cls, rating.band, corners * weight, incidents * weight);
+      // Сессия с нулевым весом (практика, разминка, неофициальное событие) рейтинг не трогает — ни на чуть:
+      // даже нулевой расчёт перерисовал бы CPI в другой полосе и сдвинул SR
+      const p = weight > 0 && corners > 0
+        ? M.project(rating.sr, rating.cls, rating.band, corners * weight, incidents * weight)
+        : { sr: rating.sr, band: rating.band };
       out.srNow = p.sr;
       out.delta = p.sr - rating.sr;
       this.outcome = { yamlSr: this.start.yamlSr, rating: { sr: p.sr, cls: rating.cls, band: p.band } };

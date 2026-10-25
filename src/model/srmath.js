@@ -81,12 +81,14 @@ function project(srBefore, cls, band, corners, incidents) {
 // Вес сессии умножает обе стороны, поэтому считаем по настоящим числам.
 const cleanCornersNeeded = (incidents, corners, startCpi) => Math.max(incidents * startCpi - corners, 0);
 
-// Вес сессии (Sporting Code 3.6.1.1): гонка 1, открытые практика/квалификация/разминка 0.5,
+// Вес сессии: гонка 1, квалификация 0.5, одиночные (lone) и заезд на время 0.35;
+// практика и разминка SR не меняют (проверено на реальной гонке: рейтинг на входе в гонку — тот, что был до практики),
 // одиночные (lone) и заезд на время 0.35, остальное (оффлайн-тесты) — 0.
 function sessionWeight(sessionType) {
   const t = String(sessionType || '').toLowerCase();
   if (t.includes('time trial') || t.includes('lone')) return 0.35;
-  if (t.includes('qualify') || t.includes('warmup') || t.includes('practice')) return 0.5;
+  if (t.includes('practice') || t.includes('warmup')) return 0;
+  if (t.includes('qualify')) return 0.5;
   if (t.includes('heat') || t.includes('race')) return 1;
   return 0;
 }
