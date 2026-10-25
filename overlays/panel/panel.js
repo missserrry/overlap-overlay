@@ -37,6 +37,8 @@ const TYPE_INFO = {
 let S = null;          // последнее состояние из главного процесса
 let pending = null;    // состояние, пришедшее во время ввода
 let view = load('panelView', 'overlays');
+let firstGame = false;     // идёт стартовый выбор игры (первый запуск на этом компьютере)
+let welcomeShown = false;
 let sel = null;        // { layoutId, variation } — какой набор редактируем
 let ovCollapsed = false; // настройки оверлея свёрнуты: превью занимает всё место
 let selOv = null;      // выбранный оверлей
@@ -62,6 +64,11 @@ function setState(s) {
     return;
   }
   S = s;
+  // Первый запуск на компьютере: сразу предлагаем выбрать игру. Спрашиваем один раз — признак пишем сразу, как показали
+  if (S.cfg.gameChosen === false && !welcomeShown) {
+    welcomeShown = true; firstGame = true; view = 'game';
+    act({ type: 'app.set', gameChosen: true });
+  }
   maybeWhatsNew();
   renderUpdateUi();
   const layouts = S.cfg.layouts;
@@ -94,7 +101,7 @@ function render() {
   const lmu = game() === 'lmu';
   $('liveriesBtn').hidden = lmu;
   if (lmu && view === 'liveries') view = 'overlays';
-  $('title').textContent = TITLES[view];
+  $('title').textContent = firstGame && view === 'game' ? 'Выбор игры' : TITLES[view];
   renderStatus();
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
   if (view === 'overlays') renderOverlays();
@@ -1056,9 +1063,11 @@ function renderSettings() {
 const GAME_NOTES = { iracing: 'Все оверлеи и ливреи Trading Paints' };
 function renderGame() {
   mounted = 'game';
-  const cur = game();
+  const welcome = firstGame;
+  const cur = welcome ? null : game();   // при стартовом выборе ничего не отмечено заранее
   $('card').innerHTML = `
-    <div class="game-screen fade" role="radiogroup" aria-label="Игра">
+    <div class="game-screen fade${welcome ? ' first' : ''}" role="radiogroup" aria-label="Игра">
+      ${welcome ? '<div class="game-head"><h2>Для какой игры настроим Overlap?</h2><p>Выберите игру, которую хотите настроить в первую очередь. Это можно поменять в любой момент в разделе «Игра».</p></div>' : ''}
       ${Object.entries(S.games).map(([id, g]) => `
         <button class="game-tile ${id === cur ? 'on' : ''} ${g.short ? '' : 'same-word'}" data-game="${id}" role="radio" aria-checked="${id === cur}">
           <span class="game-logo"><img alt="" draggable="false" data-logo="${id}"><span class="game-word">${esc(g.short || g.name)}</span></span>
@@ -1114,9 +1123,16 @@ document.addEventListener('click', (e) => {
   if (d.palPreset) return act({ type: 'palette.preset', scope: palScope, id: d.palPreset });
   if ('palReset' in d) return act({ type: 'palette.reset', scope: palScope });
   if (d.palClear) return act({ type: 'palette.set', scope: d.palSc || palScope, key: d.palClear, value: null });
-  if (d.game) return act({ type: 'app.set', game: d.game });
-  if (d.view) { view = d.view; save('panelView', view); mounted = null; return render(); }
-  if (d.goto) { view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
+  if (d.game) {
+    // выбрали игру: сохраняем и сразу открываем вкладку её оверлеев, чтобы не искать её вручную
+    firstGame = false;
+    S.cfg.game = d.game;   // сразу, не дожидаясь ответа главного процесса: список оверлеев строится уже для новой игры
+    view = 'overlays'; save('panelView', view); mounted = null; selOv = null;
+    act({ type: 'app.set', game: d.game, gameChosen: true });
+    return render();
+  }
+  if (d.view) { firstGame = false; view = d.view; save('panelView', view); mounted = null; return render(); }
+  if (d.goto) { firstGame = false; view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
   if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });

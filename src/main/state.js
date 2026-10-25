@@ -146,7 +146,7 @@ class LayoutState {
     const touch = (l) => { l.updatedAt = new Date().toISOString(); };
     switch (a.type) {
       case 'app.set': {
-        for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo', 'onlyWhenFocused', 'autoUpdate', 'lastSeenVersion']) if (k in a) this.cfg[k] = a[k];
+        for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo', 'onlyWhenFocused', 'autoUpdate', 'lastSeenVersion', 'gameChosen']) if (k in a) this.cfg[k] = a[k];
         if ('game' in a && L.GAMES[a.game]) this.cfg.game = a.game;
         if ('autoSwitch' in a) this.manual = null;
         break;

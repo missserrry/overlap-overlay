@@ -7,6 +7,7 @@ const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normal
 const DEFAULTS = {
   port: 8900,
   demo: 'auto',            // auto | on | off
+  gameChosen: false,       // пользователь уже выбирал игру (или был до этого экрана): стартовый выбор показываем один раз
   game: 'iracing',         // для какой игры оверлеи: iracing | lmu (см. GAMES в layouts.js)
   autoSwitch: true,        // выбирать раскладку по машине/сессии
   locked: true,            // оверлеи закреплены (клики проходят в игру)
@@ -45,6 +46,8 @@ function load(dir) {
   } catch { /* первый запуск */ }
 
   const cfg = { ...DEFAULTS, ...saved };
+  // чистая установка: настроек ещё нет — на первом запуске предложим выбрать игру; у тех, кто уже пользуется, не спрашиваем
+  if (typeof saved.gameChosen !== 'boolean') cfg.gameChosen = Object.keys(saved).length > 0;
   if (!Array.isArray(cfg.layouts) || !cfg.layouts.length) cfg.layouts = defaultLayouts(saved.overlays);
   delete cfg.overlays;
   cfg.palette = P.normalize(cfg.palette);
