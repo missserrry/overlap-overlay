@@ -38,12 +38,14 @@ const COLUMN_CATALOG = {
   last: { label: 'Прошлый круг' },
   best: { label: 'Лучший круг' },
   lapDelta: { label: 'Дельта круга к вашему', hint: 'Только Standings, только в вашем классе' },
+  pitTime: { label: 'Время последнего пит-стопа', hint: 'Только Standings, только в вашем классе' },
+  pitLap: { label: 'Круг последнего пит-стопа', hint: 'Только Standings, только в вашем классе' },
   tire: { label: 'Шины' },
   pit: { label: 'Питлейн' },
 };
 const COLUMN_DEFAULTS = {
   relative: { pos: 1, cls: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 1, ir: 1, delta: 1, gap: 1, last: 0, tire: 0, pit: 0 },
-  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, lapDelta: 0, tire: 0, pit: 0 },
+  standings: { pos: 1, posChange: 0, num: 0, brand: 0, name: 1, lic: 0, ir: 1, delta: 1, gap: 1, int: 0, last: 0, best: 1, lapDelta: 0, pitTime: 0, pitLap: 0, tire: 0, pit: 0 },
 };
 
 // Привести список колонок к актуальному виду: неизвестные убрать, недостающие добавить в конец

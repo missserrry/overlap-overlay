@@ -30,6 +30,9 @@ function buildStandings(race) {
         int: c.int,
         bestLap: c.bestLap,
         lastLap: c.lastLap,
+        // последний пит-стоп пилота (только ваш класс): время на питлейне и круг въезда
+        pitTime: cls === mine ? c.lastPit?.time ?? null : null,
+        pitLap: cls === mine ? c.lastPit?.lap ?? null : null,
         lapDelta: cls === mine && !c.isPlayer && myLap > 0 && c.lastLap > 0 ? c.lastLap - myLap : null,
         isFastest: !!c.bestLap && c.bestLap === cls.fastest,
         isPlayer: c.isPlayer,

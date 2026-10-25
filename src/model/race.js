@@ -10,6 +10,33 @@ let driverCache = { version: -1, drivers: new Map(), tires: new Map() };
 // запоминаем позиции до зелёного флага (SessionState < 4) и замораживаем на старте.
 let grid = { key: null, map: new Map(), frozen: false };
 
+// Пит-стопы соперников: время на питлейне (въезд → выезд) и круг, на котором заехал. Считаем по смене CarIdxOnPitRoad.
+// Если пилот уже стоял в боксах, когда мы его впервые увидели (старт из боксов, подключились посреди стопа), этот стоп не считаем:
+// не знаем, когда он заехал.
+let pits = { key: null, cars: new Map() };
+const MIN_PIT_SEC = 2;
+function trackPits(snap, cars) {
+  const { vars, session } = snap;
+  const key = `${snap.source}|${session?.WeekendInfo?.SubSessionID ?? 0}|${vars.SessionNum}`;
+  if (pits.key !== key) pits = { key, cars: new Map() };
+  const t = vars.SessionTime;
+  if (!Number.isFinite(t)) return;
+  for (const c of cars) {
+    let s = pits.cars.get(c.carIdx);
+    if (!s) { s = { on: false, valid: false, t0: 0, lap0: 0, last: null, stops: 0 }; pits.cars.set(c.carIdx, s); s.first = true; }
+    const on = c.onPitRoad && c.inWorld;
+    if (s.on && t < s.t0) { s.on = false; s.valid = false; }              // время пошло назад (повтор, перемотка)
+    if (!s.on && on) { s.on = true; s.valid = !s.first; s.t0 = t; s.lap0 = c.lap; }
+    else if (s.on && !c.onPitRoad) {
+      if (s.valid && t - s.t0 >= MIN_PIT_SEC) { s.last = { lap: s.lap0, time: t - s.t0 }; s.stops++; }
+      s.on = false; s.valid = false;
+    }
+    s.first = false;
+    c.lastPit = s.last;
+    c.pitStops = s.stops;
+  }
+}
+
 function buildRaceState(snap) {
   const { vars, session } = snap;
   if (driverCache.version !== snap.sessionVersion) {
@@ -91,6 +118,7 @@ function buildRaceState(snap) {
   overall.forEach((c, i) => { c.overallPos = live ? i + 1 : c.livePos; });
 
   updateGrid(snap, kind, cars);
+  trackPits(snap, cars);
   for (const c of cars) {
     const start = kind === 'race' ? grid.map.get(c.carIdx) : null;
     c.posChange = start && c.classPos ? start - c.classPos : null; // > 0 — отыграл позиции
@@ -174,4 +202,4 @@ function gapToLeader(car, leader, kind, live = false) {
   return { type: 'none' };
 }
 
-module.exports = { buildRaceState };
+module.exports = { buildRaceState, trackPits };
