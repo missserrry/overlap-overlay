@@ -13,7 +13,8 @@ const L_PER_GAL = 3.785411784;
 
 const num = (v) => (Number.isFinite(v) ? v : null);
 const BINS = 100;
-const fresh = () => ({ key: '', lap: -1, fuelAtStart: null, timeAtStart: null, dirty: false, laps: [], cur: new Array(BINS + 1).fill(null) });
+const fresh = () => ({ key: '', lap: -1, fuelAtStart: null, timeAtStart: null, dirty: false, go: null, lastEst: null, laps: [], cur: new Array(BINS + 1).fill(null) });
+const MIN_EST = 0.2;               // доля круга, после которой расход по текущему кругу уже можно оценить
 
 // сколько топлива ушло к каждой сотой круга; пропуски заполняем предыдущим значением
 function closeProfile(cur) {
@@ -57,13 +58,13 @@ function buildFuel(race) {
   const lap = ref.lap;
   const now = v.SessionTime;
   if (st.lap < 0 || lap < st.lap) {            // начало или сброс (перезапуск машины, новая сессия)
-    st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = true; st.cur.fill(null);
+    st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = true; st.go = null; st.cur.fill(null);
   } else if (lap > st.lap) {
     const used = st.fuelAtStart - fuel;
     const time = now - st.timeAtStart;
     if (!st.dirty && lap === st.lap + 1 && used > 0.001 && used < (tank || 400) && time > 5) st.laps.push({ used, time, prof: closeProfile(st.cur) });
     if (st.laps.length > KEEP_LAPS) st.laps.shift();
-    st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = false; st.cur.fill(null);
+    st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = false; st.go = null; st.cur.fill(null);
   }
   // запоминаем, сколько топлива ушло к этой точке круга
   const pct = Math.min(Math.max(ref.lapDistPct, 0), 0.999);
@@ -72,10 +73,24 @@ function buildFuel(race) {
   // Местные жёлтые флаги круг не портят: в игре почти никто не сбрасывает скорость, а машины лежат у отбойников.
   if (ref.onPitRoad || ((v.SessionFlags ?? 0) & CAUTION_BITS) || (num(v.Speed) != null && v.Speed < STOPPED) || fuel > st.fuelAtStart + 0.05) st.dirty = true;
 
+  // Оценка по текущему кругу, пока нет ни одного чистого: считаем от момента, когда машина тронулась (стоянка на решётке
+  // расход портит), и только пока круг чистый. Так расход виден уже на первом круге, а не после двух.
+  const moving = num(v.Speed) != null && v.Speed >= STOPPED;
+  const cleanNow = !ref.onPitRoad && !((v.SessionFlags ?? 0) & CAUTION_BITS);
+  if (st.go && (!cleanNow || fuel > st.go.fuel + 0.05)) st.go = null;                       // питлейн, жёлтый, дозаправка — начинаем заново
+  if (!st.go && moving && cleanNow && now != null) st.go = { fuel, pct, time: now };
+  let est = null;
+  if (st.go && now != null) {
+    const dp = pct - st.go.pct, used = st.go.fuel - fuel, dt = now - st.go.time;
+    if (dp >= MIN_EST && used > 0.001 && dt > 5) est = st.lastEst = { perLap: used / dp, lapTime: dt / dp };
+  }
+  if (!est && !st.laps.length) est = st.lastEst;     // новый круг ещё не набрал 20% — держим прошлую оценку, чтобы число не пропадало
+
   const n = st.laps.length;
   let perLap = n ? st.laps.reduce((s, l) => s + l.used, 0) / n : null;
   let lapTime = n ? st.laps.reduce((s, l) => s + l.time, 0) / n : (ref.lastLap || ref.bestLap || null);
   let source = n ? 'laps' : null;
+  if (!n && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
   if (perLap == null && num(v.FuelUsePerHour) > 0 && lapTime > 0) { perLap = (v.FuelUsePerHour / 3600) * lapTime; source = 'rate'; }
 
   // --- остаток дистанции

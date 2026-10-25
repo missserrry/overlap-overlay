@@ -39,16 +39,17 @@ function render() {
   const pct = m.tank ? Math.min(m.fuel / m.tank, 1) * 100 : 0;
   root.className = `fuel ${c.level === 'safe' ? '' : c.level}`;
 
+  const est = m.source === 'estimate' ? ' · оценка по этому кругу' : '';   // пока нет ни одного полного чистого круга
   let hero;
   if (c.perLap == null) {
     hero = `<div class="hero"><small>РАСХОД</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">Проедьте круг</b><div class="msg">Считаю расход топлива</div></div>`;
   } else if (c.enough) {
-    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>0<span>${c.unit}</span></b><div class="msg">Топлива хватит${c.planned ? ` на ${c.laps} кр` : ' до финиша'}</div></div>`;
+    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>0<span>${c.unit}</span></b><div class="msg">Топлива хватит${c.planned ? ` на ${c.laps} кр` : ' до финиша'}${est}</div></div>`;
   } else if (!c.fits) {
     const stops = c.room > 0 ? Math.ceil(c.add / Math.max(c.room, 0.1)) : null;
-    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.cap)}<span>${c.unit}</span></b><div class="msg">Бак полный, не хватит ещё ${c.f(c.add - c.room)} ${c.unit}${stops ? ` · нужны ещё заезды в боксы` : ''}</div></div>`;
+    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.cap)}<span>${c.unit}</span></b><div class="msg">Бак полный, не хватит ещё ${c.f(c.add - c.room)} ${c.unit}${stops ? ` · нужны ещё заезды в боксы` : ''}${est}</div></div>`;
   } else {
-    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.add)}<span>${c.unit}</span></b><div class="msg">${c.planned ? `Для ${c.laps} кр + запас` : 'Для финиша с запасом'}</div></div>`;
+    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.add)}<span>${c.unit}</span></b><div class="msg">${c.planned ? `Для ${c.laps} кр + запас` : 'Для финиша с запасом'}${est}</div></div>`;
   }
 
   const bar = cfg['blocks.bar'] ? `<div class="tank"><i style="width:${pct.toFixed(1)}%"></i></div>` : '';
