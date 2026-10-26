@@ -192,6 +192,7 @@ function buildFuel(race) {
     remBy: rem ? rem.by : null,
     pitSelected: num(v.PitSvFuel),            // сколько выбрано долить в меню боксов
     onPitRoad: !!ref.onPitRoad,
+    lapPct: f,                                // где вы на круге: нужно, чтобы понять, хватит ли топлива ещё на круг после этого
     lapTime,
   };
 }

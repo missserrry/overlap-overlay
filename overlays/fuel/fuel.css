@@ -35,3 +35,8 @@ html, body { height: 100%; }
 .fuel .smsg b { background: none !important; }
 .fuel .smsg b.over { color: var(--rj-danger, #ff3b30); }
 .fuel .smsg b.under { color: var(--rj-safe, #2ee34a); }
+.fuel .hero b.pitword { font-size: 1.9em; letter-spacing: 0.04em; }
+/* пора в боксы на этом круге: красная рамка пульсирует */
+.fuel.pitnow { box-shadow: inset 0 0 0 0.16em var(--c); animation: fuel-pit 1s ease-in-out infinite; }
+@keyframes fuel-pit { 50% { box-shadow: inset 0 0 0 0.16em color-mix(in srgb, var(--c) 25%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .fuel.pitnow { animation: none; } }

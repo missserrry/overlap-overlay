@@ -33,13 +33,19 @@ function compute(m) {
   const cap = add != null && room != null ? Math.min(add, room) : add;
   // цвет: хватает — зелёный; нужно долить и влезает — жёлтый; в бак не влезет — красный
   // меньше двух кругов топлива — красная рамка, чтобы заметить сразу
-  const critical = lapsOfFuel != null && lapsOfFuel < 2;
-  const level = critical ? 'low' : need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
+  // (если до финиша и так хватает, красный не нужен: на последних кругах топлива может быть и меньше двух кругов)
+  const critical = lapsOfFuel != null && lapsOfFuel < 2 && !enough;
+  // «заезжайте на этом круге»: до финиша не хватает, а топлива после финиша этого круга уже меньше, чем на следующий целый круг
+  // (с небольшим запасом: решение нужно принять заранее, а не на последних метрах)
+  // (если можно дотянуть до финиша хотя бы с запасом в десятую круга, заезд ради нескольких литров не предлагаем)
+  const canFinish = perLap > 0 && m.fuel >= (laps + 0.1) * perLap;
+  const pitNow = !m.onPitRoad && !unknownDist && perLap > 0 && !enough && !canFinish && lapsOfFuel != null && lapsOfFuel < (1 - (m.lapPct ?? 0)) + 1.15;
+  const level = critical || pitNow ? 'low' : need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
   // сколько всего долить до финиша и сколько заездов в боксы это потребует; сколько останется в баке на финише
   const totalRefuel = need != null ? Math.max(need - m.fuel, 0) : null;
   const stops = totalRefuel > 0 && m.tank > 0 ? Math.ceil(totalRefuel / m.tank) : 0;
   const atEnd = perLap != null && !unknownDist ? (enough ? m.fuel - (laps * perLap) : cfg.margin * perLap) : null;
-  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist, lapsOfFuel, totalRefuel, stops, atEnd, critical };
+  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist, lapsOfFuel, totalRefuel, stops, atEnd, critical, pitNow };
 }
 
 function render() {
@@ -48,12 +54,15 @@ function render() {
   root.classList.remove('hidden');
   const c = compute(m);
   const pct = m.tank ? Math.min(m.fuel / m.tank, 1) * 100 : 0;
-  root.className = `fuel ${c.level === 'safe' ? '' : c.level}`;
+  root.className = `fuel ${c.level === 'safe' ? '' : c.level}${c.pitNow ? ' pitnow' : ''}`;
 
   const est = m.source === 'estimate' ? ' · оценка по этому кругу' : m.source === 'history' ? ' · по прошлым сессиям' : '';   // пока нет ни одного полного чистого круга
   let hero;
   if (c.perLap == null) {
     hero = `<div class="hero"><small>РАСХОД</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">Проедьте круг</b><div class="msg">Считаю расход топлива</div></div>`;
+  } else if (c.pitNow) {
+    const need = c.fits ? c.add : c.cap;
+    hero = `<div class="hero"><small>БОКСЫ</small><b class="pitword">ЭТОТ КРУГ</b><div class="msg">Ещё круг не проедете: заезжайте на дозаправку · долить ${c.f(need)} ${c.unit}${c.stops > 1 ? `, заездов: ${c.stops}` : ''}</div></div>`;
   } else if (c.unknownDist) {
     hero = `<div class="hero"><small>ДОЛИТЬ</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">–</b><div class="msg">Длина гонки пока неизвестна</div></div>`;
   } else if (c.enough) {
