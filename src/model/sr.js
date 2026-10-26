@@ -83,7 +83,8 @@ class SrTracker {
   reset(eventKey) {
     this.eventKey = eventKey;
     this.start = this.freshStart(null, null);
-    this.distance = 0;      // пройдено кругов в этой сессии
+    this.distance = 0;      // пройдено кругов в этой сессии (основная оценка: до вашего финиша под клетчатым)
+    this.distanceAll = 0;   // то же, но пока не финишировал последний пилот (техническая оценка для сверки)
     this.prevPct = null;
     this.finishLap = null; this.finished = false;   // клетчатый флаг: после пересечения финиша круги в зачёт не идут
     this.outcome = null;    // где сессия оставила рейтинг (для следующей сессии события)
@@ -117,6 +118,7 @@ class SrTracker {
       const carried = this.start.sessionNum != null ? this.outcome : null;
       this.start = this.freshStart(sessionNum, carried);
       this.distance = 0;
+      this.distanceAll = 0;
       this.prevPct = null;
       this.finishLap = null; this.finished = false;
       this.outcome = null;
@@ -128,6 +130,7 @@ class SrTracker {
     const weight = eventWeight(session, sessionNum);
     const cpl = cornersPerLap(w);
     const corners = this.distance * (cpl || 0);
+    const cornersAlt = this.distanceAll * (cpl || 0);
 
     const out = {
       active: true,
@@ -135,6 +138,7 @@ class SrTracker {
       sessionType: String((session.SessionInfo?.Sessions || []).find((s) => s.SessionNum === sessionNum)?.SessionType || ''),
       incidents,
       corners,
+      cornersAlt,
       cornersPerLap: cpl,
       srStart: rating?.sr ?? null,
       srNow: null,
@@ -151,6 +155,10 @@ class SrTracker {
         : { sr: rating.sr, band: rating.band };
       out.srNow = p.sr;
       out.delta = p.sr - rating.sr;
+      // техническая оценка: те же вход и формула, но поворотов набрано до последнего финиша (показывается только в техническом режиме, пишется в журнал)
+      const pa = weight > 0 && cornersAlt > 0 ? M.project(rating.sr, rating.cls, rating.band, cornersAlt * weight, incidents * weight) : { sr: rating.sr };
+      out.srNowAlt = pa.sr;
+      out.deltaAlt = pa.sr - rating.sr;
       this.outcome = { yamlSr: this.start.yamlSr, rating: { sr: p.sr, cls: rating.cls, band: p.band } };
       if (weight > 0) out.cleanNeeded = M.cleanCornersNeeded(incidents, corners, M.cpiFromSr(rating.sr, rating.cls, rating.band));
     }
@@ -178,7 +186,8 @@ class SrTracker {
     this.lastLogAt = now;
     this.lastLogInc = out.incidents;
     console.log(`[sr] сессия ${sessionNum}: пройдено ${f2(this.distance)} кр., поворотов ${f2(out.corners)}, инцидентов ${out.incidents}${incChanged ? ' (изменилось)' : ''}, `
-      + `SR ${f2(out.srStart)} → ${f2(out.srNow)} (${out.delta == null ? '—' : (out.delta >= 0 ? '+' : '') + f2(out.delta)})`);
+      + `SR ${f2(out.srStart)} → ${f2(out.srNow)} (${out.delta == null ? '—' : (out.delta >= 0 ? '+' : '') + f2(out.delta)}); `
+      + `техн.: ${f2(this.distanceAll)} кр., SR → ${f2(out.srNowAlt)} (${out.deltaAlt == null ? '—' : (out.deltaAlt >= 0 ? '+' : '') + f2(out.deltaAlt)})`);
   }
 
   // Итог сессии в журнал: вызывается, когда сессия или событие закончились
@@ -186,13 +195,13 @@ class SrTracker {
     const o = this.out;
     if (!o?.active || this.eventKey == null || this.start.sessionNum == null || this.distance <= 0) return;
     console.log(`[sr] итог сессии ${this.start.sessionNum} (${reason}): пройдено ${f2(this.distance)} кр., поворотов ${f2(o.corners)}, инцидентов ${o.incidents}, вес ${o.weight}, `
-      + `SR ${f2(o.srStart)} → ${f2(o.srNow)} (${o.delta == null ? '—' : (o.delta >= 0 ? '+' : '') + f2(o.delta)})`);
+      + `SR ${f2(o.srStart)} → ${f2(o.srNow)} (${o.delta == null ? '—' : (o.delta >= 0 ? '+' : '') + f2(o.delta)}); `
+      + `техн.: ${f2(this.distanceAll)} кр., SR → ${f2(o.srNowAlt)} (${o.deltaAlt == null ? '—' : (o.deltaAlt >= 0 ? '+' : '') + f2(o.deltaAlt)})`);
   }
 
   // Повороты по дистанции: только пока вы сами в машине, на трассе и не в боксе
   countDistance(vars) {
     const p = vars.PlayerCarIdx;
-    if (this.finished) { this.prevPct = null; return; }       // вы уже пересекли финиш под клетчатым: круг остывания не считается (iRacing его не считает)
     const surface = vars.CarIdxTrackSurface?.[p] ?? SURF_NOT_IN_WORLD;
     const pct = vars.CarIdxLapDistPct?.[p];
     const inCar = !!vars.IsOnTrack && !vars.IsReplayPlaying && surface !== SURF_NOT_IN_WORLD && surface !== SURF_PIT_STALL;
@@ -200,11 +209,14 @@ class SrTracker {
     if (this.prevPct != null) {
       let d = pct - this.prevPct;
       if (d < 0) d += 1;                 // пересекли линию старта
-      if (d <= MAX_TICK_LAPS) this.distance += d;
+      if (d <= MAX_TICK_LAPS) {
+        if (!this.finished) this.distance += d;                    // основная: после вашего финиша круг остывания не идёт в зачёт
+        if (!(vars.SessionState >= 6)) this.distanceAll += d;      // техническая: считаем, пока гонку не закончили все (6 — остывание после последнего финиша)
+      }
     }
     this.prevPct = pct;
     // Клетчатый флаг: для вас гонка кончается на следующем пересечении линии. Проверено по результату iRacing: гонка из трёх кругов с кругом
-    // остывания давала 3.43 круга по дистанции, а iRacing засчитал 3.10 — этот хвост и срезаем.
+    // остывания давала 3.43 круга по дистанции, а iRacing засчитал 3.10 — основная оценка этот хвост срезает.
     const lap = vars.CarIdxLap?.[p];
     if (vars.SessionState >= 5 && Number.isFinite(lap)) {
       if (this.finishLap == null) this.finishLap = lap;
@@ -234,6 +246,7 @@ class SrTracker {
     if (source !== 'iracing' || !s || !subSessionId || s.subSessionId !== subSessionId) return;
     this.start = s.start;
     this.distance = s.distance || 0;
+    this.distanceAll = s.distanceAll || s.distance || 0;
     this.outcome = s.outcome || null;
     this.saved = JSON.stringify(s);
     console.log(`[sr] продолжаем событие ${subSessionId} после перезапуска, сессия ${s.start?.sessionNum}, ${this.distance.toFixed(2)} кр.`);
@@ -242,7 +255,7 @@ class SrTracker {
   // Пишем сразу при смене стартовых значений, иначе раз в четверть круга; только живые события с номером
   save(subSessionId) {
     if (!this.stateFile || !subSessionId || !this.eventKey?.startsWith('iracing|')) return;
-    const state = { subSessionId, start: this.start, distance: this.distance, outcome: this.outcome };
+    const state = { subSessionId, start: this.start, distance: this.distance, distanceAll: this.distanceAll, outcome: this.outcome };
     const prev = this.saved ? JSON.parse(this.saved) : null;
     const due = !prev || prev.subSessionId !== subSessionId || JSON.stringify(prev.start) !== JSON.stringify(state.start)
       || state.distance - prev.distance >= SAVE_EVERY_LAPS;

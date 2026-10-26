@@ -25,3 +25,6 @@ html, body { height: 100%; }
 .srw .st b.need { color: var(--rj-danger, #ff3b30); }
 .srw .st b.ok { color: var(--rj-safe, #2ee34a); }
 .srw.off .now { color: var(--text-dim); }
+
+/* техническая строка (настройка «Для разработчика»): мелко и бледно, чтобы не бросалась в глаза */
+.srw .tech { margin-top: 0.35em; font-size: 0.62em; letter-spacing: 0.04em; text-align: right; color: var(--text-dim); opacity: 0.55; font-variant-numeric: tabular-nums; }

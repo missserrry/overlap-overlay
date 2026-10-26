@@ -347,6 +347,9 @@ const SR_SCHEMA = [
   { group: 'Когда', items: [
     bool('hideUnranked', 'Скрывать, когда сессия не влияет на SR', true),
   ] },
+  { group: 'Для разработчика', items: [
+    bool('tech', 'Техническая оценка: вторая цифра для сверки с результатом iRacing', false),
+  ] },
 ];
 const SR_ITEMS = SR_SCHEMA.flatMap((g) => g.items);
 const normalizeSr = (cur, patch) => normalizeSchema(SR_ITEMS, cur, patch);

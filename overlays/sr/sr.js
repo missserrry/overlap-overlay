@@ -5,7 +5,7 @@ const FORCE = params.get('force') === '1';   // превью в панели: п
 const root = document.getElementById('root');
 
 // по умолчанию совпадает со схемой в src/main/layouts.js (SR_SCHEMA)
-const DEFAULTS = { start: true, delta: true, ir: true, 'stats.incidents': true, 'stats.corners': false, 'stats.clean': true, hideUnranked: true };
+const DEFAULTS = { start: true, delta: true, ir: true, 'stats.incidents': true, 'stats.corners': false, 'stats.clean': true, hideUnranked: true, tech: false };
 let cfg = { ...DEFAULTS };
 let model = null;
 
@@ -18,7 +18,7 @@ function demoModel() {
   const incidents = t < 20 ? 0 : 4;
   const delta = t < 20 ? 0.004 * t : 0.08 - 0.15 * Math.min((t - 20) / 4, 1) + 0.002 * Math.max(t - 24, 0);
   const corners = 120 + t * 6;
-  return { active: true, weight: 1, srStart: 2.75, srNow: 2.75 + delta, delta, incidents, corners, cleanNeeded: incidents ? Math.max(4 * 22.4 - corners * 0.2, 0) : 0, licence: 'C', licColor: '#CA8A04', kind: 'race', iratingNow: 2912, irDelta: t < 20 ? Math.round(t * 1.5) : Math.round(30 - (t - 20) * 2) };
+  return { active: true, weight: 1, srStart: 2.75, srNow: 2.75 + delta, delta, incidents, corners, cleanNeeded: incidents ? Math.max(4 * 22.4 - corners * 0.2, 0) : 0, srNowAlt: 2.75 + delta * 1.25, deltaAlt: delta * 1.25, cornersAlt: corners * 1.12, licence: 'C', licColor: '#CA8A04', kind: 'race', iratingNow: 2912, irDelta: t < 20 ? Math.round(t * 1.5) : Math.round(30 - (t - 20) * 2) };
 }
 
 // изменение меньше 0.005 на экране — «±0.00», без знака роста или падения
@@ -54,8 +54,15 @@ function render() {
     + (counts && cfg.delta ? `<span class="delta">${fmtDelta(d)}</span>` : '')
     + irBlock(m)
     + `</div>`
-    + (stats.length ? `<div class="stats">${stats.join('')}</div>` : '');
+    + (stats.length ? `<div class="stats">${stats.join('')}</div>` : '')
+    + techLine(m, counts);
   layout();
+}
+
+// Техническая строка (включается в настройках, в группе «Для разработчика»): оценка с поворотами до последнего финиша гонки, для сверки
+function techLine(m, counts) {
+  if (!cfg.tech || !counts || m.srNowAlt == null) return '';
+  return `<div class="tech">техн. ${fmtDelta(m.deltaAlt ?? 0)} · ${Math.floor(m.cornersAlt ?? 0)} пов.</div>`;
 }
 
 // Прогноз iRating рядом с SR: только в гонке (в практике и квалификации iRating не меняется)
