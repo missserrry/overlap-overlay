@@ -145,19 +145,15 @@ function startServer(options = {}) {
     return { connected: false, source: 'none' };
   }
 
+  // Пролаг интернета: на мгновение пропадают и ваша машина, и остальные пилоты (или сим отдаёт пустое состояние). Чтобы оверлеи
+  // не мигали, на HOLD_MS замираем на последнем нормальном кадре; если провал затянулся — показываем как есть.
+  const HOLD_MS = 6000;
+  const goodMsgs = {};
+  let goodStatus = null, goodAt = 0, lostSince = null;
+
   function tick() {
     const snap = readSnapshot();
-    // Состояние сима (машина, сессия, на трассе/в боксах) — по нему главный процесс выбирает раскладку
-    const next = { source: snap.source, connected: !!snap.connected, ...(snap.connected && snap.session ? simContext(snap) : {}) };
-    if (JSON.stringify(next) !== JSON.stringify(status)) {
-      status = next;
-      console.log(`[server] ${JSON.stringify(status)}`);
-      listeners.forEach((fn) => fn(status));
-    }
-
-    try { srTracker.update(snap); } catch (e) { console.error('[server] sr error:', e); }
-    try { forecastTracker.update(snap); } catch (e) { console.error('[server] forecast error:', e); }
-
+    const now = Date.now();
     let race = null;
     if (snap.connected) {
       try {
@@ -167,6 +163,24 @@ function startServer(options = {}) {
         console.error('[server] model error:', e);
       }
     }
+    const healthy = snap.source === 'iracing' && !!race && !!race.ref && race.ref.inWorld;
+    if (healthy) { lostSince = null; goodAt = now; }
+    else if (goodAt && lostSince == null) lostSince = now;
+    const holding = !healthy && goodAt > 0 && lostSince != null && now - lostSince < HOLD_MS;
+    if (!healthy && !holding) goodAt = 0;     // удержание закончилось: дальше как есть, пока снова не появятся нормальные данные
+
+    // Состояние сима (машина, сессия, на трассе/в боксах) — по нему главный процесс выбирает раскладку
+    const next = holding && goodStatus ? goodStatus : { source: snap.source, connected: !!snap.connected, ...(snap.connected && snap.session ? simContext(snap) : {}) };
+    if (healthy) goodStatus = next;
+    if (JSON.stringify(next) !== JSON.stringify(status)) {
+      status = next;
+      console.log(`[server] ${JSON.stringify(status)}`);
+      listeners.forEach((fn) => fn(status));
+    }
+
+    try { srTracker.update(snap); } catch (e) { console.error('[server] sr error:', e); }
+    try { forecastTracker.update(snap); } catch (e) { console.error('[server] forecast error:', e); }
+
     for (const [name, build] of Object.entries(CHANNELS)) {
       const subs = clients.get(name);
       if (!subs.size) { delete lastMessages[name]; continue; }
@@ -180,6 +194,8 @@ function startServer(options = {}) {
         continue;
       }
       markOk(name);
+      if (healthy) goodMsgs[name] = msg;
+      else if (holding && goodMsgs[name]) msg = goodMsgs[name];
       lastMessages[name] = msg;
       for (const ws of subs) if (ws.readyState === 1) ws.send(msg);
     }
