@@ -1,5 +1,5 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, onRelChange } from '/common/overlay.js';
-import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, setDecimals, sizesKey } from '/common/columns.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, onLicModeChange, onRelChange } from '/common/overlay.js';
+import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, setDecimals, setLicMode, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -29,6 +29,7 @@ onRelChange((s) => {
 });
 document.body.classList.add('lap-ring');
 onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } });
+onLicModeChange((m) => { if (setLicMode(m)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } });
 onDecimalsChange((d) => { if (setDecimals(d)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('relative', (msg) => {

@@ -198,6 +198,11 @@ let rbHook = null, lastRb = null;
 const deliverRb = (obj) => { lastRb = obj; rbHook?.(obj); };
 export const onRadarBarsChange = (fn) => { rbHook = fn; if (lastRb) fn(lastRb); };
 
+// Вид плашки лицензии (full | num | letter): ?lic=..., настройки приложения, панель
+let licHook = null, lastLic = null;
+const deliverLicMode = (m) => { lastLic = m; licHook?.(m); };
+export const onLicModeChange = (fn) => { licHook = fn; if (lastLic) fn(lastLic); };
+
 // Знаки после запятой у колонок (JSON {id: 0…3}): ?dec=..., настройки приложения, панель
 let decHook = null, lastDec = null;
 const deliverDecimals = (obj) => { lastDec = obj; decHook?.(obj); };
@@ -237,6 +242,7 @@ export function setupPage() {
   if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
   if (params.has('traffic')) { try { deliverTraffic(JSON.parse(params.get('traffic'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('rel')) { try { deliverRel(JSON.parse(params.get('rel'))); } catch { /* настройки по умолчанию */ } }
+  if (params.has('lic')) deliverLicMode(params.get('lic'));
   if (params.has('dec')) { try { deliverDecimals(JSON.parse(params.get('dec'))); } catch { /* знаки по умолчанию */ } }
   if (params.has('sizes')) { try { deliverSizes(JSON.parse(params.get('sizes'))); } catch { /* размеры по умолчанию */ } }
   if (params.has('radarbars')) { try { deliverRb(JSON.parse(params.get('radarbars'))); } catch { /* настройки по умолчанию */ } }
@@ -271,6 +277,7 @@ export function setupPage() {
     if (e.data?.svoyRadarbars) deliverRb(e.data.svoyRadarbars);
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
     if (e.data?.svoyDecimals) deliverDecimals(e.data.svoyDecimals);
+    if (typeof e.data?.svoyLicMode === 'string') deliverLicMode(e.data.svoyLicMode);
     if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
@@ -299,6 +306,7 @@ export function setupPage() {
       if (s.rel && !params.has('rel')) deliverRel(s.rel);
       if (s.sizes && !params.has('sizes')) deliverSizes(s.sizes);
       if (s.decimals && !params.has('dec')) deliverDecimals(s.decimals);
+      if (s.licMode && !params.has('lic')) deliverLicMode(s.licMode);
       if (s.pitlimit && !params.has('pitlimit')) deliverPit(s.pitlimit);
       if (s.sr && !params.has('sr')) deliverSr(s.sr);
       if (s.forecast && !params.has('forecast')) deliverForecast(s.forecast);
@@ -500,7 +508,8 @@ export function iratingBadge(ir, delta, showDelta = delta != null) {
   return `<span class="badge with-delta">${fmtIrating(ir)}<span class="delta ${cls}">${d}</span></span>`;
 }
 
-export function licenseBadge(lic) {
+export function licenseBadge(lic, mode = 'full') {
   if (!lic) return '';
-  return `<span class="lic" style="--lic:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}, ${esc(lic.bgColor)});--lic-dark:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}-d, ${esc(lic.darkBgColor)})"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
+  const m = mode === 'num' ? ' m-num' : mode === 'letter' ? ' m-letter' : '';
+  return `<span class="lic${m}" style="--lic:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}, ${esc(lic.bgColor)});--lic-dark:var(--lic-${lic.name === 'W' ? 'p' : esc(String(lic.name).toLowerCase())}-d, ${esc(lic.darkBgColor)})"><span class="sr">${esc(lic.safetyRank)}</span><span class="letter">${esc(lic.name)}</span></span>`;
 }

@@ -79,6 +79,10 @@ function normalizeDecimals(cur, patch) {
   return out;
 }
 
+// Вид плашки лицензии: full — цифры и буква, num — только цифры SR, letter — только буква
+const LIC_MODES = ['full', 'num', 'letter'];
+const normalizeLicMode = (v) => (LIC_MODES.includes(v) ? v : 'full');
+
 function normalizeColumns(type, cols) {
   const def = COLUMN_DEFAULTS[type] || {};
   const out = [], seen = new Set();
@@ -398,6 +402,7 @@ function createOverlay(type, at = {}) {
     scale: 1,            // масштаб содержимого, если не включена подгонка под ширину окна
     autoScale: type === 'dash', // true — масштаб следует за шириной окна (у Dash так по умолчанию)
     sizes: {},           // Relative и Standings: размер каждого поля, % (id колонки → 70…200)
+    licMode: 'full',     // Relative и Standings: вид плашки лицензии (full | num | letter)
     decimals: {},        // Relative и Standings: знаков после запятой у числовых колонок (id → 0…3), только отличное от умолчания
     dash: normalizeDash(),
     sectors: normalizeSectors(),
@@ -538,5 +543,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
 };

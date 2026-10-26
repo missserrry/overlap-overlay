@@ -267,6 +267,7 @@ class LayoutState {
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
         if (p.traffic && typeof p.traffic === 'object') o.traffic = L.normalizeTraffic(o.traffic, p.traffic);
         if (p.rel && typeof p.rel === 'object') o.rel = L.normalizeRel(o.rel, p.rel);
+        if (typeof p.licMode === 'string') o.licMode = L.normalizeLicMode(p.licMode);
         if (p.decimals === null) o.decimals = {};
         else if (p.decimals && typeof p.decimals === 'object') o.decimals = L.normalizeDecimals(o.decimals, p.decimals);
         if (p.sizes === null) o.sizes = {};

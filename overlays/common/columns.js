@@ -126,6 +126,13 @@ const tireHtml = (t) => {
 
 // Знаки после запятой по колонкам: настройка оверлея или значение по умолчанию
 const DEC_DEFAULT = { gap: 1, int: 1, last: 3, best: 3, lapDelta: 2, sec1: 2, sec2: 2, sec3: 2, pitTime: 1 };
+let licMode = 'full';
+export function setLicMode(m) {
+  const next = m === 'num' || m === 'letter' ? m : 'full';
+  if (next === licMode) return false;
+  licMode = next;
+  return true;
+}
 let decimals = {};
 export function setDecimals(obj) {
   const next = obj && typeof obj === 'object' ? obj : {};
@@ -202,7 +209,7 @@ function cellRaw(id, r, ctx) {
     case 'num': return `<span class="num">${esc(r.number)}</span>`;
     case 'brand': return brandHtml(r.brand);
     case 'name': return `<span class="stripe" style="--cls:${esc(r.classColor)}"></span><span class="name">${esc(r.name)}</span>`;
-    case 'lic': return licenseBadge(r.license);
+    case 'lic': return licenseBadge(r.license, licMode);
     case 'ir': return iratingBadge(r.irating, r.iratingDelta, ctx.showDelta);
     case 'gap':
       return ctx.overlay === 'relative'
