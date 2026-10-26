@@ -87,10 +87,16 @@ function sessionLetter(kind) {
   return { race: 'R', qualify: 'Q', practice: 'P' }[kind] || 'T';
 }
 
-// "2700.0000 sec" -> 2700, "unlimited" -> null
+// "2700.0000 sec" -> 2700, "7 min" -> 420, "1 hr 30 min" -> 5400, "unlimited" -> null (число без единицы — секунды)
 function parseSessionTime(str) {
-  const n = parseFloat(String(str ?? ''));
-  return Number.isFinite(n) ? n : null;
+  const text = String(str ?? '').toLowerCase();
+  const parts = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)?\b/g)];
+  if (!parts.length) return null;
+  let sum = 0;
+  for (const [, n, unit = 's'] of parts) {
+    sum += parseFloat(n.replace(',', '.')) * (unit[0] === 'h' ? 3600 : unit[0] === 'm' ? 60 : 1);
+  }
+  return Number.isFinite(sum) ? sum : null;
 }
 
 // Машина, относительно которой считаем (своя или камера при просмотре повтора/споттинге)

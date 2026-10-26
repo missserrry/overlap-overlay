@@ -211,6 +211,7 @@ function buildRaceState(snap) {
 
   const ref = cars.find((c) => c.isPlayer) || null;
   const totalTime = parseSessionTime(sess?.SessionTime) ?? (vars.SessionTimeTotal > 0 ? vars.SessionTimeTotal : null);
+  const clock = raceClock(snap, kind, totalTime);
   const incidentLimit = parseInt(session?.WeekendInfo?.WeekendOptions?.IncidentLimit, 10);
 
   return {
@@ -225,14 +226,35 @@ function buildRaceState(snap) {
     multiClass: classes.size > 1,
     sof: strengthOfField(cars.map((c) => c.irating)),
     session: {
-      elapsed: vars.SessionTime ?? 0,
+      elapsed: clock.elapsed,
       remain: vars.SessionTimeRemain >= 0 && vars.SessionTimeRemain < 604800 ? vars.SessionTimeRemain : null,
-      total: totalTime,
+      total: clock.total,
       lapsTotal: vars.SessionLapsTotal > 0 && vars.SessionLapsTotal < 32767 ? vars.SessionLapsTotal : null,
     },
     incidents: vars.PlayerCarMyIncidentCount ?? 0,
     incidentLimit: Number.isFinite(incidentLimit) ? incidentLimit : null,
   };
+}
+
+// Часы гонки. SessionTime идёт с начала сессии (с сетки и круга прогрева), а длина в описании сессии может включать то же лишнее время:
+// выходило «16 из 122 мин» вместо «16 из 120». Остаток (SessionTimeRemain) стартует с зелёного флага и честный: длину гонки берём как остаток
+// перед зелёным, прошло = длина − остаток. Если оверлей запущен посреди гонки, зелёного не видели — считаем как раньше.
+let rclock = { key: null, total: null, last: null };
+function raceClock(snap, kind, totalTime) {
+  const { vars, session } = snap;
+  const plain = { elapsed: vars.SessionTime ?? 0, total: totalTime };
+  if (kind !== 'race') return plain;
+  const key = `${snap.source}|${session?.WeekendInfo?.SubSessionID ?? 0}|${vars.SessionNum}`;
+  if (rclock.key !== key) rclock = { key, total: null, last: null };
+  const remain = vars.SessionTimeRemain;
+  if (!(remain >= 0 && remain < 604800)) return plain;
+  const state = vars.SessionState ?? 0;
+  if (rclock.total == null) {
+    if (state >= 1 && state <= 3) rclock.last = remain;               // до зелёного остаток равен длине гонки
+    else if (state === 4 && rclock.last != null && remain >= rclock.last - 5) rclock.total = Math.max(rclock.last, remain);
+    if (rclock.total == null) return state >= 1 && state <= 3 && rclock.last != null ? { elapsed: 0, total: rclock.last } : plain;
+  }
+  return { elapsed: Math.max(rclock.total - remain, 0), total: rclock.total };
 }
 
 function updateGrid(snap, kind, cars) {
