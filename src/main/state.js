@@ -111,6 +111,7 @@ class LayoutState {
       panelSelection: this.panelSelection,
       types: L.OVERLAY_TYPES,
       columnCatalog: L.COLUMN_CATALOG,
+      decimalCatalog: L.DECIMAL_COLUMNS,
       hfCatalog: L.HF_CATALOG,
       weatherCards: L.WEATHER_CARDS,
       dashSchema: L.DASH_SCHEMA,
@@ -266,6 +267,8 @@ class LayoutState {
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
         if (p.traffic && typeof p.traffic === 'object') o.traffic = L.normalizeTraffic(o.traffic, p.traffic);
         if (p.rel && typeof p.rel === 'object') o.rel = L.normalizeRel(o.rel, p.rel);
+        if (p.decimals === null) o.decimals = {};
+        else if (p.decimals && typeof p.decimals === 'object') o.decimals = L.normalizeDecimals(o.decimals, p.decimals);
         if (p.sizes === null) o.sizes = {};
         else if (p.sizes && typeof p.sizes === 'object') o.sizes = L.normalizeSizes(o.sizes, p.sizes);
         if (p.pitlimit && typeof p.pitlimit === 'object') o.pitlimit = L.normalizePitlimit(o.pitlimit, p.pitlimit);

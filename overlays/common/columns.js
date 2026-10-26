@@ -124,9 +124,20 @@ const tireHtml = (t) => {
   return `<svg class="tire" viewBox="0 0 20 20" role="img" aria-label="${esc(t.name)}"><title>${esc(t.name)}</title><circle cx="10" cy="10" r="8.2" fill="rgba(0,0,0,0.35)" stroke="${c}" stroke-width="2.2"/>${mark}</svg>`;
 };
 
-const gapStandings = (g) => {
+// Знаки после запятой по колонкам: настройка оверлея или значение по умолчанию
+const DEC_DEFAULT = { gap: 1, int: 1, last: 3, best: 3, lapDelta: 2, sec1: 2, sec2: 2, sec3: 2, pitTime: 1 };
+let decimals = {};
+export function setDecimals(obj) {
+  const next = obj && typeof obj === 'object' ? obj : {};
+  if (JSON.stringify(next) === JSON.stringify(decimals)) return false;
+  decimals = next;
+  return true;
+}
+const dec = (id) => { const n = Number(decimals[id]); return Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 0), 3) : DEC_DEFAULT[id]; };
+
+const gapStandings = (g, d = 1) => {
   if (!g || g.type === 'leader' || g.type === 'none') return '-';
-  return g.type === 'laps' ? `${g.value}L` : g.value.toFixed(1);
+  return g.type === 'laps' ? `${g.value}L` : g.value.toFixed(d);
 };
 
 const side = (id, cls, html) => `<span class="sc ${cls}" style="--w:${DEFS[id].w}em">${html}</span>`;
@@ -167,7 +178,7 @@ function cellRaw(id, r, ctx) {
     case 'lapDelta': {
       const d = r.lapDelta;      // секунды: меньше нуля — пилот проехал круг быстрее вас
       if (d == null || !Number.isFinite(d) || Math.abs(d) >= 100) return side('lapDelta', 'ld-v', '');
-      return side('lapDelta', `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`);
+      return side('lapDelta', `ld-v ${d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : ''}`, `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(dec('lapDelta'))}`);
     }
     case 'sec1': case 'sec2': case 'sec3': {   // дельта сектора к вашему: меньше нуля — пилот проехал сектор быстрее вас
       const slot = ctx.sec?.slots[Number(id.slice(3)) - 1];
@@ -176,14 +187,14 @@ function cellRaw(id, r, ctx) {
       // анимация с отрицательной задержкой: таблица перерисовывается чаще, чем идёт анимация, и без этого она бы начиналась заново
       const anim = a ? ` sec-${a.kind}` : '';
       const style = a ? `;animation-delay:-${Math.round(a.ms)}ms` : '';
-      const text = d == null || !Number.isFinite(d) || Math.abs(d) >= 30 ? '' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
+      const text = d == null || !Number.isFinite(d) || Math.abs(d) >= 30 ? '' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(dec(id))}`;
       const cls = text ? (d < 0 ? 'ld-fast' : d > 0 ? 'ld-slow' : '') : '';
       return `<span class="sc ld-v ${cls}${anim}" style="--w:${DEFS[id].w}em${style}">${text}</span>`;
     }
     case 'pitTime': {      // секунды на питлейне при последнем стопе; пусто — стопа ещё не было или чужой класс
       const t = r.pitTime;
       if (t == null || !Number.isFinite(t)) return side('pitTime', 'pt-v', '');
-      return side('pitTime', 'pt-v', t >= 100 ? `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}` : t.toFixed(1));
+      return side('pitTime', 'pt-v', t >= 100 ? `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}` : t.toFixed(dec('pitTime')));
     }
     case 'pitLap': return side('pitLap', 'pl-v', r.pitLap != null ? `L${r.pitLap}` : '');
     case 'tire': return side('tire', 'tire-v', r.tire ? tireHtml(r.tire) : '');
@@ -195,11 +206,11 @@ function cellRaw(id, r, ctx) {
     case 'ir': return iratingBadge(r.irating, r.iratingDelta, ctx.showDelta);
     case 'gap':
       return ctx.overlay === 'relative'
-        ? `<span class="gap${ctx.wideGap ? ' wide' : ''}">${ctx.lapLabel && r.lapDiff ? `<small class="lapn">${r.lapDiff > 0 ? '+' : '−'}${Math.abs(r.lapDiff)}L</small>` : ''}${r.gap.toFixed(1)}</span>`
-        : side('gap', 'gap-v', gapStandings(r.gap));
-    case 'int': return side('int', 'int-v', gapStandings(r.int));
-    case 'last': return side('last', 'last-v', fmtLap(r.lastLap));
-    case 'best': return side('best', `best${r.isFastest ? ' fastest' : ''}`, fmtLap(r.bestLap));
+        ? `<span class="gap${ctx.wideGap ? ' wide' : ''}">${ctx.lapLabel && r.lapDiff ? `<small class="lapn">${r.lapDiff > 0 ? '+' : '−'}${Math.abs(r.lapDiff)}L</small>` : ''}${r.gap.toFixed(dec('gap'))}</span>`
+        : side('gap', 'gap-v', gapStandings(r.gap, dec('gap')));
+    case 'int': return side('int', 'int-v', gapStandings(r.int, dec('int')));
+    case 'last': return side('last', 'last-v', fmtLap(r.lastLap, dec('last')));
+    case 'best': return side('best', `best${r.isFastest ? ' fastest' : ''}`, fmtLap(r.bestLap, dec('best')));
     case 'pit': return side('pit', 'pit-v', r.onPitRoad ? '<span class="pit-tag">PIT</span>' : '');
     default: return '';
   }

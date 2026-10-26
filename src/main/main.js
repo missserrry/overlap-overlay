@@ -287,7 +287,7 @@ function applyOverlay(win, o, editing, force = false) {
   win.setFocusable(editing);
   if (!win.ready) return;
   win.webContents.setZoomFactor(1); // масштаб теперь задаётся размером окна
-  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.dash, sectors: o.sectors, laps: o.laps, rejoin: o.rejoin, fuel: o.fuel, pitlimit: o.pitlimit, sr: o.sr, forecast: o.forecast, radarbars: o.radarbars, sizes: o.sizes || {}, rel: o.rel, traffic: o.traffic, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null, palette: P.buildVars(cfg.palette, o.type) });
+  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.dash, sectors: o.sectors, laps: o.laps, rejoin: o.rejoin, fuel: o.fuel, pitlimit: o.pitlimit, sr: o.sr, forecast: o.forecast, radarbars: o.radarbars, sizes: o.sizes || {}, decimals: o.decimals || {}, rel: o.rel, traffic: o.traffic, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null, palette: P.buildVars(cfg.palette, o.type) });
 }
 
 // Перемещение и растягивание (как в Laki Overlay): двигать — за любое место окна,

@@ -1,5 +1,5 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onRelChange } from '/common/overlay.js';
-import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, sizesKey } from '/common/columns.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, onRelChange } from '/common/overlay.js';
+import { buildLevels, cellHtml, currentColumns, onColumns, rowScale, setColumns, setSizes, setDecimals, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -28,7 +28,8 @@ onRelChange((s) => {
   if (model?.rows?.length) fitter.fit();
 });
 document.body.classList.add('lap-ring');
-onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
+onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } });
+onDecimalsChange((d) => { if (setDecimals(d)) { fitter.invalidate(); if (model?.rows?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('relative', (msg) => {
   model = msg.data;

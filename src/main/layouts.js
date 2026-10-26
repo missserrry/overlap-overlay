@@ -64,6 +64,21 @@ function normalizeSizes(cur, patch) {
   return out;
 }
 
+// Знаки после запятой у колонок с числами: значение по умолчанию и допустимые 0…3. Хранится только то, что отличается от умолчания.
+const DECIMAL_COLUMNS = { gap: { def: 1 }, int: { def: 1 }, last: { def: 3 }, best: { def: 3 }, lapDelta: { def: 2 }, sec1: { def: 2 }, sec2: { def: 2 }, sec3: { def: 2 }, pitTime: { def: 1 } };
+function normalizeDecimals(cur, patch) {
+  const out = {};
+  const src = { ...(cur || {}), ...(patch || {}) };
+  for (const [id, v] of Object.entries(src)) {
+    const meta = DECIMAL_COLUMNS[id];
+    const n = Math.round(Number(v));
+    if (!meta || v == null || !Number.isFinite(n)) continue;
+    const k = Math.min(Math.max(n, 0), 3);
+    if (k !== meta.def) out[id] = k;
+  }
+  return out;
+}
+
 function normalizeColumns(type, cols) {
   const def = COLUMN_DEFAULTS[type] || {};
   const out = [], seen = new Set();
@@ -383,6 +398,7 @@ function createOverlay(type, at = {}) {
     scale: 1,            // масштаб содержимого, если не включена подгонка под ширину окна
     autoScale: type === 'dash', // true — масштаб следует за шириной окна (у Dash так по умолчанию)
     sizes: {},           // Relative и Standings: размер каждого поля, % (id колонки → 70…200)
+    decimals: {},        // Relative и Standings: знаков после запятой у числовых колонок (id → 0…3), только отличное от умолчания
     dash: normalizeDash(),
     sectors: normalizeSectors(),
     laps: normalizeLaps(),
@@ -522,5 +538,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
+  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
 };

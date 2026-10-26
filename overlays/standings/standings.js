@@ -1,5 +1,5 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
-import { DEFS, buildLevels, cellHtml, currentColumns, headOf, secView, onColumns, rowScale, setColumns, setSizes, sizeOf, sizesKey } from '/common/columns.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
+import { DEFS, buildLevels, cellHtml, currentColumns, headOf, secView, onColumns, rowScale, setColumns, setSizes, setDecimals, sizeOf, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
 setupPage();
@@ -24,7 +24,8 @@ const fitter = createFitter({
 });
 onColumns(() => { rebuildLevels(); fitter.invalidate(); if (model?.classes?.length) fitter.fit(); });
 onColumnsChange(setColumns);
-onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.classes?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
+onSizesChange((s) => { if (setSizes(s)) { fitter.invalidate(); if (model?.classes?.length) fitter.fit(); } });
+onDecimalsChange((d) => { if (setDecimals(d)) { fitter.invalidate(); if (model?.classes?.length) fitter.fit(); } }); // после onColumns: колонки из адреса приходят сразу
 
 connect('standings', (msg) => {
   model = msg.data;

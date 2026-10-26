@@ -185,6 +185,8 @@ function renderOverlays() {
   renderPreview(o);
 }
 
+const decOpen = {};   // какие колонки раскрыты для выбора знаков после запятой: «тип:колонка» → true
+
 // Вид таблицы (Relative, Standings): все колонки одним списком, у каждой переключатель — как в шапке и подвале
 function tableView(o) {
   return `<div class="block">
@@ -208,8 +210,13 @@ function columnRows(o, showOn = null) {   // showOn: null — все колон�
     const fixed = cat[c.id]?.fixed;
     const sub = cols.filter((x) => cat[x.id]?.sub === c.id).map((x) =>
       `<div class="col-sub ${c.on ? '' : 'dim'}"><span>${esc(label(x.id))}</span>${sw(`data-col="${x.id}" ${c.on ? '' : 'disabled'}`, on(x.id))}</div>`).join('');
+    const dm = S.decimalCatalog?.[c.id];
+    const dKey = `${o.type}:${c.id}`;
+    const dCur = dm ? (o.decimals?.[c.id] ?? dm.def) : null;
+    const dBtn = dm ? `<button class="col-more ${decOpen[dKey] ? 'open' : ''}" data-dec-toggle="${dKey}" aria-expanded="${!!decOpen[dKey]}" aria-label="Знаков после запятой: ${esc(label(c.id))}" title="Знаков после запятой">${icon('chevron-down', 'sm')}</button>` : '';
+    const dRow = dm && decOpen[dKey] ? `<div class="col-dec ${c.on ? '' : 'dim'}"><span>Знаков после запятой</span><div class="seg" role="group" aria-label="Знаков после запятой">${[0, 1, 2, 3].map((n) => `<button data-dec-col="${c.id}" data-dec-val="${n}" class="${dCur === n ? 'on' : ''}" aria-pressed="${dCur === n}">${n}</button>`).join('')}</div></div>` : '';
     return `<div class="col-item" draggable="true" data-list="columns" data-col-id="${c.id}">
-      <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(label(c.id))}</span>${fixed ? '<span class="col-fixed">всегда</span>' : sw(`data-col="${c.id}" aria-label="${esc(label(c.id))}"`, c.on)}</div>${sub}</div>`;
+      <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(label(c.id))}</span>${dBtn}${fixed ? '<span class="col-fixed">всегда</span>' : sw(`data-col="${c.id}" aria-label="${esc(label(c.id))}"`, c.on)}</div>${dRow}${sub}</div>`;
   }).join('');
 }
 
@@ -471,13 +478,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key; pvContent = null;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyDecimals: o.decimals || {}, svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -1102,6 +1109,8 @@ document.addEventListener('click', (e) => {
   if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
   if (d.ovTab) { ovTab = d.ovTab; save('ovTab', ovTab); return render(); }
   if ('sizesReset' in d) return ovAction('overlay.update', { patch: { sizes: null } });
+  if (d.decToggle) { decOpen[d.decToggle] = !decOpen[d.decToggle]; return render(); }
+  if (d.decCol) return ovAction('overlay.update', { patch: { decimals: { [d.decCol]: Number(d.decVal) } } });
   if (d.palResetSc) return act({ type: 'palette.reset', scope: d.palResetSc });
   if (d.palOpen) {
     view = 'overlays'; save('panelView', view); mounted = null; ovTab = 'colors'; save('ovTab', ovTab);

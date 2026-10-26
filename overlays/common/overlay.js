@@ -198,6 +198,11 @@ let rbHook = null, lastRb = null;
 const deliverRb = (obj) => { lastRb = obj; rbHook?.(obj); };
 export const onRadarBarsChange = (fn) => { rbHook = fn; if (lastRb) fn(lastRb); };
 
+// Знаки после запятой у колонок (JSON {id: 0…3}): ?dec=..., настройки приложения, панель
+let decHook = null, lastDec = null;
+const deliverDecimals = (obj) => { lastDec = obj; decHook?.(obj); };
+export const onDecimalsChange = (fn) => { decHook = fn; if (lastDec) fn(lastDec); };
+
 // Размеры полей таблицы (JSON {id: %}): ?sizes=..., настройки приложения, панель
 let sizesHook = null, lastSizes = null;
 const deliverSizes = (obj) => { lastSizes = obj; sizesHook?.(obj); };
@@ -232,6 +237,7 @@ export function setupPage() {
   if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
   if (params.has('traffic')) { try { deliverTraffic(JSON.parse(params.get('traffic'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('rel')) { try { deliverRel(JSON.parse(params.get('rel'))); } catch { /* настройки по умолчанию */ } }
+  if (params.has('dec')) { try { deliverDecimals(JSON.parse(params.get('dec'))); } catch { /* знаки по умолчанию */ } }
   if (params.has('sizes')) { try { deliverSizes(JSON.parse(params.get('sizes'))); } catch { /* размеры по умолчанию */ } }
   if (params.has('radarbars')) { try { deliverRb(JSON.parse(params.get('radarbars'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('forecast')) { try { deliverForecast(JSON.parse(params.get('forecast'))); } catch { /* настройки по умолчанию */ } }
@@ -264,6 +270,7 @@ export function setupPage() {
     if (e.data?.svoyForecast) deliverForecast(e.data.svoyForecast);
     if (e.data?.svoyRadarbars) deliverRb(e.data.svoyRadarbars);
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
+    if (e.data?.svoyDecimals) deliverDecimals(e.data.svoyDecimals);
     if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
@@ -291,6 +298,7 @@ export function setupPage() {
       if (s.traffic && !params.has('traffic')) deliverTraffic(s.traffic);
       if (s.rel && !params.has('rel')) deliverRel(s.rel);
       if (s.sizes && !params.has('sizes')) deliverSizes(s.sizes);
+      if (s.decimals && !params.has('dec')) deliverDecimals(s.decimals);
       if (s.pitlimit && !params.has('pitlimit')) deliverPit(s.pitlimit);
       if (s.sr && !params.has('sr')) deliverSr(s.sr);
       if (s.forecast && !params.has('forecast')) deliverForecast(s.forecast);
@@ -469,11 +477,15 @@ export function fmtDuration(sec) {
 }
 
 // 98.0217 -> "01:38.021"
-export function fmtLap(sec) {
-  if (!sec || sec <= 0) return '--:--.---';
+export function fmtLap(sec, dec = 3) {
+  if (!sec || sec <= 0) return dec ? `--:--.${'-'.repeat(dec)}` : '--:--';
+  if (dec === 0) {
+    const t = Math.round(sec);
+    return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+  }
   const m = Math.floor(sec / 60);
   const s = sec - m * 60;
-  return `${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(dec).padStart(dec + 3, '0')}`;
 }
 
 export const ARROW_UP = '<svg viewBox="0 0 10 10"><path d="M1 7 L5 2.5 L9 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';

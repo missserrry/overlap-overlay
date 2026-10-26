@@ -300,6 +300,13 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: var(--fs-body); paddi
 .col-fixed { color: var(--muted); font-size: var(--fs-label); letter-spacing: 0.04em; }
 .col-sub { min-height: 30px; padding-left: 36px; color: var(--muted); justify-content: space-between; }
 .col-sub.dim { opacity: 0.45; }
+/* знаки после запятой: стрелка рядом с названием колонки и раскрывающийся выбор 0…3 */
+.col-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; transition: transform 160ms var(--ease), color 120ms var(--ease); }
+.col-more:hover { color: var(--text); }
+.col-more.open { transform: rotate(180deg); color: var(--text); }
+.col-dec { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 8px 4px 36px; color: var(--muted); font-size: var(--fs-body); }
+.col-dec.dim { opacity: 0.55; }
+.col-dec .seg button { height: 26px; min-width: 32px; padding: 0 10px; }
 
 .slider.dim { opacity: 0.45; }
 
