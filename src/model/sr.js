@@ -16,8 +16,16 @@ const MAX_TICK_LAPS = 0.10;     // больше за тик не проехат�
 const SAVE_EVERY_LAPS = 0.25;
 const CLASS_LETTERS = ['R', 'D', 'C', 'B', 'A', 'P'];
 
-// Поворотов на круге, которые идут в зачёт SR: официальная таблица iRacing по TrackID, иначе число из YAML
+// Трассы, где SR считается на меньшем числе поворотов, чем говорят и таблица, и описание сессии. Каждое значение — corners_per_lap из
+// официального результата iRacing по этой трассе (экспорт результатов события), а не оценка.
+//   249 Nordschleife Industriefahrten: сессия и таблица дают 154, iRacing считает 73. Проверено по двум гонкам (subsession 89656819 и
+//   следующей): при 154 оверлей давал +1.05 и +0.94 вместо реальных +0.23 и +0.16, при 73 выходит +0.26 и +0.16.
+const SCORED_CORNERS = { 249: 73 };
+
+// Поворотов на круге, которые идут в зачёт SR: проверенное значение по трассе, затем официальная таблица iRacing по TrackID, иначе число из YAML
 function cornersPerLap(weekend) {
+  const scored = SCORED_CORNERS[Number(weekend?.TrackID)];
+  if (scored) return scored;
   const official = CORNERS.tracks[String(weekend?.TrackID)];
   if (official) return official;
   const n = parseInt(weekend?.TrackNumTurns, 10);
@@ -54,6 +62,7 @@ function sinceBase(start, key, current) {
 const f2 = (x) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(2));
 const ratingText = (r) => (r ? `${CLASS_LETTERS[r.cls] || '?'} ${f2(r.sr)}` : '—');
 function cornersSource(weekend) {
+  if (SCORED_CORNERS[Number(weekend?.TrackID)]) return 'проверено по официальным результатам iRacing';
   if (CORNERS.tracks[String(weekend?.TrackID)]) return 'таблица iRacing';
   const n = parseInt(weekend?.TrackNumTurns, 10);
   return Number.isFinite(n) && n > 0 ? 'TrackNumTurns из сессии (в таблице трека нет)' : 'нет данных';
@@ -76,6 +85,7 @@ class SrTracker {
     this.start = this.freshStart(null, null);
     this.distance = 0;      // пройдено кругов в этой сессии
     this.prevPct = null;
+    this.finishLap = null; this.finished = false;   // клетчатый флаг: после пересечения финиша круги в зачёт не идут
     this.outcome = null;    // где сессия оставила рейтинг (для следующей сессии события)
   }
 
@@ -108,6 +118,7 @@ class SrTracker {
       this.start = this.freshStart(sessionNum, carried);
       this.distance = 0;
       this.prevPct = null;
+      this.finishLap = null; this.finished = false;
       this.outcome = null;
     }
 
@@ -181,6 +192,7 @@ class SrTracker {
   // Повороты по дистанции: только пока вы сами в машине, на трассе и не в боксе
   countDistance(vars) {
     const p = vars.PlayerCarIdx;
+    if (this.finished) { this.prevPct = null; return; }       // вы уже пересекли финиш под клетчатым: круг остывания не считается (iRacing его не считает)
     const surface = vars.CarIdxTrackSurface?.[p] ?? SURF_NOT_IN_WORLD;
     const pct = vars.CarIdxLapDistPct?.[p];
     const inCar = !!vars.IsOnTrack && !vars.IsReplayPlaying && surface !== SURF_NOT_IN_WORLD && surface !== SURF_PIT_STALL;
@@ -191,6 +203,13 @@ class SrTracker {
       if (d <= MAX_TICK_LAPS) this.distance += d;
     }
     this.prevPct = pct;
+    // Клетчатый флаг: для вас гонка кончается на следующем пересечении линии. Проверено по результату iRacing: гонка из трёх кругов с кругом
+    // остывания давала 3.43 круга по дистанции, а iRacing засчитал 3.10 — этот хвост и срезаем.
+    const lap = vars.CarIdxLap?.[p];
+    if (vars.SessionState >= 5 && Number.isFinite(lap)) {
+      if (this.finishLap == null) this.finishLap = lap;
+      else if (lap > this.finishLap) this.finished = true;
+    }
   }
 
   // Рейтинг старта сессии: перенесённый из прошлой сессии события, пока YAML не переписан; иначе первое значение из YAML
