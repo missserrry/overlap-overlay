@@ -278,6 +278,7 @@ const normalizeRejoin = (cur, patch) => normalizeSchema(REJOIN_ITEMS, cur, patch
 // Настройки Fuel Calculator
 const FUEL_SCHEMA = [
   { group: 'Расчёт', items: [
+    select('strategy', 'Расход на круг считать по', 'l10', [['l10', 'Последние 10 кругов'], ['l5', 'Последние 5 кругов'], ['avg', 'Среднее по всем'], ['max', 'Максимум (осторожно)'], ['min', 'Минимум (в экономии)'], ['last', 'Последний круг']]),
     range('margin', 'Запас сверху, кругов', 0.5, 0, 3, 0.5),
     range('planLaps', 'Если дистанции нет (практика) считать на кругов', 10, 1, 60, 1),
     select('units', 'Единицы', 'auto', [['auto', 'Как в игре'], ['l', 'Литры'], ['gal', 'Галлоны']]),

@@ -4,7 +4,8 @@ setupPage();
 const root = document.getElementById('root');
 
 // по умолчанию совпадает со схемой в src/main/layouts.js (FUEL_SCHEMA)
-const DEFAULTS = { margin: 0.5, planLaps: 10, units: 'auto', 'blocks.bar': true, 'blocks.stats': true, 'blocks.save': true, 'blocks.pit': true };
+const STRATEGY = { l10: 'L10', l5: 'L5', avg: 'ВСЕ', max: 'МАКС', min: 'МИН', last: 'ПОСЛ' };
+const DEFAULTS = { strategy: 'l10', margin: 0.5, planLaps: 10, units: 'auto', 'blocks.bar': true, 'blocks.stats': true, 'blocks.save': true, 'blocks.pit': true };
 let cfg = { ...DEFAULTS };
 let model = null;
 
@@ -21,7 +22,9 @@ function compute(m) {
   // дистанции нет: в практике считаем «план»; в гонке длину ещё не знаем — лучше промолчать, чем звать долить по выдуманным 10 кругам
   const unknownDist = laps == null && m.kind === 'race';
   if (laps == null) { laps = cfg.planLaps; planned = true; }
-  const perLap = m.perLap;
+  // расход по выбранному способу (последние 10/5 кругов, среднее, максимум, минимум, последний); пока кругов нет — как отдала модель
+  const perLap = m.usage && m.usage[cfg.strategy] != null ? m.usage[cfg.strategy] : m.perLap;
+  const lapsOfFuel = perLap > 0 ? m.fuel / perLap : null;
   const need = perLap != null && !unknownDist ? (laps + cfg.margin) * perLap : null;   // нужно всего
   let add = need != null ? Math.max(need - m.fuel, 0) : null;           // долить
   const room = m.tank != null ? Math.max(m.tank - m.fuel, 0) : null;    // сколько влезет
@@ -29,8 +32,14 @@ function compute(m) {
   const fits = add == null || room == null || add <= room + 0.05;
   const cap = add != null && room != null ? Math.min(add, room) : add;
   // цвет: хватает — зелёный; нужно долить и влезает — жёлтый; в бак не влезет — красный
-  const level = need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
-  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist };
+  // меньше двух кругов топлива — красная рамка, чтобы заметить сразу
+  const critical = lapsOfFuel != null && lapsOfFuel < 2;
+  const level = critical ? 'low' : need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
+  // сколько всего долить до финиша и сколько заездов в боксы это потребует; сколько останется в баке на финише
+  const totalRefuel = need != null ? Math.max(need - m.fuel, 0) : null;
+  const stops = totalRefuel > 0 && m.tank > 0 ? Math.ceil(totalRefuel / m.tank) : 0;
+  const atEnd = perLap != null && !unknownDist ? (enough ? m.fuel - (laps * perLap) : cfg.margin * perLap) : null;
+  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist, lapsOfFuel, totalRefuel, stops, atEnd, critical };
 }
 
 function render() {
@@ -50,16 +59,15 @@ function render() {
   } else if (c.enough) {
     hero = `<div class="hero"><small>ДОЛИТЬ</small><b>0<span>${c.unit}</span></b><div class="msg">Топлива хватит${c.planned ? ` на ${c.laps} кр` : ' до финиша'}${est}</div></div>`;
   } else if (!c.fits) {
-    const stops = c.room > 0 ? Math.ceil(c.add / Math.max(c.room, 0.1)) : null;
-    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.cap)}<span>${c.unit}</span></b><div class="msg">Бак полный, не хватит ещё ${c.f(c.add - c.room)} ${c.unit}${stops ? ` · нужны ещё заезды в боксы` : ''}${est}</div></div>`;
+    hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.cap)}<span>${c.unit}</span></b><div class="msg">Бак полный, не хватит ещё ${c.f(c.add - c.room)} ${c.unit}${c.stops ? ` · всего ${c.f(c.totalRefuel)} ${c.unit}, заездов в боксы: ${c.stops}` : ''}${est}</div></div>`;
   } else {
     hero = `<div class="hero"><small>ДОЛИТЬ</small><b>${c.f(c.add)}<span>${c.unit}</span></b><div class="msg">${c.planned ? `Для ${c.laps} кр + запас` : 'Для финиша с запасом'}${est}</div></div>`;
   }
 
   const bar = cfg['blocks.bar'] ? `<div class="tank"><i style="width:${pct.toFixed(1)}%"></i></div>` : '';
-  const left = m.lapsOfFuel != null ? m.lapsOfFuel.toFixed(1) : null;
+  const left = c.lapsOfFuel != null ? c.lapsOfFuel.toFixed(1) : null;
   const stat = (lab, val) => `<div class="stat"><small>${lab}</small><b class="${val == null ? 'na' : ''}">${val ?? '–'}</b></div>`;
-  const stats = cfg['blocks.stats'] ? `<div class="stats">${stat('РАСХОД / КР', c.perLap != null ? `${c.f(c.perLap, 2)} ${c.unit}` : null)}${stat('ХВАТИТ НА', left != null ? `${left} кр` : null)}${stat(c.planned ? 'ПЛАН' : 'ДО ФИНИША', `${c.laps >= 10 ? c.laps.toFixed(0) : c.laps.toFixed(1)} кр`)}</div>` : '';
+  const stats = cfg['blocks.stats'] ? `<div class="stats">${stat(`РАСХОД / КР · ${STRATEGY[cfg.strategy] || 'L10'}`, c.perLap != null ? `${c.f(c.perLap, 2)} ${c.unit}` : null)}${stat('ХВАТИТ НА', left != null ? `${left} кр` : null)}${stat(c.planned ? 'ПЛАН' : 'ДО ФИНИША', `${c.laps >= 10 ? c.laps.toFixed(0) : c.laps.toFixed(1)} кр`)}</div>` : '';
 
   // Экономия: цель по расходу на круг и полоса «лифт». Вправо (красное) — тратите больше цели, влево (зелёное) — меньше
   let save = '';

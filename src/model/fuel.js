@@ -6,7 +6,7 @@
 // Остаток дистанции: в гонке на круги — SessionLapsRemainEx; в гонке на время — доезжаем текущий круг и ещё
 // столько кругов, сколько успеем до нуля таймера, плюс финишный круг. Без дистанции (практика) считаем «план» из настроек.
 
-const KEEP_LAPS = 5;               // сколько последних чистых кругов усредняем
+const KEEP_LAPS = 10;              // сколько последних чистых кругов усредняем
 const CAUTION_BITS = 0x4000 | 0x8000;  // общий жёлтый (safety car): вся пелотон едет медленно, расход не показательный
 const STOPPED = 3;                     // м/с (~11 км/ч): ниже — вы остановились, круг не считаем
 const L_PER_GAL = 3.785411784;
@@ -43,10 +43,32 @@ function saveHistory(key, lap) {
   if (!store.file) return;
   try { require('fs').writeFileSync(store.file, JSON.stringify(store.data)); } catch { /* не страшно: останется в памяти */ }
 }
-function historyFor(key) {
-  const list = key ? store.data[key] : null;
-  if (!list || !list.length) return null;
-  return { perLap: list.reduce((s, l) => s + l.used, 0) / list.length, lapTime: list.reduce((s, l) => s + l.time, 0) / list.length };
+function historyList(key) {
+  return key && store.data[key] ? store.data[key].map((l) => ({ used: l.used, time: l.time })) : [];
+}
+
+// Расход на круг шестью способами: среднее по всем, максимум, минимум, последний, среднее за 5 и за 10 последних
+function usageStrategies(used) {
+  if (!used.length) return null;
+  const avg = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  return { avg: avg(used), max: Math.max(...used), min: Math.min(...used), last: used[used.length - 1], l5: avg(used.slice(-5)), l10: avg(used.slice(-10)) };
+}
+
+// Остаток гонки на время по лидеру: гонка кончается, когда лидер пересёк линию после нуля таймера, а вы — на следующем своём пересечении.
+// Лидер проедет ещё floor(остаток / его темп) + 1 круг; если вы отстали на круг, вам ехать на круг меньше.
+function remainingByLeader(race, f) {
+  const v = race.vars || {};
+  const me = race.ref;
+  const t = v.SessionTimeRemain;
+  if (race.kind !== 'race' || !me || !Number.isFinite(t) || t < 0 || t > 86400 * 2) return null;
+  if (!(v.SessionTimeTotal > 0 && v.SessionTimeTotal < 86400 * 2)) return null;
+  let leader = null;
+  for (const c of race.cars) if (c.inWorld && (!leader || c.totalDist > leader.totalDist)) leader = c;
+  const pace = leader && (leader.lastLap || leader.bestLap || leader.classEstLap);
+  if (!leader || !(pace > 0)) return null;
+  const leaderFinish = Math.ceil(leader.totalDist + t / pace);        // сколько кругов лидер проедет всего
+  const down = Math.floor(leader.totalDist) - Math.floor(me.totalDist);
+  return { laps: Math.max(leaderFinish - down - me.totalDist, 0), by: 'time' };
 }
 
 function remainingLaps(race, f) {
@@ -104,12 +126,14 @@ function buildFuel(race) {
   if (st.fuelAtStart != null) st.cur[Math.floor(pct * BINS)] = Math.max(st.fuelAtStart - fuel, 0);
   // этот круг «грязный»: питлейн, общий жёлтый (safety car), остановка, топливо прибавилось (дозаправка).
   // Местные жёлтые флаги круг не портят: в игре почти никто не сбрасывает скорость, а машины лежат у отбойников.
-  if (ref.onPitRoad || ((v.SessionFlags ?? 0) & CAUTION_BITS) || (num(v.Speed) != null && v.Speed < STOPPED) || fuel > st.fuelAtStart + 0.05) st.dirty = true;
+  // Круг до зелёного флага (сетка, круг прогрева) — тоже не боевой темп
+  const formation = race.kind === 'race' && (v.SessionState ?? 4) < 4;
+  if (ref.onPitRoad || formation || ((v.SessionFlags ?? 0) & CAUTION_BITS) || (num(v.Speed) != null && v.Speed < STOPPED) || fuel > st.fuelAtStart + 0.05) st.dirty = true;
 
   // Оценка по текущему кругу, пока нет ни одного чистого: считаем от момента, когда машина тронулась (стоянка на решётке
   // расход портит), и только пока круг чистый. Так расход виден уже на первом круге, а не после двух.
   const moving = num(v.Speed) != null && v.Speed >= STOPPED;
-  const cleanNow = !ref.onPitRoad && !((v.SessionFlags ?? 0) & CAUTION_BITS);
+  const cleanNow = !ref.onPitRoad && !formation && !((v.SessionFlags ?? 0) & CAUTION_BITS);
   if (st.go && (!cleanNow || fuel > st.go.fuel + 0.05)) st.go = null;                       // питлейн, жёлтый, дозаправка — начинаем заново
   if (!st.go && moving && cleanNow && now != null) st.go = { fuel, pct, time: now };
   let est = null;
@@ -119,19 +143,22 @@ function buildFuel(race) {
   }
   if (!est && !st.laps.length) est = st.lastEst;     // новый круг ещё не набрал 20% — держим прошлую оценку, чтобы число не пропадало
 
+  // Расход по шести способам (как в сторонних калькуляторах): по чистым кругам прошлых сессий на этой трассе и машине плюс этой сессии.
+  // Прошлые сессии снимаем один раз при входе в сессию, иначе круги этой сессии считались бы дважды (они пишутся в историю сразу).
+  if (st.histKey !== histKey) { st.histKey = histKey; st.hist = historyList(histKey); }
   const n = st.laps.length;
-  let perLap = n ? st.laps.reduce((s, l) => s + l.used, 0) / n : null;
-  let lapTime = n ? st.laps.reduce((s, l) => s + l.time, 0) / n : (ref.lastLap || ref.bestLap || ref.classEstLap || null);
-  let source = n ? 'laps' : null;
-  // нет чистых кругов в этой сессии: сначала расход из прошлых сессий на этой трассе и машине, затем оценка по текущему кругу
-  const hist = !n ? historyFor(histKey) : null;
-  if (hist) { perLap = hist.perLap; lapTime = hist.lapTime; source = 'history'; }
-  else if (!n && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
+  const all = [...st.hist, ...st.laps];
+  const usage = usageStrategies(all.map((l) => l.used));
+  let perLap = usage ? usage.l10 : null;
+  let lapTime = all.length ? all.slice(-KEEP_LAPS).reduce((s, l) => s + l.time, 0) / Math.min(all.length, KEEP_LAPS) : (ref.lastLap || ref.bestLap || ref.classEstLap || null);
+  let source = n ? 'laps' : all.length ? 'history' : null;
+  // ни прошлых кругов, ни чистых в этой сессии: оценка по текущему кругу
+  if (!all.length && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
   if (perLap == null && num(v.FuelUsePerHour) > 0 && lapTime > 0) { perLap = (v.FuelUsePerHour / 3600) * lapTime; source = 'rate'; }
 
   // --- остаток дистанции
   const f = Math.min(Math.max(ref.lapDistPct, 0), 1);
-  const rem = remainingLaps(race, f) || remainingByTime(race, f, lapTime);
+  const rem = remainingLaps(race, f) || remainingByLeader(race, f) || remainingByTime(race, f, lapTime);
 
   // --- цель по расходу: сколько можно тратить на круг, чтобы доехать до финиша без доливки
   const target = rem && fuel > 0 ? fuel / Math.max(rem.laps + 0.5, 0.5) : null; // 0.5 — запас, точный задаётся в оверлее
@@ -154,9 +181,10 @@ function buildFuel(race) {
     liveDelta,
     tank,
     imperial: v.DisplayUnits === 0,
-    perLap,                                   // л на круг (null — ещё нет данных)
-    perLapMin: n ? Math.min(...st.laps.map((l) => l.used)) : null,
-    perLapMax: n ? Math.max(...st.laps.map((l) => l.used)) : null,
+    perLap,                                   // л на круг (null — ещё нет данных); по умолчанию — среднее за 10 последних чистых кругов
+    usage,                                    // тот же расход по шести способам: avg, max, min, last, l5, l10
+    perLapMin: usage ? usage.min : null,
+    perLapMax: usage ? usage.max : null,
     samples: n,
     source,
     lapsOfFuel: perLap > 0 ? fuel / perLap : null,
