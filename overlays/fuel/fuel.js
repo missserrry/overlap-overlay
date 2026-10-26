@@ -32,22 +32,21 @@ function compute(m) {
   const fits = add == null || room == null || add <= room + 0.05;
   const cap = add != null && room != null ? Math.min(add, room) : add;
   // цвет: хватает — зелёный; нужно долить и влезает — жёлтый; в бак не влезет — красный
-  // меньше двух кругов топлива — красная рамка, чтобы заметить сразу
-  // (если до финиша и так хватает, красный не нужен: на последних кругах топлива может быть и меньше двух кругов)
-  const critical = lapsOfFuel != null && lapsOfFuel < 2 && !enough;
   // «заезжайте на этом круге»: у линии (после остатка этого круга) должно остаться топлива минимум на один целый круг.
   // Остаток до линии = (1 − доля пройденного) кругов. Хватает с запасом — проезжаем, и предупреждение загорится сразу после линии;
   // не хватает — заезжайте в боксы сейчас. Если можно дотянуть до финиша с запасом в десятую круга, заезд ради нескольких литров не предлагаем.
   const toLine = 1 - Math.min(Math.max(m.lapPct ?? 0, 0), 1);
   const atLine = lapsOfFuel != null ? lapsOfFuel - toLine : null;               // сколько кругов топлива останется на линии
   const canFinish = perLap > 0 && m.fuel >= (laps + 0.1) * perLap;
-  const pitNow = !m.onPitRoad && !unknownDist && perLap > 0 && !enough && !canFinish && atLine != null && atLine < 1;
-  const level = critical || pitNow ? 'low' : need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
+  // красный — только когда на линии останется меньше одного круга (хоть на 0.01); если больше, красного нет, даже когда топлива меньше двух кругов
+  const short = !unknownDist && perLap > 0 && !enough && !canFinish && atLine != null && atLine < 1;
+  const pitNow = short && !m.onPitRoad;
+  const level = short ? 'low' : need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
   // сколько всего долить до финиша и сколько заездов в боксы это потребует; сколько останется в баке на финише
   const totalRefuel = need != null ? Math.max(need - m.fuel, 0) : null;
   const stops = totalRefuel > 0 && m.tank > 0 ? Math.ceil(totalRefuel / m.tank) : 0;
   const atEnd = perLap != null && !unknownDist ? (enough ? m.fuel - (laps * perLap) : cfg.margin * perLap) : null;
-  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist, lapsOfFuel, totalRefuel, stops, atEnd, critical, pitNow, atLine };
+  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist, lapsOfFuel, totalRefuel, stops, atEnd, pitNow, atLine };
 }
 
 function render() {
