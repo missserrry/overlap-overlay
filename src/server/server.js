@@ -20,7 +20,7 @@ const { buildDash } = require('../model/dash');
 const { buildSectors } = require('../model/sectors');
 const { buildLaps } = require('../model/laps');
 const { buildRejoin } = require('../model/rejoin');
-const { buildFuel } = require('../model/fuel');
+const { buildFuel, setFuelStore } = require('../model/fuel');
 const { buildPit } = require('../model/pitlimit');
 const { buildTraffic } = require('../model/traffic');
 const { SrTracker } = require('../model/sr');
@@ -73,6 +73,7 @@ function startServer(options = {}) {
   const sdk = new IRacingSdk();
   const lmu = new LmuSdk();
   // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
+  setFuelStore(opts.fuelStateFile || null);
   const srTracker = new SrTracker({ stateFile: opts.srStateFile || null });
   const forecastTracker = new ForecastTracker();
   let demo = null;

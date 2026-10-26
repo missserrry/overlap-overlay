@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
   logger.setVerbose(cfg.verboseLog);
   console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
-    server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json') });
+    server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json'), fuelStateFile: path.join(app.getPath('userData'), 'fuel-history.json') });
   } catch (e) {
     console.error('Не удалось запустить сервер:', e);
     app.quit();

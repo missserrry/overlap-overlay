@@ -220,6 +220,7 @@ function buildRaceState(snap) {
     sessionName: String(sess?.SessionName || sess?.SessionType || '').toUpperCase(),
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,
+    trackKey: `${session?.WeekendInfo?.TrackName ?? ''}|${session?.WeekendInfo?.TrackConfigName ?? ''}`,
     pitSpeedLimit: session?.WeekendInfo?.TrackPitSpeedLimit,
     driverInfo: session?.DriverInfo,
     sectorsInfo: session?.SplitTimeInfo?.Sectors,

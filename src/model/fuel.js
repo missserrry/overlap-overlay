@@ -24,6 +24,31 @@ function closeProfile(cur) {
 }
 let st = fresh();
 
+// История расхода по связке «трасса + машина» между сессиями: после практики в гонку садимся уже с известным расходом,
+// а не с пустым калькулятором на первом круге (так делают и сторонние калькуляторы). Храним последние чистые круги.
+const KEEP_HIST = 10;
+let store = { file: null, data: {} };
+function setFuelStore(file) {
+  store = { file, data: {} };
+  if (!file) return;
+  try { store.data = JSON.parse(require('fs').readFileSync(file, 'utf8')) || {}; } catch { /* файла ещё нет */ }
+}
+function saveHistory(key, lap) {
+  if (!key) return;
+  const list = (store.data[key] ||= []);
+  list.push({ used: +lap.used.toFixed(4), time: +lap.time.toFixed(2) });
+  while (list.length > KEEP_HIST) list.shift();
+  const keys = Object.keys(store.data);
+  while (keys.length > 200) delete store.data[keys.shift()];          // старые связки не копим бесконечно
+  if (!store.file) return;
+  try { require('fs').writeFileSync(store.file, JSON.stringify(store.data)); } catch { /* не страшно: останется в памяти */ }
+}
+function historyFor(key) {
+  const list = key ? store.data[key] : null;
+  if (!list || !list.length) return null;
+  return { perLap: list.reduce((s, l) => s + l.used, 0) / list.length, lapTime: list.reduce((s, l) => s + l.time, 0) / list.length };
+}
+
 function remainingLaps(race, f) {
   const v = race.vars || {};
   const lapsLeft = v.SessionLapsRemainEx;
@@ -51,6 +76,8 @@ function buildFuel(race) {
   if (!ref || !ref.inWorld || ref.carIdx !== v.PlayerCarIdx || fuel == null) return { active: false };
 
   const di = race.driverInfo || {};
+  const me = (di.Drivers || []).find((d) => d.CarIdx === di.DriverCarIdx);
+  const histKey = !race.demo && race.trackKey && me?.CarScreenName ? `${race.trackKey}|${me.CarScreenName}` : null;
   const maxPct = num(parseFloat(di.DriverCarMaxFuelPct)) ?? 1;
   let tank = num(parseFloat(di.DriverCarFuelMaxLtr));
   tank = tank != null ? tank * maxPct : (num(v.FuelLevelPct) > 0 ? fuel / v.FuelLevelPct : null);
@@ -65,7 +92,10 @@ function buildFuel(race) {
   } else if (lap > st.lap) {
     const used = st.fuelAtStart - fuel;
     const time = now - st.timeAtStart;
-    if (!st.dirty && lap === st.lap + 1 && used > 0.001 && used < (tank || 400) && time > 5) st.laps.push({ used, time, prof: closeProfile(st.cur) });
+    if (!st.dirty && lap === st.lap + 1 && used > 0.001 && used < (tank || 400) && time > 5) {
+      st.laps.push({ used, time, prof: closeProfile(st.cur) });
+      saveHistory(histKey, { used, time });
+    }
     if (st.laps.length > KEEP_LAPS) st.laps.shift();
     st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = false; st.go = null; st.cur.fill(null);
   }
@@ -93,7 +123,10 @@ function buildFuel(race) {
   let perLap = n ? st.laps.reduce((s, l) => s + l.used, 0) / n : null;
   let lapTime = n ? st.laps.reduce((s, l) => s + l.time, 0) / n : (ref.lastLap || ref.bestLap || ref.classEstLap || null);
   let source = n ? 'laps' : null;
-  if (!n && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
+  // нет чистых кругов в этой сессии: сначала расход из прошлых сессий на этой трассе и машине, затем оценка по текущему кругу
+  const hist = !n ? historyFor(histKey) : null;
+  if (hist) { perLap = hist.perLap; lapTime = hist.lapTime; source = 'history'; }
+  else if (!n && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
   if (perLap == null && num(v.FuelUsePerHour) > 0 && lapTime > 0) { perLap = (v.FuelUsePerHour / 3600) * lapTime; source = 'rate'; }
 
   // --- остаток дистанции
@@ -135,4 +168,4 @@ function buildFuel(race) {
   };
 }
 
-module.exports = { buildFuel, L_PER_GAL };
+module.exports = { buildFuel, setFuelStore, L_PER_GAL };

@@ -41,7 +41,7 @@ function render() {
   const pct = m.tank ? Math.min(m.fuel / m.tank, 1) * 100 : 0;
   root.className = `fuel ${c.level === 'safe' ? '' : c.level}`;
 
-  const est = m.source === 'estimate' ? ' · оценка по этому кругу' : '';   // пока нет ни одного полного чистого круга
+  const est = m.source === 'estimate' ? ' · оценка по этому кругу' : m.source === 'history' ? ' · по прошлым сессиям' : '';   // пока нет ни одного полного чистого круга
   let hero;
   if (c.perLap == null) {
     hero = `<div class="hero"><small>РАСХОД</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">Проедьте круг</b><div class="msg">Считаю расход топлива</div></div>`;
