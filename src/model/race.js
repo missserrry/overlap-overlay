@@ -23,7 +23,11 @@ function trackPits(snap, cars) {
   if (!Number.isFinite(t)) return;
   for (const c of cars) {
     let s = pits.cars.get(c.carIdx);
-    if (!s) { s = { on: false, valid: false, t0: 0, lap0: 0, last: null, stops: 0 }; pits.cars.set(c.carIdx, s); s.first = true; }
+    if (!s) {
+      s = { on: false, valid: false, t0: 0, lap0: 0, last: null, stops: 0 }; pits.cars.set(c.carIdx, s); s.first = true;
+      // демо: как будто идёт середина гонки, у части машин уже был пит-стоп (иначе колонки пустые, пока кто-то не заедет в боксы)
+      if (snap.source === 'demo' && c.carIdx % 3 === 1 && c.lap > 3) { s.last = { lap: c.lap - 2 - (c.carIdx % 4), time: 22 + (c.carIdx % 9) * 1.7 }; s.stops = 1; }
+    }
     const on = c.onPitRoad && c.inWorld;
     if (s.on && t < s.t0) { s.on = false; s.valid = false; }              // время пошло назад (повтор, перемотка)
     if (!s.on && on) { s.on = true; s.valid = !s.first; s.t0 = t; s.lap0 = c.lap; }
@@ -58,6 +62,15 @@ function trackTiming(snap, cars, sectorsInfo) {
     if (!s) {
       s = { laps: new Map(), secs: new Map(), dirty: new Set(), lap: null, last: null, pend: null, wait: null, prev: null, enter: null };
       timing.cars.set(c.carIdx, s);
+      // демо: как будто гонка идёт давно — несколько кругов и секторов уже в истории, дельты видны сразу, а не после первых кругов
+      if (snap.source === 'demo' && c.lastLap > 0 && c.lap > 3) {
+        for (let k = 1; k <= 3; k++) {
+          const lap = c.lap - k;
+          s.laps.set(lap, c.lastLap * (1 + 0.004 * Math.sin(c.carIdx * 1.7 + lap)));
+          s.secs.set(lap, starts.map((st, i) => c.lastLap * ((starts[i + 1] ?? 1) - st) * (1 + 0.012 * Math.sin(c.carIdx * 2.3 + i * 1.1 + lap))));
+        }
+        s.secDone = { idx: Math.min(2, starts.length - 1), n: Math.min(3, starts.length) };
+      }
     }
     c.timing = s;
     s.count = starts.length;
@@ -202,6 +215,7 @@ function buildRaceState(snap) {
 
   return {
     kind,
+    demo: snap.source === 'demo',
     sessionName: String(sess?.SessionName || sess?.SessionType || '').toUpperCase(),
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,

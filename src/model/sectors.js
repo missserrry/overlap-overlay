@@ -67,7 +67,9 @@ function buildSectors(race) {
     if (r.startDelta == null && delta != null) r.startDelta = delta; // первая дельта в секторе
     r.lastDelta = delta;
     r.live = delta != null && r.startDelta != null ? delta - r.startDelta : null;
-    const values = Array.from({ length: n }, (_, i) => (i < idx ? (r.values[i] ?? null) : null));
+    // демо: пройденные сектора круга показываем сразу, не дожидаясь, пока их проедет демо-машина
+    const demoVal = (i) => Math.round(Math.sin(i * 1.9 + name.length) * 250) / 1000;
+    const values = Array.from({ length: n }, (_, i) => (i < idx ? (r.values[i] ?? (race.demo ? demoVal(i) : null)) : null));
     out.refs[name] = { values, live: r.live, valid: delta != null };
   }
   return out;
