@@ -28,6 +28,9 @@ function remainingLaps(race, f) {
   const v = race.vars || {};
   const lapsLeft = v.SessionLapsRemainEx;
   if (Number.isFinite(lapsLeft) && lapsLeft > 0 && lapsLeft < 10000) return { laps: Math.max(lapsLeft - f, 0), by: 'laps' };
+  // до зелёного флага (а иногда и в гонке) iRacing отдаёт здесь «без ограничения»: тогда берём число кругов гонки из описания сессии
+  const total = race.session?.lapsTotal;
+  if (race.kind === 'race' && total > 0 && race.ref) return { laps: Math.max(total - (Math.max(race.ref.lap, 1) - 1) - f, 0), by: 'laps' };
   return null;
 }
 
@@ -88,7 +91,7 @@ function buildFuel(race) {
 
   const n = st.laps.length;
   let perLap = n ? st.laps.reduce((s, l) => s + l.used, 0) / n : null;
-  let lapTime = n ? st.laps.reduce((s, l) => s + l.time, 0) / n : (ref.lastLap || ref.bestLap || null);
+  let lapTime = n ? st.laps.reduce((s, l) => s + l.time, 0) / n : (ref.lastLap || ref.bestLap || ref.classEstLap || null);
   let source = n ? 'laps' : null;
   if (!n && est) { perLap = est.perLap; lapTime = est.lapTime; source = 'estimate'; }
   if (perLap == null && num(v.FuelUsePerHour) > 0 && lapTime > 0) { perLap = (v.FuelUsePerHour / 3600) * lapTime; source = 'rate'; }
@@ -112,6 +115,7 @@ function buildFuel(race) {
 
   return {
     active: true,
+    kind: race.kind,
     fuel,
     target,
     liveDelta,

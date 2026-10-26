@@ -18,9 +18,11 @@ function compute(m) {
   const f = (l, d = 1) => (l == null ? '–' : (l * k).toFixed(d));
 
   let laps = m.remLaps, planned = false;
-  if (laps == null) { laps = cfg.planLaps; planned = true; }       // дистанции нет — считаем «план»
+  // дистанции нет: в практике считаем «план»; в гонке длину ещё не знаем — лучше промолчать, чем звать долить по выдуманным 10 кругам
+  const unknownDist = laps == null && m.kind === 'race';
+  if (laps == null) { laps = cfg.planLaps; planned = true; }
   const perLap = m.perLap;
-  const need = perLap != null ? (laps + cfg.margin) * perLap : null;   // нужно всего
+  const need = perLap != null && !unknownDist ? (laps + cfg.margin) * perLap : null;   // нужно всего
   let add = need != null ? Math.max(need - m.fuel, 0) : null;           // долить
   const room = m.tank != null ? Math.max(m.tank - m.fuel, 0) : null;    // сколько влезет
   const enough = need != null && add <= 0.05;
@@ -28,7 +30,7 @@ function compute(m) {
   const cap = add != null && room != null ? Math.min(add, room) : add;
   // цвет: хватает — зелёный; нужно долить и влезает — жёлтый; в бак не влезет — красный
   const level = need == null ? 'warn' : enough ? 'safe' : fits ? 'warn' : 'low';
-  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level };
+  return { f, unit, k, laps, planned, perLap, need, add, room, enough, fits, cap, level, unknownDist };
 }
 
 function render() {
@@ -43,6 +45,8 @@ function render() {
   let hero;
   if (c.perLap == null) {
     hero = `<div class="hero"><small>РАСХОД</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">Проедьте круг</b><div class="msg">Считаю расход топлива</div></div>`;
+  } else if (c.unknownDist) {
+    hero = `<div class="hero"><small>ДОЛИТЬ</small><b class="na" style="font-size:1.6em;color:var(--text-dim);text-shadow:none">–</b><div class="msg">Длина гонки пока неизвестна</div></div>`;
   } else if (c.enough) {
     hero = `<div class="hero"><small>ДОЛИТЬ</small><b>0<span>${c.unit}</span></b><div class="msg">Топлива хватит${c.planned ? ` на ${c.laps} кр` : ' до финиша'}${est}</div></div>`;
   } else if (!c.fits) {
