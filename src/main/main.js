@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
   logger.setVerbose(cfg.verboseLog);
   console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
-    server = await startServer({ port: cfg.port, demo: cfg.demo, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json') });
+    server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json') });
   } catch (e) {
     console.error('Не удалось запустить сервер:', e);
     app.quit();
@@ -531,7 +531,7 @@ function rebuildTrayMenu() {
   if (!tray) return;
   const snap = state.snapshot();
   const active = state.layout(snap.active.layoutId);
-  const src = { iracing: 'iRacing', demo: 'демо', none: 'нет данных' }[snap.sim.source] || snap.sim.source;
+  const src = { iracing: 'iRacing', lmu: 'Le Mans Ultimate', demo: 'демо', none: 'нет данных' }[snap.sim.source] || snap.sim.source;
   tray.setToolTip(`Overlap — ${src}${active ? ' · ' + active.name : ''}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Панель управления (Ctrl+Shift+J)', click: openPanel },

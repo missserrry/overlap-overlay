@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { IRacingSdk } = require('../telemetry/irsdk');
+const { LmuSdk } = require('../telemetry/lmu');
 const { DemoSource } = require('../telemetry/demo');
 const { TELEMETRY_VARS, simContext } = require('../model/common');
 const { buildRaceState } = require('../model/race');
@@ -70,11 +71,12 @@ function startServer(options = {}) {
   };
 
   const sdk = new IRacingSdk();
+  const lmu = new LmuSdk();
   // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
   const srTracker = new SrTracker({ stateFile: opts.srStateFile || null });
   const forecastTracker = new ForecastTracker();
   let demo = null;
-  let lastOpenAttempt = 0;
+  let lastOpenAttempt = 0, lastLmuAttempt = 0;
   const listeners = new Set();
   const sessionListeners = new Set(); // новый сессионный YAML живого iRacing (для загрузки ливрей)
   let lastSessionVersion = -1;
@@ -114,21 +116,42 @@ function startServer(options = {}) {
     if (!h.failing) { h.failing = true; console.error(`[server] канал ${name}: ошибка модели, оверлей не обновляется: ${e?.stack || e}`); }
   }
 
+  // переоткрываем общую память не чаще раза в 2 с, если игра ещё не запускалась
+  function readIracing() {
+    if (!(sdk.ptr || Date.now() - lastOpenAttempt > 2000)) return null;
+    lastOpenAttempt = Date.now();
+    try {
+      return sdk.read(TELEMETRY_VARS);
+    } catch (e) {
+      console.warn('[irsdk] read failed:', e.message);
+      sdk.close();
+      return null;
+    }
+  }
+  function readLmu() {
+    if (!(lmu.ptr || Date.now() - lastLmuAttempt > 2000)) return null;
+    lastLmuAttempt = Date.now();
+    try {
+      return lmu.read();
+    } catch (e) {
+      console.warn('[lmu] read failed:', e.message);
+      lmu.close();
+      return null;
+    }
+  }
+
   function readSnapshot() {
     let snap = null;
     if (opts.demo !== 'on') {
-      // переоткрываем общую память не чаще раза в 2 с, если iRacing ещё не запускался
-      if (sdk.ptr || Date.now() - lastOpenAttempt > 2000) {
-        lastOpenAttempt = Date.now();
-        try {
-          snap = sdk.read(TELEMETRY_VARS);
-        } catch (e) {
-          console.warn('[irsdk] read failed:', e.message);
-          sdk.close();
-        }
+      // сначала источник выбранной игры, потом другой: если запущена только одна игра, находится именно она
+      const order = (typeof opts.game === 'function' ? opts.game() : opts.game) === 'lmu'
+        ? [['lmu', readLmu], ['iracing', readIracing]] : [['iracing', readIracing], ['lmu', readLmu]];
+      for (const [source, read] of order) {
+        const got = read();
+        if (got?.connected && got.session) { snap = { ...got, source }; break; }
       }
     }
-    if (snap?.connected && snap.session) {
+    if (snap) {
       if (snap.sessionVersion !== lastSessionVersion) {
         lastSessionVersion = snap.sessionVersion;
         lastSession = { session: snap.session, loadNumTextures: !!snap.vars.LoadNumTextures };
@@ -136,7 +159,7 @@ function startServer(options = {}) {
           try { fn(snap.session, !!snap.vars.LoadNumTextures); } catch (e) { console.error('[server] session listener:', e); }
         }
       }
-      return { ...snap, source: 'iracing' };
+      return snap;
     }
     if (opts.demo === 'on' || opts.demo === 'auto') {
       demo = demo || new DemoSource();
@@ -163,7 +186,7 @@ function startServer(options = {}) {
         console.error('[server] model error:', e);
       }
     }
-    const healthy = snap.source === 'iracing' && !!race && !!race.ref && race.ref.inWorld;
+    const healthy = (snap.source === 'iracing' || snap.source === 'lmu') && !!race && !!race.ref && race.ref.inWorld;
     if (healthy) { lostSince = null; goodAt = now; }
     else if (goodAt && lostSince == null) lostSince = now;
     const holding = !healthy && goodAt > 0 && lostSince != null && now - lostSince < HOLD_MS;
@@ -178,8 +201,10 @@ function startServer(options = {}) {
       listeners.forEach((fn) => fn(status));
     }
 
-    try { srTracker.update(snap); } catch (e) { console.error('[server] sr error:', e); }
-    try { forecastTracker.update(snap); } catch (e) { console.error('[server] forecast error:', e); }
+    // SR и прогноз — только iRacing (у LMU своих рейтингов нет)
+    const rated = snap.source === 'iracing' ? snap : { connected: false, source: snap.source };
+    try { srTracker.update(rated); } catch (e) { console.error('[server] sr error:', e); }
+    try { forecastTracker.update(rated); } catch (e) { console.error('[server] forecast error:', e); }
 
     for (const [name, build] of Object.entries(CHANNELS)) {
       const subs = clients.get(name);
