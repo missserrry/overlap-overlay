@@ -84,7 +84,7 @@ export const onPalette = (fn) => palListeners.push(fn);
 // одним прямоугольником, в конце общий план со всеми зонами. Фон показываем как пустой прямоугольник. Пока цвет правят, тур стоит.
 let focus = null;
 const FRAME_CSS = `#pal-frames { position: fixed; inset: 0; z-index: 99999; pointer-events: none; }
-#pal-frames i { position: absolute; border: 2px solid #E2B93B; border-radius: 5px; box-shadow: 0 0 0 5px rgba(226, 185, 59, 0.2); transition: left 220ms, top 220ms, width 220ms, height 220ms; }
+#pal-frames i { position: absolute; box-sizing: border-box; border: 2px solid #E2B93B; border-radius: 5px; box-shadow: 0 0 0 5px rgba(226, 185, 59, 0.2); transition: left 220ms, top 220ms, width 220ms, height 220ms; }
 body.pal-focus :is(.ctag, .stripe, .brand, .tire, .class-head, .cname) { filter: grayscale(1) opacity(0.45); }`;
 const visibleEls = (sel) => [...document.querySelectorAll(sel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
 const rectOf = (els) => {
