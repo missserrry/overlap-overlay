@@ -306,7 +306,8 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: var(--fs-body); paddi
 .col-more.open { transform: rotate(180deg); color: var(--text); }
 .col-dec { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 8px 4px 36px; color: var(--muted); font-size: var(--fs-body); }
 .col-dec.dim { opacity: 0.55; }
-.col-dec .seg button { height: 26px; min-width: 32px; padding: 0 10px; }
+.col-dec span { white-space: nowrap; }
+.col-dec .seg button { height: 26px; min-width: 28px; padding: 0 8px; }
 
 .slider.dim { opacity: 0.45; }
 

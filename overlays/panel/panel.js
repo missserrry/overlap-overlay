@@ -214,7 +214,7 @@ function columnRows(o, showOn = null) {   // showOn: null — все колон�
     const dKey = `${o.type}:${c.id}`;
     const dCur = dm ? (o.decimals?.[c.id] ?? dm.def) : null;
     const dBtn = dm ? `<button class="col-more ${decOpen[dKey] ? 'open' : ''}" data-dec-toggle="${dKey}" aria-expanded="${!!decOpen[dKey]}" aria-label="Знаков после запятой: ${esc(label(c.id))}" title="Знаков после запятой">${icon('chevron-down', 'sm')}</button>` : '';
-    const dRow = dm && decOpen[dKey] ? `<div class="col-dec ${c.on ? '' : 'dim'}"><span>Знаков после запятой</span><div class="seg" role="group" aria-label="Знаков после запятой">${[0, 1, 2, 3].map((n) => `<button data-dec-col="${c.id}" data-dec-val="${n}" class="${dCur === n ? 'on' : ''}" aria-pressed="${dCur === n}">${n}</button>`).join('')}</div></div>` : '';
+    const dRow = dm && decOpen[dKey] ? `<div class="col-dec ${c.on ? '' : 'dim'}"><span>После запятой</span><div class="seg" role="group" aria-label="Знаков после запятой">${[0, 1, 2, 3].map((n) => `<button data-dec-col="${c.id}" data-dec-val="${n}" class="${dCur === n ? 'on' : ''}" aria-pressed="${dCur === n}">${n}</button>`).join('')}</div></div>` : '';
     return `<div class="col-item" draggable="true" data-list="columns" data-col-id="${c.id}">
       <div class="col-row"><span class="grip" title="Перетащить">${icon('grip-vertical', 'sm')}</span><span class="col-name">${esc(label(c.id))}</span>${dBtn}${fixed ? '<span class="col-fixed">всегда</span>' : sw(`data-col="${c.id}" aria-label="${esc(label(c.id))}"`, c.on)}</div>${dRow}${sub}</div>`;
   }).join('');
