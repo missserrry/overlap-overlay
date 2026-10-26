@@ -84,14 +84,115 @@ export const onPalette = (fn) => palListeners.push(fn);
 // одним прямоугольником, в конце общий план со всеми зонами. Фон показываем как пустой прямоугольник. Пока цвет правят, тур стоит.
 let focus = null;
 const FRAME_CSS = `#pal-frames { position: fixed; inset: 0; z-index: 99999; pointer-events: none; }
-#pal-frames i { position: absolute; box-sizing: border-box; border: 2px solid #E2B93B; border-radius: 5px; box-shadow: 0 0 0 5px rgba(226, 185, 59, 0.2); transition: left 220ms, top 220ms, width 220ms, height 220ms; }
+#pal-frames i { position: absolute; box-sizing: border-box; border: 2px solid #E2B93B; border-radius: 5px; transition: left 220ms, top 220ms, width 220ms, height 220ms; }
 body.pal-focus :is(.ctag, .stripe, .brand, .tire, .class-head, .cname) { filter: grayscale(1) opacity(0.45); }`;
 const visibleEls = (sel) => [...document.querySelectorAll(sel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+// Границы того, что видно. У элемента с фоном, рамкой или тенью — его коробка. У текста без фона — сам текст: ячейка может быть шире надписи
+// (число прижато вправо, имя выровнено по левому краю), и рамка по ячейке сидела бы не по центру надписи.
+const alphaOf = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return 1; const p = m[1].split(/[ ,/]+/).filter(Boolean); return p.length > 3 ? parseFloat(p[3]) : 1; };
+function boxOf(e) {
+  const cs = getComputedStyle(e);
+  const painted = alphaOf(cs.backgroundColor) > 0.02 || cs.backgroundImage !== 'none' || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
+  if (!painted && (e.textContent || '').trim()) {
+    const rs = inkRects(e);
+    if (rs.length) {
+      const left = Math.min(...rs.map((r) => r.left)), top = Math.min(...rs.map((r) => r.top));
+      const right = Math.max(...rs.map((r) => r.right)), bottom = Math.max(...rs.map((r) => r.bottom));
+      return { left, top, right, bottom };
+    }
+  }
+  return e.getBoundingClientRect();
+}
+// Чернила надписи: у каждого текстового узла сужаем его коробку (ascent + descent шрифта) до реальной высоты и ширины знаков
+// по измерению шрифта; значки и картинки внутри берём целиком. Так рамка отступает от самих цифр поровну со всех сторон.
+let inkCtx = null;
+function inkRects(root) {
+  const out = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const raw = n.textContent;
+    if (!raw.trim()) continue;
+    const rg = document.createRange();
+    rg.selectNodeContents(n);
+    const rects = [...rg.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+    if (!rects.length) continue;
+    if (rects.length > 1) { out.push(...rects); continue; }          // перенос строки: берём коробки как есть
+    const r = rects[0], cs = getComputedStyle(n.parentElement);
+    try {
+      inkCtx ||= document.createElement('canvas').getContext('2d');
+      // cs.font пустая строка, когда заданы числовые варианты шрифта (табличные цифры). Мерим на 100 px и пересчитываем: на мелких размерах (7–10 px)
+      // canvas округляет высоту знаков до целых пикселей, а после приближения это даёт смещение рамки
+      const fsz = parseFloat(cs.fontSize) || 14;
+      inkCtx.font = `${cs.fontStyle} ${cs.fontWeight} 100px ${cs.fontFamily}`;
+      const tt = cs.textTransform;
+      let t = raw.trim();
+      t = tt === 'uppercase' ? t.toUpperCase() : tt === 'capitalize' ? t.replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase()) : tt === 'lowercase' ? t.toLowerCase() : t;
+      const mm = inkCtx.measureText(t), k = fsz / 100;
+      const fa = mm.fontBoundingBoxAscent * k, fd = mm.fontBoundingBoxDescent * k;
+      if (!(fa > 0)) { out.push(r); continue; }
+      // Браузер округляет подъём и спуск шрифта до целых пикселей: базовая линия — верх коробки текста плюс округлённый подъём
+      const base = Math.abs(r.height - (Math.round(fa) + Math.round(fd))) <= 0.7 ? r.top + Math.round(fa) : r.top + fa;
+      const m = { top: base - mm.actualBoundingBoxAscent * k, bottom: base + mm.actualBoundingBoxDescent * k };
+      // Ширину берём из вёрстки (табличные цифры и межбуквенный интервал canvas не знает, боковые зазоры глифов по его измерению соврали бы),
+      // высоту сужаем до реальной высоты знаков. Если измерение не сходится с вёрсткой (значок из запасного шрифта), берём коробку как есть.
+      const top = m.top, bottom = m.bottom;
+      // Слева и справа — по первому и последнему видимому знаку: ячейка знака берётся из вёрстки (она знает табличные цифры), а чернила внутри неё —
+      // по измерению знака (боковые зазоры букв)
+      const lead = raw.length - raw.trimStart().length, tail = raw.trimEnd().length - 1;
+      const rawT = tt === 'uppercase' ? raw.toUpperCase() : tt === 'capitalize' ? raw.replace(/(^|s)(S)/g, (q, a, b) => a + b.toUpperCase()) : tt === 'lowercase' ? raw.toLowerCase() : raw;
+      const charInk = (i) => {
+        const cr = document.createRange();
+        cr.setStart(n, i); cr.setEnd(n, i + 1);
+        const c = [...cr.getClientRects()].find((q) => q.width > 0);
+        if (!c) return null;
+        const g = inkCtx.measureText(rawT[i]);
+        const adv = g.width * k, il = -g.actualBoundingBoxLeft * k, ir = g.actualBoundingBoxRight * k;
+        // цифра в табличной ячейке (шире естественной): где именно внутри ячейки стоит знак, canvas не знает, поэтому берём ячейку целиком
+        if (/d/.test(rawT[i]) && Math.abs(c.width - adv) > 0.6) return { l: c.left, r: c.right };
+        return { l: c.left + il, r: c.left + ir };
+      };
+      const a = charInk(lead), b = tail > lead ? charInk(tail) : a;
+      const left = a && a.l >= r.left - 2 ? a.l : r.left, right = b && b.r <= r.right + 2 ? b.r : r.right;
+      const sane = top >= r.top - 2 && bottom <= r.bottom + 2 && bottom - top >= r.height * 0.4 && right - left >= r.width * 0.4;
+      out.push(sane ? { left, right, top, bottom } : r);
+    } catch { out.push(r); }
+  }
+  for (const el of root.querySelectorAll('svg, img')) {
+    const shapes = el.tagName === 'svg' ? [...el.querySelectorAll('path, circle, rect, line, polyline, polygon')] : [];
+    const rs = (shapes.length ? shapes : [el]).map((s) => s.getBoundingClientRect()).filter((r) => r.width > 0 || r.height > 0);
+    if (!rs.length) continue;
+    out.push({ left: Math.min(...rs.map((r) => r.left)), right: Math.max(...rs.map((r) => r.right)), top: Math.min(...rs.map((r) => r.top)), bottom: Math.max(...rs.map((r) => r.bottom)) });
+  }
+  return out;
+}
+// Одна зона может лежать в двух половинах таблицы (строка игрока слева и справа): образец берём целиком, вместе с напарниками на той же строке
+const peersOf = (els) => {
+  const a = els[0], ra = a.getBoundingClientRect();
+  const same = els.filter((e) => {
+    if (e === a) return true;
+    if (e.className !== a.className) return false;
+    const r = e.getBoundingClientRect();
+    return Math.min(r.bottom, ra.bottom) - Math.max(r.top, ra.top) >= Math.min(r.height, ra.height) * 0.8;
+  }).sort((p, q) => p.getBoundingClientRect().left - q.getBoundingClientRect().left);
+  // цепочка соприкасающихся слева направо, начиная с образца
+  const chain = [a];
+  let right = ra.right, left = ra.left;
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const e of same) {
+      if (chain.includes(e)) continue;
+      const r = e.getBoundingClientRect();
+      if (r.left - right <= 12 && r.left >= left - 1) { chain.push(e); right = Math.max(right, r.right); grew = true; }
+      else if (left - r.right <= 12 && r.right <= right + 1) { chain.push(e); left = Math.min(left, r.left); grew = true; }
+    }
+  }
+  return chain;
+};
 const rectOf = (els) => {
-  const rs = els.map((e) => e.getBoundingClientRect());
+  const rs = els.map(boxOf);
   const x1 = Math.min(...rs.map((r) => r.left)), y1 = Math.min(...rs.map((r) => r.top));
   const x2 = Math.max(...rs.map((r) => r.right)), y2 = Math.max(...rs.map((r) => r.bottom));
-  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1, group: els.length > 1 };
 };
 function drawFrames(rects) {
   const box = document.getElementById('pal-frames');
@@ -100,7 +201,15 @@ function drawFrames(rects) {
   [...box.children].forEach((el, i) => {
     const r = rects[i];
     el.style.display = r ? '' : 'none';
-    if (r) Object.assign(el.style, { left: `${r.x - 3}px`, top: `${r.y - 3}px`, width: `${r.w + 6}px`, height: `${r.h + 6}px` });
+    if (r) {
+      // рамка отступает от элемента одинаково со всех сторон (3 px). Если элемент у самого края окна (фон оверлея, строка на всю ширину),
+      // снаружи рамка обрезалась бы краем окна, поэтому тот же отступ берём меньше или рисуем рамку чуть внутри элемента, но тоже поровну со всех сторон
+      const room = Math.min(r.x, r.y, window.innerWidth - (r.x + r.w), window.innerHeight - (r.y + r.h));
+      let m = Math.min(r.group ? 4 : Math.min(8, Math.max(3, Math.round(Math.min(r.w, r.h) * 0.3))), Math.floor(room));
+      if (m < 1) m = r.w > 12 && r.h > 12 ? -2 : 0;
+      const glow = m > 0 ? Math.max(0, Math.min(5, Math.floor(room) - m)) : 0;   // свечение с каждой стороны одинаковое и не упирается в край окна
+      Object.assign(el.style, { left: `${r.x - m}px`, top: `${r.y - m}px`, width: `${r.w + 2 * m}px`, height: `${r.h + 2 * m}px`, boxShadow: `0 0 0 ${glow}px rgba(226, 185, 59, 0.2)` });
+    }
   });
 }
 function focusTick() {
@@ -115,8 +224,8 @@ function focusTick() {
   const st = steps[focus.i];
   if (focus.solo) rects = [rectOf(zs.flatMap((z) => z.els))];
   else if (st.mode === 'overview') rects = zs.map((z) => rectOf(z.els));
-  else if (st.mode === 'one') { box = rectOf([zs[st.z].els[0]]); rects = [box]; }
-  else { box = rectOf(zs[st.z].els); rects = [box]; }
+  else if (st.mode === 'one') { box = rectOf(peersOf(zs[st.z].els)); rects = [box]; }
+  else { box = rectOf(zs[st.z].els); box.group = true; rects = [box]; }
   drawFrames(rects);
   reportFocus(box, false);
 }

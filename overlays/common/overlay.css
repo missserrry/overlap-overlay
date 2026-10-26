@@ -219,11 +219,11 @@ body.edit .rz { display: block; }
   flex: none;
 }
 /* с дельтой: 64px, рейтинг слева, изменение справа */
-.badge.with-delta { width: 5.333em; justify-content: space-between; }
-.badge .delta { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.1em; min-width: 2.1em; }
+.badge.with-delta { width: 5.8em; justify-content: space-between; }
+.badge .delta { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.1em; min-width: 2.5em; }
 .badge .delta.gain { color: var(--green); }
 .badge .delta.lose { color: var(--red); }
-.badge .delta svg { width: 0.7em; height: 0.7em; }
+.badge .delta svg { width: 0.7em; height: 0.7em; flex: none; }   /* стрелка не сжимается, когда число трёхзначное */
 
 .gap {
   width: 3.4em;

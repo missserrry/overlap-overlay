@@ -737,10 +737,13 @@ function zoomPreview(box) {
   const k = parseFloat(/scale\(([\d.]+)\)/.exec(pv.style.transform || '')?.[1]) || 1;
   wrap.style.transformOrigin = '0 0';
   wrap.style.transition = 'transform 260ms cubic-bezier(.2,.8,.2,1)';
+  const tag = $('sizeTag');   // подпись размера внизу справа при приближении мешает: скрываем, пока камера над элементом
+  if (tag) { tag.style.transition = 'opacity 160ms'; tag.style.opacity = '1'; }
   if (!box || !box.w || !box.h || (box.w * box.h) / (box.iw * box.ih) > 0.45) { wrap.style.transform = 'none'; return; }
   const sw = stage.clientWidth, sh = stage.clientHeight;
   const z = Math.min(4, Math.max(1, Math.min((sw * 0.5) / (box.w * k), (sh * 0.45) / (box.h * k))));
   if (z < 1.25) { wrap.style.transform = 'none'; return; }   // зона и так крупная: не двигаем превью
+  if (tag) tag.style.opacity = '0';
   const cx = (box.x - pvOff.x + box.w / 2) * k, cy = (box.y - pvOff.y + box.h / 2) * k;
   wrap.style.transform = `translate(${(sw / 2 - wrap.offsetLeft - cx * z).toFixed(1)}px, ${(sh / 2 - wrap.offsetTop - cy * z).toFixed(1)}px) scale(${z.toFixed(3)})`;
 }
