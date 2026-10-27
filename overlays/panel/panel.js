@@ -1017,6 +1017,7 @@ function renderLiveries() {
 // ---------- Сетапы ----------
 // Бросаете архив (.zip) или файлы (.sto, .blap) — приложение само определяет машину и трассу и раскладывает по папкам iRacing.
 
+const suPick = {};        // выбранная в списке машина по id архива: панель перерисовывается, выбор не должен слетать
 function renderSetups() {
   mounted = 'setups';
   const st = S.setups;
@@ -1028,12 +1029,33 @@ function renderSetups() {
     if (g.setups) parts.push(`${n(g.setups, 'сетап', 'сетапа', 'сетапов')} → ${esc(g.where.filter((w) => w.startsWith('setups')).join(', '))}`);
     if (g.laps) parts.push(`${n(g.laps, 'базовый круг', 'базовых круга', 'базовых кругов')} → ${esc(g.where.filter((w) => w.startsWith('lapfiles')).join(', '))}`);
     if (g.same) parts.push(`${n(g.same, 'файл уже был', 'файла уже было', 'файлов уже было')}`);
+    const how = { laps: 'определена по базовым кругам', name: 'по названию, вы подтвердили', none: 'выбрана вами' }[g.how];
     return `<div class="su-g">
-      <div class="su-h"><b>${esc(g.archive)}</b>${g.car ? `<span class="su-car">${esc(g.car)}</span>` : ''}${g.tracks.length ? `<span class="su-tr">${esc(g.tracks.join(', '))}</span>` : ''}</div>
+      <div class="su-h"><b>${esc(g.archive)}</b>${g.car ? `<span class="su-car" title="${esc(g.car)}">${esc(g.carName || g.car)}</span>` : ''}${g.tracks.length ? `<span class="su-tr">${esc(g.tracks.join(', '))}</span>` : ''}</div>
       <div class="su-l">${parts.join('<br>') || 'ничего нового'}</div>
+      ${how && g.setups ? `<div class="su-n">Машина ${how}</div>` : ''}
       ${g.renamed.length ? `<div class="su-n">Переименованы, чтобы не затереть другие: ${esc(g.renamed.join('; '))}</div>` : ''}
-      ${g.carNote ? `<div class="su-n">${esc(g.carNote)}</div>` : ''}
+      ${g.note ? `<div class="su-n">${esc(g.note)}</div>` : ''}
       ${g.skipped.length ? `<div class="su-w">Пропущено: ${esc(g.skipped.join('; '))}</div>` : ''}
+    </div>`;
+  };
+  // Архивы без базовых кругов: машину знаем только по названию — спрашиваем, прежде чем что-то класть
+  const pend = (p) => {
+    const opts = (p.candidates.length > 1 ? p.candidates : st.cars)
+      .map((c) => `<option value="${esc(c.dir)}" ${(suPick[p.id] ?? p.guess?.dir) === c.dir ? 'selected' : ''}>${esc(c.name)}${c.name === c.dir ? '' : ` · ${esc(c.dir)}`}</option>`).join('');
+    const ask = p.guess
+      ? `По названию архива это <b>${esc(p.guess.name)}</b> <span class="su-tr">${esc(p.guess.dir)}</span>. Положить ${n(p.count, 'сетап', 'сетапа', 'сетапов')} в эту машину?`
+      : p.candidates.length
+        ? `По названию подходит несколько машин. Выберите, для какой эти ${n(p.count, 'сетап', 'сетапа', 'сетапов')}.`
+        : `Не удалось понять по названию, для какой машины ${n(p.count, 'сетап', 'сетапа', 'сетапов')}. Выберите машину.`;
+    return `<div class="su-g su-ask" data-su-id="${esc(p.id)}">
+      <div class="su-h"><b>${esc(p.archive)}</b></div>
+      <div class="su-l">В архиве нет базовых кругов, по которым можно проверить машину. ${ask}</div>
+      <div class="su-row">
+        <select class="field" data-su-car="${esc(p.id)}">${p.guess ? '' : '<option value="">— выберите машину —</option>'}${opts}</select>
+        <button class="btn primary" data-su-confirm="${esc(p.id)}">${p.guess ? 'Да, положить' : 'Положить'}</button>
+        <button class="btn quiet" data-su-skip="${esc(p.id)}">Пропустить</button>
+      </div>
     </div>`;
   };
   $('card').innerHTML = `
@@ -1041,10 +1063,11 @@ function renderSetups() {
       <div class="dz" id="suDrop" tabindex="0">
         ${icon('wrench')}
         <div class="dz-t">Перетащите сюда архив с сетапами</div>
-        <div class="dz-s">.zip, а также отдельные .sto и .blap или целую папку. Машину и трассу приложение определит само.</div>
+        <div class="dz-s">Архивы .zip, .7z и .rar, а также отдельные .sto и .blap или целая папка. Машину и трассу приложение определит само: по базовым кругам автоматически, по названию архива — с вашим подтверждением.</div>
         <button class="btn primary" data-su-act="setups.pick" ${st.busy ? 'disabled' : ''}>${icon('upload', 'sm')}Выбрать файлы</button>
       </div>
       <p class="hint" style="margin-top:14px">Сетапы (.sto) попадают в Документы\\iRacing\\setups\\машина, базовые круги (.blap) — в Документы\\iRacing\\lapfiles\\трасса. Одинаковые файлы пропускаются, а файл с тем же именем, но другим содержимым не затирается.</p>
+      ${st.pending.length ? `<div class="block" style="margin-top:22px"><div class="label">Нужно подтверждение</div><div class="su-list">${st.pending.map(pend).join('')}</div></div>` : ''}
       ${r ? `<div class="sep" style="margin:22px 0"></div>
         <div class="block">
           <div class="label">Последняя загрузка
@@ -1265,6 +1288,11 @@ document.addEventListener('click', (e) => {
   if (d.lvAct) return act({ type: d.lvAct });
   // Сетапы
   if (d.suAct) return act({ type: d.suAct });
+  if (d.suConfirm) {
+    const car = document.querySelector(`[data-su-car="${d.suConfirm}"]`)?.value;
+    return car ? act({ type: 'setups.confirm', id: d.suConfirm, car }) : undefined;
+  }
+  if (d.suSkip) return act({ type: 'setups.skip', id: d.suSkip });
 });
 
 document.addEventListener('change', (e) => {
@@ -1299,6 +1327,7 @@ document.addEventListener('change', (e) => {
   if (d.ovField === 'name') return ovAction('overlay.update', { patch: { name: t.value } });
   if (d.layoutField === 'name') return act({ type: 'layout.update', id: selLayout, patch: { name: t.value } });
   if (t.matches('[data-default]') && t.checked) return act({ type: 'layout.update', id: selLayout, patch: { isDefault: true } });
+  if (d.suCar) { suPick[d.suCar] = t.value; return; }
   if (d.lv) return act({ type: 'liveries.set', patch: { [d.lv]: t.checked } });
   if (d.lvNum) return act({ type: 'liveries.set', patch: { [d.lvNum]: Number(t.value) } });
   if (d.app) return act({ type: 'app.set', [d.app]: t.type === 'checkbox' ? t.checked : t.value });

@@ -119,7 +119,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, setups: { dir: iracingDocs(), last: setupsLast, canUndo: !!setupsLast?.created?.length, busy: false }, update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
+  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, setups: setupsView(), update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -135,30 +135,71 @@ function sendPanelStateSoon() {
 
 // ---------- сетапы ----------
 
-// ДокументыiRacing: Документы могут лежать в OneDrive, поэтому путь спрашиваем у системы
+// Документы\iRacing: Документы могут лежать в OneDrive, поэтому путь спрашиваем у системы
 const iracingDocs = () => path.join(app.getPath('documents'), 'iRacing');
-let setupsLast = null;      // итог последней загрузки (для панели и отмены)
+let setupsLast = null;                 // итог загрузки (для панели и отмены): группы, созданные файлы, суммы
+let setupsPending = new Map();         // архивы, ждущие подтверждения машины: id → группа (с содержимым, только в главном процессе)
+let setupsCars = [];                   // список машин для выбора вручную
+let setupsBusy = false;
 
-function installSetups(paths) {
-  const res = setupsInstaller.install(paths, { iracingDir: iracingDocs() });
-  setupsLast = res;
-  for (const g of res.groups) console.log(`[setups] ${g.archive}: машина ${g.car || '—'}, сетапов ${g.setups}, кругов ${g.laps}, уже было ${g.same}${g.skipped.length ? `, пропущено ${g.skipped.length}` : ''} → ${g.where.join(', ') || '—'}`);
-  for (const p of res.problems) console.warn(`[setups] ${p}`);
+const emptyLast = (problems = []) => ({ groups: [], created: [], total: { setups: 0, laps: 0, same: 0 }, problems });
+function addResult(out) {
+  setupsLast = setupsLast || emptyLast();
+  setupsLast.groups.push({ ...out, created: undefined });
+  setupsLast.created.push(...out.created);
+  setupsLast.total.setups += out.setups; setupsLast.total.laps += out.laps; setupsLast.total.same += out.same;
+  console.log(`[setups] ${out.archive}: машина ${out.car || '—'} (${{ laps: 'по базовым кругам', name: 'по названию, подтверждено', none: 'выбрана вручную' }[out.how] || '—'}), сетапов ${out.setups}, кругов ${out.laps}, уже было ${out.same}${out.skipped.length ? `, пропущено ${out.skipped.length}` : ''} → ${out.where.join(', ') || '—'}`);
+}
+
+async function installSetups(paths) {
+  setupsBusy = true; sendPanelState();
+  try {
+    const a = await setupsInstaller.analyze(paths, { iracingDir: iracingDocs() });
+    setupsLast = emptyLast(a.problems);
+    setupsPending = new Map();
+    setupsCars = a.cars;
+    for (const p of a.problems) console.warn(`[setups] ${p}`);
+    for (const g of a.groups) {
+      if (!g.setupsCount && !g.laps.length) { setupsLast.problems.push(`«${g.archive}»: сетапов и базовых кругов не нашлось`); continue; }
+      // базовые круги надёжно называют и машину, и трассу: раскладываем сами; сетапы по одному имени архива — только после подтверждения
+      if (g.how === 'laps' || !g.setupsCount) addResult(setupsInstaller.execute(g, g.car, { iracingDir: iracingDocs() }));
+      else setupsPending.set(g.id, g);
+    }
+  } catch (e) {
+    console.error('[setups] ошибка:', e);
+    setupsLast = emptyLast([`Не удалось обработать файлы: ${e.message}`]);
+  } finally { setupsBusy = false; }
 }
 
 function applySetupsAction(a) {
-  if (a.type === 'setups.drop' && Array.isArray(a.paths)) installSetups(a.paths.filter((p) => typeof p === 'string'));
-  else if (a.type === 'setups.pick') {
-    dialog.showOpenDialog(panel && !panel.isDestroyed() ? panel : undefined, { title: 'Сетапы и базовые круги', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Сетапы и круги', extensions: ['zip', 'sto', 'blap', 'olap'] }] })
-      .then((r) => { if (!r.canceled && r.filePaths.length) { installSetups(r.filePaths); sendPanelState(); } })
+  if (a.type === 'setups.drop' && Array.isArray(a.paths)) { installSetups(a.paths.filter((p) => typeof p === 'string')).then(sendPanelState); return; }
+  if (a.type === 'setups.pick') {
+    dialog.showOpenDialog(panel && !panel.isDestroyed() ? panel : undefined, { title: 'Сетапы и базовые круги', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Архивы, сетапы и круги', extensions: ['zip', '7z', 'rar', 'sto', 'blap', 'olap'] }] })
+      .then((r) => (!r.canceled && r.filePaths.length ? installSetups(r.filePaths) : null))
+      .then(sendPanelState)
       .catch((e) => console.warn('[setups] выбор файлов:', e.message));
     return;
+  }
+  if (a.type === 'setups.confirm') {
+    const g = setupsPending.get(a.id);
+    const car = setupsCars.find((c) => c.dir === a.car)?.dir;
+    if (g && car) { setupsPending.delete(a.id); addResult(setupsInstaller.execute(g, car, { iracingDir: iracingDocs() })); }
+  } else if (a.type === 'setups.skip') {
+    const g = setupsPending.get(a.id);
+    if (g) { setupsPending.delete(a.id); setupsLast?.problems.push(`«${g.archive}»: пропущен по вашему решению`); console.log(`[setups] ${g.archive}: пропущен пользователем`); }
   } else if (a.type === 'setups.undo' && setupsLast?.created?.length) {
     const n = setupsInstaller.undo(setupsLast.created);
     console.log(`[setups] загрузка отменена, удалено файлов: ${n}`);
-    setupsLast = { ...setupsLast, created: [], total: { ...setupsLast.total, setups: 0, laps: 0 }, groups: [], problems: [`Загрузка отменена, удалено файлов: ${n}`] };
+    setupsLast = emptyLast([`Загрузка отменена, удалено файлов: ${n}`]);
   } else if (a.type === 'setups.openFolder') shell.openPath(path.join(iracingDocs(), 'setups'));
   sendPanelState();
+}
+
+function setupsView() {
+  return {
+    dir: iracingDocs(), last: setupsLast, canUndo: !!setupsLast?.created?.length, busy: setupsBusy, cars: setupsCars,
+    pending: [...setupsPending.values()].map((g) => ({ id: g.id, archive: g.archive, count: g.setupsCount, how: g.how, guess: g.guess, candidates: g.candidates })),
+  };
 }
 
 // ---------- ливреи ----------

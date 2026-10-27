@@ -460,3 +460,6 @@ details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
 .su-l { line-height: 1.55; }
 .su-n { color: var(--muted); font-size: var(--fs-label); line-height: 1.5; }
 .su-w { color: #f0c2b8; font-size: var(--fs-label); line-height: 1.5; }
+.su-ask { border: 1px solid rgba(226, 185, 59, 0.28); }
+.su-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.su-row .field { flex: 1 1 260px; min-width: 0; }
