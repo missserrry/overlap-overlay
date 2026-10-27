@@ -127,8 +127,23 @@ function tail(lines = 400) {
   } catch { return ''; }
 }
 
+// Строки логов за последние дни, подходящие под шаблон (последние max): нужны отчёту, чтобы длинная гонка не вытесняла из хвоста заголовки и итоги SR
+function grep(re, max = 120, days = 5) {
+  if (!dir) return '';
+  flushRepeat();
+  try {
+    const files = fs.readdirSync(dir).filter((f) => /^overlap-.*\.log$/.test(f)).sort().slice(-days);
+    const out = [];
+    for (const f of files) {
+      const day = f.replace(/^overlap-|\.log$/g, '');
+      for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n')) if (re.test(line)) out.push(`${day} ${line}`);
+    }
+    return out.slice(-max).join('\n');
+  } catch { return ''; }
+}
+
 // Отчёт для отправки: окружение, краткая сводка настроек и хвост лога
-function buildReport({ app, screen, cfg, status, overlays: overlayLines = [] }) {
+function buildReport({ app, screen, cfg, status, overlays: overlayLines = [], extra = [] }) {
   const displays = screen.getAllDisplays().map((d) => `${d.size.width}×${d.size.height} @${d.scaleFactor}`).join(', ');
   const overlays = [];
   for (const l of cfg.layouts || []) {
@@ -146,6 +161,10 @@ function buildReport({ app, screen, cfg, status, overlays: overlayLines = [] }) 
     '',
     '=== Оверлеи сейчас ===',
     ...overlayLines,
+    '',
+    ...extra,
+    '=== Safety Rating: события, итоги, самонастройка (последние дни) ===',
+    grep(/\[sr(-данные)?\] (событие|итог|самонастройка|продолжаем|прошлое)/) || '(нет строк про SR)',
     '',
     '=== Последние строки лога ===',
     tail(400) || '(лог пуст)',

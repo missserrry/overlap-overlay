@@ -121,6 +121,8 @@ class SrTracker {
     }
     this.learnedWritten = JSON.stringify(this.learned);
     this.learnedWriteAt = 0;
+    const known = Object.entries(this.learned.tracks).map(([id, t]) => `${id} «${t.track || ''}» = ${t.cpl}`);
+    if (known.length || this.learned.pending) console.log(`[sr] самонастройка: подобрано для ${known.length} трасс${known.length ? ` (${known.join('; ')})` : ''}${this.learned.pending ? `; ждёт проверки прошлое событие ${this.learned.pending.subSessionId} на «${this.learned.pending.track}»` : ''}`);
     this.saved = null;
     this.restoreFrom = null;
     if (stateFile) {
@@ -242,6 +244,8 @@ class SrTracker {
     this.learned.pending = null;
     const list = Object.keys(p.sessions).map(Number).sort((a, b) => a - b).map((k) => p.sessions[k]);
     const laps = list.reduce((s, x) => s + x.laps, 0), inc = list.reduce((s, x) => s + x.incidents, 0);
+    // Все исходные данные одной строкой: по ней расчёт можно повторить и подобрать число поворотов вручную, даже если подбор в приложении пропущен
+    console.log(`[sr-данные] прошлое событие ${p.subSessionId}, трасса ${p.trackId} «${p.track}»: ${JSON.stringify({ старт: p.start, повороты_на_круге: p.cpl, сессии: p.sessions })}; реальный SR на входе в новое событие ${f2(real.sr)} (класс ${CLASS_LETTERS[real.cls] || '?'})`);
     const why = (t) => { console.log(`[sr] самонастройка: «${p.track}» (трасса ${p.trackId}) пропущена — ${t}`); this.writeLearned(true); };
     if (real.cls !== p.start.cls) return why('класс лицензии сменился');
     if (laps < 2) return why(`слишком короткая дистанция (${laps.toFixed(1)} кр.)`);
@@ -289,7 +293,8 @@ class SrTracker {
       this.lastLogInc = out.incidents;
       console.log(`[sr] событие ${w.SubSessionID ?? '—'} (${this.eventKey?.split('|')[0]}): тип ${w.EventType || '—'}, официальное: ${w.Official == null ? '—' : Number(w.Official) ? 'да' : 'нет'}; `
         + `сессия ${sessionNum} «${out.sessionType || '—'}», вес ${out.weight}${out.weight === 0 ? ' (SR не меняется)' : ''}; `
-        + `трек ${w.TrackID ?? '—'} «${w.TrackDisplayName || w.TrackName || '—'}», поворотов на круге ${out.cornersPerLap ?? '—'} (${cornersSource(w, this.learned)}); `
+        + `трек ${w.TrackID ?? '—'} «${w.TrackDisplayName || w.TrackName || '—'}» (конфигурация «${w.TrackConfigName || '—'}»), поворотов на круге ${out.cornersPerLap ?? '—'} (${cornersSource(w, this.learned)}); `
+        + `для сверки: в описании сессии ${w.TrackNumTurns ?? '—'}, в таблице по номеру трассы ${CORNERS.tracks[String(w.TrackID)] ?? '—'}, подобрано самонастройкой ${this.learned.tracks[String(w.TrackID)]?.cpl ?? '—'}; `
         + `старт SR ${ratingText(rating)}${this.start.carried ? ' (перенесён из прошлой сессии)' : ''}`);
       return;
     }

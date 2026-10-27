@@ -473,7 +473,13 @@ function overlayReportLines() {
 
 // Диагностика: папка логов, отчёт в буфер обмена или в файл
 function report() {
-  return logger.buildReport({ app, screen, cfg: cfg || {}, status: server?.status, overlays: overlayReportLines() });
+  // файл самонастройки SR: какие числа поворотов подобраны и что ждёт проверки
+  const extra = [];
+  try {
+    const learned = require('fs').readFileSync(path.join(app.getPath('userData'), 'sr-corners-learned.json'), 'utf8');
+    extra.push('=== Самонастройка SR (файл) ===', learned.length > 4000 ? `${learned.slice(0, 4000)}…` : learned, '');
+  } catch { /* файла ещё нет */ }
+  return logger.buildReport({ app, screen, cfg: cfg || {}, status: server?.status, overlays: overlayReportLines(), extra });
 }
 function applyDiagAction(a) {
   if (a.type === 'diag.openFolder') {
