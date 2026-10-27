@@ -1234,6 +1234,8 @@ document.addEventListener('click', (e) => {
     return render();
   }
   if (d.view) { firstGame = false; view = d.view; save('panelView', view); mounted = null; return render(); }
+  // Телеметрия — не раздел панели, а своё окно
+  if (d.open === 'telemetry') return act({ type: 'telemetry.open' });
   if (d.goto) { firstGame = false; view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });

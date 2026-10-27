@@ -50,8 +50,9 @@ function readZip(buf) {
 }
 
 // ---------- .7z и .rar через 7-Zip (WASM): распаковываем в память, нужные файлы забираем ----------
+// wanted — какие расширения забирать (окно «Телеметрия» берёт так же .ibt и .duckdb из архивов с эталонами)
 let sevenZipInit = null;
-async function readWith7z(buf, ext) {
+async function readWith7z(buf, ext, wanted = WANTED) {
   const SevenZip = require('7z-wasm');
   sevenZipInit = sevenZipInit || SevenZip;
   const z = await sevenZipInit({ print: () => {}, printErr: () => {} });
@@ -65,7 +66,7 @@ async function readWith7z(buf, ext) {
       if (n === '.' || n === '..') continue;
       const p = `${dir}/${n}`;
       if (z.FS.isDir(z.FS.stat(p).mode)) walk(p);
-      else if (WANTED.has(path.extname(n).toLowerCase())) { const data = Buffer.from(z.FS.readFile(p)); out.push({ name: n, read: () => data }); }
+      else if (wanted.has(path.extname(n).toLowerCase())) { const data = Buffer.from(z.FS.readFile(p)); out.push({ name: n, read: () => data }); }
     }
   })('/out');
   return out;
@@ -226,4 +227,4 @@ function undo(created) {
   return removed;
 }
 
-module.exports = { analyze, execute, undo, readZip, parseLap, carsFromName, knownCars, carName };
+module.exports = { analyze, execute, undo, readZip, readWith7z, parseLap, carsFromName, knownCars, carName };

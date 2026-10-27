@@ -17,6 +17,7 @@ const { execFile } = require('child_process');
 const { TradingPaints, DEFAULT_SETTINGS: DEFAULT_LIVERY_SETTINGS } = require('../liveries/tradingPaints');
 const setupsInstaller = require('../setups/installer');
 const { reloadCarTexture } = require('../telemetry/broadcast');
+const { initTelemetry, openTelemetry } = require('./telemetryWindow');
 
 let liveries;
 
@@ -74,6 +75,7 @@ app.whenReady().then(async () => {
     return;
   }
   state = new LayoutState(cfg, onStateChanged);
+  initTelemetry({ port: server.port, cfg });
   watchForeground();
   watchOverlayHealth();
   state.sim = server.status;
@@ -583,6 +585,7 @@ ipcMain.on('panel-action', (_e, action) => {
     else if (String(action?.type).startsWith('liveries.')) applyLiveryAction(action);
     else if (String(action?.type).startsWith('setups.')) applySetupsAction(action);
     else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
+    else if (action?.type === 'telemetry.open') openTelemetry();
     else state.apply(action);
   } catch (e) {
     console.error('[panel] action failed:', action, e);

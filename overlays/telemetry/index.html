@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Overlap — Телеметрия</title>
+  <link rel="stylesheet" href="/telemetry/telemetry.css">
+  <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+</head>
+<body>
+  <!-- Окно «Телеметрия»: слева библиотека кругов (скрывается), справа рабочая область из 1–4 блоков и общая полоса проигрывания.
+       Цвета и шрифты — как у панели (design/brandbook.md) -->
+  <div class="app" id="app">
+    <header class="topbar">
+      <button class="ibtn" id="libToggle" title="Скрыть список кругов"><i class="ico" id="libToggleIco" style="--i:url(/vendor/icons/panel-left-close.svg)"></i></button>
+      <div class="brand"><img src="/common/brand/icon.png" alt="" draggable="false"><span>Телеметрия</span></div>
+      <div class="laps-head" id="lapsHead"></div>
+      <div class="top-tools">
+        <button class="top-btn" id="layoutBtn" title="Раскладка блоков" aria-haspopup="dialog"><i class="ico sm" style="--i:url(/vendor/icons/layout-dashboard.svg)"></i>Раскладка</button>
+        <button class="top-btn" id="optBtn" title="Вид трассы: раскраска линий, ширина" aria-haspopup="dialog"><i class="ico sm" style="--i:url(/vendor/icons/sliders-horizontal.svg)"></i>Вид трассы</button>
+      </div>
+      <div class="layout-pop" id="layoutPop" hidden></div>
+      <div class="opts" id="opts" hidden></div>
+    </header>
+
+    <aside class="lib" aria-label="Круги и блоки">
+      <div class="side-tabs" role="tablist">
+        <button data-side="laps" class="on">Сессии</button>
+        <button data-side="blocks">Блоки</button>
+      </div>
+      <div class="side-pane" id="libPane">
+        <!-- шаг 1: выбрать сессию (или перетащить файл) -->
+        <div class="sess-view" id="sessView">
+          <div class="dropcard">
+            <span class="dc-ico"><i class="ico" style="--i:url(/vendor/icons/file-down.svg)"></i></span>
+            <div class="dc-t"><b>Перетащите эталон</b><span>файл или архив сетапера: .ibt, .zip, .7z, .rar</span></div>
+            <button class="dc-btn" id="addBtn">Выбрать</button>
+          </div>
+          <div class="lib-tools">
+            <input class="field" id="search" type="search" placeholder="Трасса, машина…" autocomplete="off" spellcheck="false">
+            <button class="ibtn" id="rescanBtn" title="Обновить список"><i class="ico" style="--i:url(/vendor/icons/refresh-cw.svg)"></i></button>
+          </div>
+          <div class="lib-list" id="libList"></div>
+          <div class="lib-foot" id="libFoot"></div>
+        </div>
+        <!-- шаг 2: круги сессии и сравнение А/Б -->
+        <div class="laps-view" id="lapsView" hidden>
+          <button class="back" id="backBtn"><i class="ico sm" style="--i:url(/vendor/icons/arrow-left.svg)"></i>Все сессии</button>
+          <div class="laps-box" id="lapsBox"></div>
+        </div>
+      </div>
+      <div class="side-pane" id="galleryPane" hidden>
+        <p class="gal-head">Перетащите блок в рабочую область: к краю блока — встанет рядом, к краю области — во всю высоту или ширину. Короткое нажатие — добавить справа.</p>
+        <div class="gallery" id="gallery"></div>
+        <div class="lib-foot" id="galleryNote"></div>
+      </div>
+    </aside>
+
+    <div class="work" id="work">
+      <div class="ws" id="ws"></div>
+
+      <div class="empty" id="empty">
+        <i class="ico big" style="--i:url(/vendor/icons/chart-spline.svg)"></i>
+        <h2>Выберите сессию слева</h2>
+        <p>Откроется её лучший круг. Сравнить можно со своим лучшим, средним или худшим кругом,<br>
+          с другой сессией на этой трассе или с эталоном: перетащите его файл или архив в окно.</p>
+      </div>
+
+      <!-- проигрывание — одно на все блоки -->
+      <div class="transport" id="transport" hidden>
+        <div class="grp">
+          <button class="ibtn" id="toStart" title="В начало круга (Home)"><i class="ico" style="--i:url(/vendor/icons/skip-back.svg)"></i></button>
+          <button class="ibtn" id="back" title="Назад 1 с (←, с Shift — 5 с)"><i class="ico" style="--i:url(/vendor/icons/rewind.svg)"></i></button>
+          <button class="play" id="play" title="Пуск / пауза (пробел)"><i class="ico" id="playIco" style="--i:url(/vendor/icons/play.svg)"></i></button>
+          <button class="ibtn" id="fwd" title="Вперёд 1 с (→, с Shift — 5 с)"><i class="ico" style="--i:url(/vendor/icons/fast-forward.svg)"></i></button>
+          <button class="ibtn" id="toEnd" title="В конец круга (End)"><i class="ico" style="--i:url(/vendor/icons/skip-forward.svg)"></i></button>
+        </div>
+        <span class="clock" id="clock">0:00.000</span>
+        <div class="timeline" id="timeline"><div class="tl-sectors" id="tlSectors"></div><div class="tl-fill" id="tlFill"></div><div class="tl-head" id="tlHead"></div></div>
+        <span class="clock total" id="total"></span>
+        <div class="grp speed">
+          <button class="ibtn" id="slower" title="Медленнее (−)"><i class="ico" style="--i:url(/vendor/icons/minus.svg)"></i></button>
+          <span id="speedVal">1×</span>
+          <button class="ibtn" id="faster" title="Быстрее (+)"><i class="ico" style="--i:url(/vendor/icons/plus.svg)"></i></button>
+        </div>
+      </div>
+
+      <div class="drop" id="drop" hidden><div><i class="ico big" style="--i:url(/vendor/icons/file-down.svg)"></i>Отпустите — эталон встанет в сравнение (Б)</div></div>
+      <div class="toast" id="toast" hidden></div>
+    </div>
+  </div>
+  <script type="module" src="/telemetry/telemetry.js"></script>
+</body>
+</html>

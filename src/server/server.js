@@ -32,11 +32,12 @@ const STATIC_DIRS = {
   '/vendor/inter/': path.join(ROOT, 'node_modules', '@fontsource-variable', 'inter', 'files'),
   '/vendor/mono/': path.join(ROOT, 'node_modules', '@fontsource', 'jetbrains-mono', 'files'),
   '/vendor/icons/': path.join(ROOT, 'node_modules', 'lucide-static', 'icons'),
+  '/vendor/three/': path.join(ROOT, 'node_modules', 'three', 'build'),
   '/': path.join(ROOT, 'overlays'),
 };
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.woff2': 'font/woff2', '.woff': 'font/woff', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.glb': 'model/gltf-binary',
 };
 
 const CHANNELS = {
