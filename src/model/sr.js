@@ -11,6 +11,7 @@ const M = require('./srmath');
 const { LICENSE_COLORS } = require('./common');
 const CORNERS = require('./srCorners.json');
 const NAMED = require('./srCornersNamed.json');
+const MAPPED = require('./srCornersMap.json');
 
 const SURF_NOT_IN_WORLD = -1, SURF_PIT_STALL = 1;
 const MAX_TICK_LAPS = 0.10;     // больше за тик не проехать: эвакуатор, сброс, телепорт — не считаем
@@ -38,6 +39,8 @@ function clampToRange(value, weekend) {
 function cornersPerLap(weekend) {
   const scored = SCORED_CORNERS[Number(weekend?.TrackID)];
   if (scored) return scored;
+  const mapped = MAPPED.tracks[String(weekend?.TrackID)];
+  if (mapped) return mapped;
   const named = namedCorners(weekend);
   if (named) return named;
   const official = CORNERS.tracks[String(weekend?.TrackID)];
@@ -77,6 +80,7 @@ const f2 = (x) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(2));
 const ratingText = (r) => (r ? `${CLASS_LETTERS[r.cls] || '?'} ${f2(r.sr)}` : '—');
 function cornersSource(weekend) {
   if (SCORED_CORNERS[Number(weekend?.TrackID)]) return 'проверено по официальным результатам iRacing';
+  if (MAPPED.tracks[String(weekend?.TrackID)]) return 'по карте трассы в iRacing';
   if (namedCorners(weekend)) return 'справочник по названию трассы';
   const official = CORNERS.tracks[String(weekend?.TrackID)];
   if (official) return clampToRange(official, weekend) !== official ? 'таблица iRacing, поправлена по диапазону справочника' : 'таблица iRacing';
