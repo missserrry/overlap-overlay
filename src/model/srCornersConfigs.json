@@ -34,6 +34,15 @@
   "autoclubspeedway|moto": 22,
   "willowspringsinternationalraceway|bigwillow": 9,
   "longbeachstreetcircuit|streetcircuit": 11,
-  "detroitgrandprixatbelleisle|detroitgrandprixatbelleisle": 14
+  "detroitgrandprixatbelleisle|detroitgrandprixatbelleisle": 14,
+  "autodromointernazionaleenzoedinoferrari|grandprix": 17,
+  "autodromointernazionaleenzoedinoferrari|moto": 18,
+  "midohiosportscarcourse|fullcourse": 13,
+  "midohiosportscarcourse|chicane": 15,
+  "midohiosportscarcourse|short": 12,
+  "midohiosportscarcourse|oval": 4,
+  "midohiosportscarcourse|altoval": 4,
+  "brandshatchcircuit|grandprix": 9,
+  "brandshatchcircuit|indy": 5
  }
 }
