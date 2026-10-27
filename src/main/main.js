@@ -3,7 +3,7 @@
 //   Ctrl+Shift+H — скрыть/показать все оверлеи
 //   Ctrl+Shift+J — открыть панель управления (или клик по значку в трее)
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell, screen, clipboard, Notification, dialog } = require('electron');
 const logger = require('./logger');
 const { foreground, isSim, monitorOf, isShown } = require('./foreground');
 const { startServer } = require('../server/server');
@@ -15,13 +15,15 @@ const { LayoutState } = require('./state');
 const snapper = require('./snapper');
 const { execFile } = require('child_process');
 const { TradingPaints, DEFAULT_SETTINGS: DEFAULT_LIVERY_SETTINGS } = require('../liveries/tradingPaints');
+const setupsInstaller = require('../setups/installer');
 const { reloadCarTexture } = require('../telemetry/broadcast');
 
 let liveries;
 
 // Папка настроек всегда одна и та же (%APPDATA%\svoy-overlay), чем бы ни запускали приложение: установщик, portable или npm start.
 // Благодаря этому обновление поверх старой версии сохраняет раскладки, позиции окон и всё, что настроил пользователь.
-app.setPath('userData', path.join(app.getPath('appData'), 'svoy-overlay'));
+// OVERLAP_USER_DATA — отдельная папка данных для проверки версии из проекта рядом с установленной (иначе второй экземпляр не запустится)
+app.setPath('userData', process.env.OVERLAP_USER_DATA || path.join(app.getPath('appData'), 'svoy-overlay'));
 
 // Логи пишем с самого старта, чтобы не потерять ошибки запуска
 logger.init(app.getPath('userData'));
@@ -117,7 +119,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
+  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, setups: { dir: iracingDocs(), last: setupsLast, canUndo: !!setupsLast?.created?.length, busy: false }, update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -129,6 +131,34 @@ let panelTimer = null;
 function sendPanelStateSoon() {
   if (panelTimer) return;
   panelTimer = setTimeout(() => { panelTimer = null; sendPanelState(); }, 250);
+}
+
+// ---------- сетапы ----------
+
+// ДокументыiRacing: Документы могут лежать в OneDrive, поэтому путь спрашиваем у системы
+const iracingDocs = () => path.join(app.getPath('documents'), 'iRacing');
+let setupsLast = null;      // итог последней загрузки (для панели и отмены)
+
+function installSetups(paths) {
+  const res = setupsInstaller.install(paths, { iracingDir: iracingDocs() });
+  setupsLast = res;
+  for (const g of res.groups) console.log(`[setups] ${g.archive}: машина ${g.car || '—'}, сетапов ${g.setups}, кругов ${g.laps}, уже было ${g.same}${g.skipped.length ? `, пропущено ${g.skipped.length}` : ''} → ${g.where.join(', ') || '—'}`);
+  for (const p of res.problems) console.warn(`[setups] ${p}`);
+}
+
+function applySetupsAction(a) {
+  if (a.type === 'setups.drop' && Array.isArray(a.paths)) installSetups(a.paths.filter((p) => typeof p === 'string'));
+  else if (a.type === 'setups.pick') {
+    dialog.showOpenDialog(panel && !panel.isDestroyed() ? panel : undefined, { title: 'Сетапы и базовые круги', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Сетапы и круги', extensions: ['zip', 'sto', 'blap', 'olap'] }] })
+      .then((r) => { if (!r.canceled && r.filePaths.length) { installSetups(r.filePaths); sendPanelState(); } })
+      .catch((e) => console.warn('[setups] выбор файлов:', e.message));
+    return;
+  } else if (a.type === 'setups.undo' && setupsLast?.created?.length) {
+    const n = setupsInstaller.undo(setupsLast.created);
+    console.log(`[setups] загрузка отменена, удалено файлов: ${n}`);
+    setupsLast = { ...setupsLast, created: [], total: { ...setupsLast.total, setups: 0, laps: 0 }, groups: [], problems: [`Загрузка отменена, удалено файлов: ${n}`] };
+  } else if (a.type === 'setups.openFolder') shell.openPath(path.join(iracingDocs(), 'setups'));
+  sendPanelState();
 }
 
 // ---------- ливреи ----------
@@ -510,6 +540,7 @@ ipcMain.on('panel-action', (_e, action) => {
     else if (action?.type === 'update.download') updater.download();
     else if (action?.type === 'update.install') updater.install();
     else if (String(action?.type).startsWith('liveries.')) applyLiveryAction(action);
+    else if (String(action?.type).startsWith('setups.')) applySetupsAction(action);
     else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
     else state.apply(action);
   } catch (e) {

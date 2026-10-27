@@ -444,3 +444,19 @@ details.rel[open] summary .ico:last-child { transform: rotate(180deg); }
 .game-check .ico { display: none; }
 .game-tile.on .game-check { background: var(--accent); color: #15171A; }
 .game-tile.on .game-check .ico { display: inline-block; }
+
+/* Сетапы: зона перетаскивания и итог загрузки */
+.dz { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 44px 24px; border: 1.5px dashed rgba(255, 255, 255, 0.16); border-radius: 12px; text-align: center; transition: border-color .15s var(--ease), background .15s var(--ease); outline: none; }
+.dz .ico { width: 30px; height: 30px; color: var(--muted); }
+.dz.over, .dz:focus-visible { border-color: var(--accent); background: rgba(226, 185, 59, 0.06); }
+.dz.over .ico { color: var(--accent); }
+.dz-t { font-size: var(--fs-item); font-weight: 600; }
+.dz-s { color: var(--muted); max-width: 46ch; line-height: 1.5; margin-bottom: 6px; }
+.su-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.su-g { padding: 12px 14px; border-radius: 8px; background: var(--raised); display: flex; flex-direction: column; gap: 4px; }
+.su-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.su-car, .su-tr { color: var(--muted); font-size: var(--fs-label); letter-spacing: 0.04em; }
+.su-car { color: var(--accent); }
+.su-l { line-height: 1.55; }
+.su-n { color: var(--muted); font-size: var(--fs-label); line-height: 1.5; }
+.su-w { color: #f0c2b8; font-size: var(--fs-label); line-height: 1.5; }

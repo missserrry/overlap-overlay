@@ -10,7 +10,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 const icon = (name, cls = '') => `<i class="ico ${cls}" style="--i:url(/vendor/icons/${name}.svg)"></i>`;
 const sw = (attrs, on) => `<label class="sw"><input type="checkbox" ${attrs} ${on ? 'checked' : ''}><i></i></label>`;
 
-const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', game: 'Игра', liveries: 'Ливреи', settings: 'Настройки' };
+const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', game: 'Игра', liveries: 'Ливреи', setups: 'Сетапы', settings: 'Настройки' };
 const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
@@ -100,7 +100,8 @@ const gameAllows = (type) => { const t = S.games[game()].types; return !t || t.i
 function render() {
   const lmu = game() === 'lmu';
   $('liveriesBtn').hidden = lmu;
-  if (lmu && view === 'liveries') view = 'overlays';
+  $('setupsBtn').hidden = lmu;
+  if (lmu && (view === 'liveries' || view === 'setups')) view = 'overlays';
   $('title').textContent = firstGame && view === 'game' ? 'Выбор игры' : TITLES[view];
   renderStatus();
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
@@ -109,6 +110,7 @@ function render() {
   else if (view === 'palette') renderPalette();
   else if (view === 'game') renderGame();
   else if (view === 'liveries') renderLiveries();
+  else if (view === 'setups') renderSetups();
   else renderSettings();
 }
 
@@ -125,7 +127,11 @@ function moveIndicator(ind, target, h) {
 function renderStatus() {
   const sim = S.sim;
   let dot = '', text;
-  if (game() === 'lmu') { dot = sim.source === 'demo' ? '' : 'bad'; text = `LMU: чтение данных в разработке${sim.source === 'demo' ? ' · демо' : ''}`; }
+  if (game() === 'lmu') {
+    if (sim.source === 'lmu' && sim.connected) { dot = 'live'; text = sim.car ? `LMU · ${sim.car}` : 'LMU подключена'; }
+    else if (sim.source === 'demo') text = 'LMU не в сессии · демо';
+    else { dot = 'bad'; text = 'LMU не запущена'; }
+  }
   else if (sim.source === 'iracing' && sim.connected) { dot = 'live'; text = sim.car ? `iRacing · ${sim.car}` : 'iRacing подключён'; }
   else if (sim.source === 'demo') text = 'iRacing не в сессии · демо';
   else { dot = 'bad'; text = 'iRacing не запущен'; }
@@ -1008,6 +1014,71 @@ function renderLiveries() {
   if (stick) log.scrollTop = log.scrollHeight;
 }
 
+// ---------- Сетапы ----------
+// Бросаете архив (.zip) или файлы (.sto, .blap) — приложение само определяет машину и трассу и раскладывает по папкам iRacing.
+
+function renderSetups() {
+  mounted = 'setups';
+  const st = S.setups;
+  if (!st) { $('card').innerHTML = ''; return; }
+  const r = st.last;
+  const n = (x, one, few, many) => `${x} ${x % 10 === 1 && x % 100 !== 11 ? one : x % 10 >= 2 && x % 10 <= 4 && (x % 100 < 10 || x % 100 >= 20) ? few : many}`;
+  const group = (g) => {
+    const parts = [];
+    if (g.setups) parts.push(`${n(g.setups, 'сетап', 'сетапа', 'сетапов')} → ${esc(g.where.filter((w) => w.startsWith('setups')).join(', '))}`);
+    if (g.laps) parts.push(`${n(g.laps, 'базовый круг', 'базовых круга', 'базовых кругов')} → ${esc(g.where.filter((w) => w.startsWith('lapfiles')).join(', '))}`);
+    if (g.same) parts.push(`${n(g.same, 'файл уже был', 'файла уже было', 'файлов уже было')}`);
+    return `<div class="su-g">
+      <div class="su-h"><b>${esc(g.archive)}</b>${g.car ? `<span class="su-car">${esc(g.car)}</span>` : ''}${g.tracks.length ? `<span class="su-tr">${esc(g.tracks.join(', '))}</span>` : ''}</div>
+      <div class="su-l">${parts.join('<br>') || 'ничего нового'}</div>
+      ${g.renamed.length ? `<div class="su-n">Переименованы, чтобы не затереть другие: ${esc(g.renamed.join('; '))}</div>` : ''}
+      ${g.carNote ? `<div class="su-n">${esc(g.carNote)}</div>` : ''}
+      ${g.skipped.length ? `<div class="su-w">Пропущено: ${esc(g.skipped.join('; '))}</div>` : ''}
+    </div>`;
+  };
+  $('card').innerHTML = `
+    <div class="page fade"><div class="page-inner">
+      <div class="dz" id="suDrop" tabindex="0">
+        ${icon('wrench')}
+        <div class="dz-t">Перетащите сюда архив с сетапами</div>
+        <div class="dz-s">.zip, а также отдельные .sto и .blap или целую папку. Машину и трассу приложение определит само.</div>
+        <button class="btn primary" data-su-act="setups.pick" ${st.busy ? 'disabled' : ''}>${icon('upload', 'sm')}Выбрать файлы</button>
+      </div>
+      <p class="hint" style="margin-top:14px">Сетапы (.sto) попадают в Документы\\iRacing\\setups\\машина, базовые круги (.blap) — в Документы\\iRacing\\lapfiles\\трасса. Одинаковые файлы пропускаются, а файл с тем же именем, но другим содержимым не затирается.</p>
+      ${r ? `<div class="sep" style="margin:22px 0"></div>
+        <div class="block">
+          <div class="label">Последняя загрузка
+            <span style="display:flex;gap:4px">
+              ${st.canUndo ? `<button class="btn quiet" data-su-act="setups.undo">${icon('undo-2', 'sm')}Отменить</button>` : ''}
+              <button class="btn quiet" data-su-act="setups.openFolder">${icon('folder-open', 'sm')}Папка сетапов</button>
+            </span>
+          </div>
+          <div class="stats"><span>Сетапов <b>${r.total.setups}</b></span><span>Кругов <b>${r.total.laps}</b></span><span>Уже было <b>${r.total.same}</b></span></div>
+          <div class="su-list">${r.groups.map(group).join('')}</div>
+          ${r.problems.length ? `<div class="warn" style="margin:14px 0 0"><span class="dot"></span><span>${esc(r.problems.join('; '))}</span></div>` : ''}
+        </div>` : ''}
+    </div></div>`;
+}
+
+// Файлы из проводника: обычный drop; путь к файлу даёт мост панели
+function dropSetups(files) {
+  const paths = [...files].map((f) => bridge.pathFor(f)).filter(Boolean);
+  if (paths.length) act({ type: 'setups.drop', paths });
+}
+document.addEventListener('dragover', (e) => {
+  if (!e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();                    // иначе окно откроет брошенный файл вместо загрузки
+  const dz = document.getElementById('suDrop');
+  if (dz) dz.classList.toggle('over', view === 'setups');
+});
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.getElementById('suDrop')?.classList.remove('over'); });
+document.addEventListener('drop', (e) => {
+  if (!e.dataTransfer?.files?.length) return;
+  e.preventDefault();
+  document.getElementById('suDrop')?.classList.remove('over');
+  if (view === 'setups') dropSetups(e.dataTransfer.files);
+});
+
 // ---------- Настройки ----------
 
 function renderSettings() {
@@ -1192,6 +1263,8 @@ document.addEventListener('click', (e) => {
 
   // Ливреи
   if (d.lvAct) return act({ type: d.lvAct });
+  // Сетапы
+  if (d.suAct) return act({ type: d.suAct });
 });
 
 document.addEventListener('change', (e) => {
