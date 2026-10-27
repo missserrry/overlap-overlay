@@ -74,7 +74,7 @@ function startServer(options = {}) {
   const lmu = new LmuSdk();
   // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
   setFuelStore(opts.fuelStateFile || null);
-  const srTracker = new SrTracker({ stateFile: opts.srStateFile || null });
+  const srTracker = new SrTracker({ stateFile: opts.srStateFile || null, learnedFile: opts.srLearnedFile || null });
   const forecastTracker = new ForecastTracker();
   let demo = null;
   let lastOpenAttempt = 0, lastLmuAttempt = 0;

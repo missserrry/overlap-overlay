@@ -12,6 +12,7 @@ const { LICENSE_COLORS } = require('./common');
 const CORNERS = require('./srCorners.json');
 const NAMED = require('./srCornersNamed.json');
 const MAPPED = require('./srCornersMap.json');
+const CONFIGS = require('./srCornersConfigs.json');
 
 const SURF_NOT_IN_WORLD = -1, SURF_PIT_STALL = 1;
 const MAX_TICK_LAPS = 0.10;     // больше за тик не проехать: эвакуатор, сброс, телепорт — не считаем
@@ -35,12 +36,32 @@ function clampToRange(value, weekend) {
   return r ? Math.min(Math.max(value, r[0]), r[1]) : value;
 }
 
-// Поворотов на круге, которые идут в зачёт SR: проверенное значение по трассе, затем число по названию трассы, затем таблица iRacing по TrackID, иначе число из YAML
-function cornersPerLap(weekend) {
+// Число поворотов по карте конфигурации (название трассы + название конфигурации). Конфигурации сравниваем по смыслу: without / w/out / w/o — одно и то же
+const cfgKey = (s) => nameKey(String(s || '').toLowerCase().replace(/w\/\s*out|w\/o|\bwithout\b/g, ' without ').replace(/w\//g, ' with ').replace(/\bwith\s+out\b/g, ' without '));
+const CONFIG_BY_TRACK = (() => {      // название трассы → все значения по её конфигурациям: если оно одно, конфигурация не важна
+  const m = new Map();
+  for (const [k, v] of Object.entries(CONFIGS.tracks)) { const t = k.split('|')[0]; m.set(t, [...(m.get(t) || []), v]); }
+  return m;
+})();
+function configCorners(weekend) {
+  const t = nameKey(weekend?.TrackDisplayName);
+  const exact = CONFIGS.tracks[`${t}|${cfgKey(weekend?.TrackConfigName)}`];
+  if (exact) return exact;
+  const all = CONFIG_BY_TRACK.get(t);
+  return all && all.every((v) => v === all[0]) ? all[0] : null;
+}
+
+// Поворотов на круге, которые идут в зачёт SR. Порядок доверия: проверенное по официальному результату iRacing → подобранное самонастройкой
+// по вашим гонкам → по карте трассы в iRacing → по карте конфигурации (вики) → справочник по названию → таблица iRacing по TrackID → число из YAML.
+function cornersPerLap(weekend, learned) {
   const scored = SCORED_CORNERS[Number(weekend?.TrackID)];
   if (scored) return scored;
+  const own = learned?.tracks?.[String(weekend?.TrackID)]?.cpl;
+  if (own) return own;
   const mapped = MAPPED.tracks[String(weekend?.TrackID)];
   if (mapped) return mapped;
+  const cfg = configCorners(weekend);
+  if (cfg) return cfg;
   const named = namedCorners(weekend);
   if (named) return named;
   const official = CORNERS.tracks[String(weekend?.TrackID)];
@@ -78,9 +99,11 @@ function sinceBase(start, key, current) {
 // ---------- журнал: всё, что нужно, чтобы по логу понять, почему SR вышел таким ----------
 const f2 = (x) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(2));
 const ratingText = (r) => (r ? `${CLASS_LETTERS[r.cls] || '?'} ${f2(r.sr)}` : '—');
-function cornersSource(weekend) {
+function cornersSource(weekend, learned) {
   if (SCORED_CORNERS[Number(weekend?.TrackID)]) return 'проверено по официальным результатам iRacing';
+  if (learned?.tracks?.[String(weekend?.TrackID)]?.cpl) return 'самонастройка по вашим гонкам';
   if (MAPPED.tracks[String(weekend?.TrackID)]) return 'по карте трассы в iRacing';
+  if (configCorners(weekend)) return 'по карте конфигурации';
   if (namedCorners(weekend)) return 'справочник по названию трассы';
   const official = CORNERS.tracks[String(weekend?.TrackID)];
   if (official) return clampToRange(official, weekend) !== official ? 'таблица iRacing, поправлена по диапазону справочника' : 'таблица iRacing';
@@ -89,8 +112,15 @@ function cornersSource(weekend) {
 }
 
 class SrTracker {
-  constructor({ stateFile = null } = {}) {
+  constructor({ stateFile = null, learnedFile = null } = {}) {
     this.stateFile = stateFile;
+    this.learnedFile = learnedFile;
+    this.learned = { tracks: {}, pending: null };     // самонастройка: подобранные числа поворотов по TrackID и незавершённая проверка прошлого события
+    if (learnedFile) {
+      try { const l = JSON.parse(fs.readFileSync(learnedFile, 'utf8')); this.learned = { tracks: l.tracks || {}, pending: l.pending || null }; } catch { /* файла ещё нет */ }
+    }
+    this.learnedWritten = JSON.stringify(this.learned);
+    this.learnedWriteAt = 0;
     this.saved = null;
     this.restoreFrom = null;
     if (stateFile) {
@@ -129,6 +159,7 @@ class SrTracker {
       this.logSummary('событие сменилось');
       this.reset(eventKey);
       this.tryRestore(snap.source, w.SubSessionID);
+      if (snap.source === 'iracing') this.settle(playerRating(session), w);
     }
 
     const sessionNum = vars.SessionNum;
@@ -148,7 +179,7 @@ class SrTracker {
     const incidents = sinceBase(this.start, 'incBase', vars.PlayerCarMyIncidentCount) ?? 0;
     const rating = this.startRating(playerRating(session));
     const weight = eventWeight(session, sessionNum);
-    const cpl = cornersPerLap(w);
+    const cpl = cornersPerLap(w, this.learned);
     const corners = this.distance * (cpl || 0);
     const cornersAlt = this.distanceAll * (cpl || 0);
 
@@ -185,6 +216,67 @@ class SrTracker {
     this.out = out;
     this.logProgress(w, session, sessionNum, out, rating);
     this.save(w.SubSessionID);
+    if (snap.source === 'iracing') this.recordPending(w, rating, cpl, sessionNum, weight, incidents);
+  }
+
+  // ---------- самонастройка числа поворотов ----------
+  // Во время события запоминаем всё, что нужно, чтобы позже пересчитать его: рейтинг на входе, круги и инциденты каждой зачётной сессии.
+  // Когда начнётся следующее событие, iRacing уже записала реальный SR — сравниваем со своим расчётом и подбираем число поворотов на круге.
+  recordPending(w, rating, cpl, sessionNum, weight, incidents) {
+    if (!(weight > 0) || !rating || !cpl || !(this.distance > 0) || !w.SubSessionID) return;
+    let p = this.learned.pending;
+    if (!p || p.subSessionId !== w.SubSessionID) {
+      p = this.learned.pending = { subSessionId: w.SubSessionID, trackId: w.TrackID, track: w.TrackDisplayName || w.TrackName || '', cpl, learnedCpl: !!this.learned.tracks[String(w.TrackID)]?.cpl, start: { sr: rating.sr, cls: rating.cls, band: rating.band }, sessions: {} };
+    }
+    p.sessions[sessionNum] = { weight, laps: +this.distance.toFixed(3), incidents };
+    // пишем не чаще, чем раз в четверть круга (как состояние события): краш приложения посреди гонки не должен терять проверку
+    const total = Object.values(p.sessions).reduce((s, x) => s + x.laps, 0);
+    const first = this.pendingWrittenFor !== p.subSessionId;
+    if (first || total - (this.pendingWrittenLaps || 0) >= SAVE_EVERY_LAPS) { this.pendingWrittenFor = p.subSessionId; this.pendingWrittenLaps = total; this.writeLearned(true); }
+  }
+
+  // Новое событие: реальный SR от iRacing против нашего расчёта по прошлому. Подбираем число поворотов, при котором расчёт даёт реальный SR
+  settle(real, wNew) {
+    const p = this.learned.pending;
+    if (!p || !real || p.subSessionId === wNew?.SubSessionID) return;
+    this.learned.pending = null;
+    const list = Object.keys(p.sessions).map(Number).sort((a, b) => a - b).map((k) => p.sessions[k]);
+    const laps = list.reduce((s, x) => s + x.laps, 0), inc = list.reduce((s, x) => s + x.incidents, 0);
+    const why = (t) => { console.log(`[sr] самонастройка: «${p.track}» (трасса ${p.trackId}) пропущена — ${t}`); this.writeLearned(true); };
+    if (real.cls !== p.start.cls) return why('класс лицензии сменился');
+    if (laps < 2) return why(`слишком короткая дистанция (${laps.toFixed(1)} кр.)`);
+    if (inc < 2) return why(`мало инцидентов (${inc}): от числа поворотов почти ничего не зависит`);
+    const sim = (c) => {
+      let sr = p.start.sr, band = p.start.band;
+      for (const x of list) { const r = M.project(sr, p.start.cls, band, x.laps * c * x.weight, x.incidents * x.weight); sr = r.sr; band = r.band; }
+      return sr;
+    };
+    const base = p.cpl, predicted = sim(base);
+    if (Math.abs(real.sr - p.start.sr) > 1.5) return why(`реальный SR ${f2(real.sr)} слишком далёк от начального ${f2(p.start.sr)}: между событиями были другие заезды`);
+    if (Math.abs(predicted - real.sr) < 0.015) { console.log(`[sr] самонастройка: «${p.track}» — расчёт ${f2(predicted)} сошёлся с реальным ${f2(real.sr)} (поворотов на круге ${base})`); this.writeLearned(true); return; }
+    let lo = Math.max(1, base * 0.4), hi = base * 2.5;
+    if (sim(lo) > real.sr || sim(hi) < real.sr) return why(`подобрать число не удалось (расчёт ${f2(predicted)}, реальный ${f2(real.sr)})`);
+    for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (sim(mid) < real.sr) lo = mid; else hi = mid; }
+    const found = Math.round((lo + hi) / 2);
+    const tr = (this.learned.tracks[String(p.trackId)] ||= { sol: [] });
+    tr.sol = [...(tr.sol || []), found].slice(-3);
+    tr.cpl = Math.round(tr.sol.reduce((s, x) => s + x, 0) / tr.sol.length);
+    tr.track = p.track;
+    console.log(`[sr] самонастройка: «${p.track}» (трасса ${p.trackId}): расчёт ${f2(predicted)} при ${base} пов./круг, реальный SR ${f2(real.sr)}; подобрано ${found}, теперь ${tr.cpl} (замеров ${tr.sol.length})`);
+    this.writeLearned(true);
+  }
+
+  writeLearned(force) {
+    if (!this.learnedFile) return;
+    const now = Date.now();
+    const json = JSON.stringify(this.learned);
+    if (json === this.learnedWritten || (!force && now - this.learnedWriteAt < 20000)) return;
+    this.learnedWriteAt = now;
+    this.learnedWritten = json;
+    try {
+      fs.writeFileSync(`${this.learnedFile}.tmp`, json);
+      fs.renameSync(`${this.learnedFile}.tmp`, this.learnedFile);
+    } catch (e) { console.warn('[sr] не удалось сохранить самонастройку:', e.message); }
   }
 
   // Шапка при старте каждой сессии события и строка хода: при смене числа инцидентов и не чаще раза в минуту
@@ -197,7 +289,7 @@ class SrTracker {
       this.lastLogInc = out.incidents;
       console.log(`[sr] событие ${w.SubSessionID ?? '—'} (${this.eventKey?.split('|')[0]}): тип ${w.EventType || '—'}, официальное: ${w.Official == null ? '—' : Number(w.Official) ? 'да' : 'нет'}; `
         + `сессия ${sessionNum} «${out.sessionType || '—'}», вес ${out.weight}${out.weight === 0 ? ' (SR не меняется)' : ''}; `
-        + `трек ${w.TrackID ?? '—'} «${w.TrackDisplayName || w.TrackName || '—'}», поворотов на круге ${out.cornersPerLap ?? '—'} (${cornersSource(w)}); `
+        + `трек ${w.TrackID ?? '—'} «${w.TrackDisplayName || w.TrackName || '—'}», поворотов на круге ${out.cornersPerLap ?? '—'} (${cornersSource(w, this.learned)}); `
         + `старт SR ${ratingText(rating)}${this.start.carried ? ' (перенесён из прошлой сессии)' : ''}`);
       return;
     }
@@ -212,6 +304,7 @@ class SrTracker {
 
   // Итог сессии в журнал: вызывается, когда сессия или событие закончились
   logSummary(reason) {
+    this.writeLearned(true);
     const o = this.out;
     if (!o?.active || this.eventKey == null || this.start.sessionNum == null || this.distance <= 0) return;
     console.log(`[sr] итог сессии ${this.start.sessionNum} (${reason}): пройдено ${f2(this.distance)} кр., поворотов ${f2(o.corners)}, инцидентов ${o.incidents}, вес ${o.weight}, `
