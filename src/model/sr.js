@@ -10,6 +10,7 @@ const fs = require('fs');
 const M = require('./srmath');
 const { LICENSE_COLORS } = require('./common');
 const CORNERS = require('./srCorners.json');
+const NAMED = require('./srCornersNamed.json');
 
 const SURF_NOT_IN_WORLD = -1, SURF_PIT_STALL = 1;
 const MAX_TICK_LAPS = 0.10;     // больше за тик не проехать: эвакуатор, сброс, телепорт — не считаем
@@ -24,12 +25,23 @@ const CLASS_LETTERS = ['R', 'D', 'C', 'B', 'A', 'P'];
 //   при 16 оверлей давал −0.14, при 20 выходит 1.79 (−0.09), как у iRacing.
 const SCORED_CORNERS = { 249: 73, 229: 20 };
 
-// Поворотов на круге, которые идут в зачёт SR: проверенное значение по трассе, затем официальная таблица iRacing по TrackID, иначе число из YAML
+// Число поворотов по названию трассы: у трасс, где оно одно на все конфигурации (таблицу по TrackID на двух трассах из двух пришлось исправлять)
+const nameKey = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const namedCorners = (weekend) => NAMED.tracks[nameKey(weekend?.TrackDisplayName)] || null;
+// Число из таблицы по TrackID вне диапазона справочника для этой трассы заведомо неверно (Ле-Ман: 38 против 31–33): берём ближайшую границу
+function clampToRange(value, weekend) {
+  const r = NAMED.ranges[nameKey(weekend?.TrackDisplayName)];
+  return r ? Math.min(Math.max(value, r[0]), r[1]) : value;
+}
+
+// Поворотов на круге, которые идут в зачёт SR: проверенное значение по трассе, затем число по названию трассы, затем таблица iRacing по TrackID, иначе число из YAML
 function cornersPerLap(weekend) {
   const scored = SCORED_CORNERS[Number(weekend?.TrackID)];
   if (scored) return scored;
+  const named = namedCorners(weekend);
+  if (named) return named;
   const official = CORNERS.tracks[String(weekend?.TrackID)];
-  if (official) return official;
+  if (official) return clampToRange(official, weekend);
   const n = parseInt(weekend?.TrackNumTurns, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
@@ -65,7 +77,9 @@ const f2 = (x) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(2));
 const ratingText = (r) => (r ? `${CLASS_LETTERS[r.cls] || '?'} ${f2(r.sr)}` : '—');
 function cornersSource(weekend) {
   if (SCORED_CORNERS[Number(weekend?.TrackID)]) return 'проверено по официальным результатам iRacing';
-  if (CORNERS.tracks[String(weekend?.TrackID)]) return 'таблица iRacing';
+  if (namedCorners(weekend)) return 'справочник по названию трассы';
+  const official = CORNERS.tracks[String(weekend?.TrackID)];
+  if (official) return clampToRange(official, weekend) !== official ? 'таблица iRacing, поправлена по диапазону справочника' : 'таблица iRacing';
   const n = parseInt(weekend?.TrackNumTurns, 10);
   return Number.isFinite(n) && n > 0 ? 'TrackNumTurns из сессии (в таблице трека нет)' : 'нет данных';
 }

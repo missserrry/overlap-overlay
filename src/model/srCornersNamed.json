@@ -1,0 +1,264 @@
+{
+ "_source": "Число поворотов трасс iRacing со страниц публичного справочника irsp.app (снимок 2026-10-27). Только трассы, где число одно на все конфигурации. Ключ — название трассы (TrackDisplayName) в нижнем регистре без знаков. ranges — диапазон по конфигурациям там, где число зависит от конфигурации: им проверяем таблицу по TrackID (значение вне диапазона заведомо неверно).",
+ "tracks": {
+  "oxfordplainsspeedway": 4,
+  "southbostonspeedway": 4,
+  "concordspeedway": 3,
+  "usainternationalspeedway": 4,
+  "roadamerica": 14,
+  "martinsvillespeedway": 4,
+  "weathertechracewayatlagunaseca": 11,
+  "bristolmotorspeedway": 4,
+  "darlingtonraceway": 4,
+  "talladegasuperspeedway": 4,
+  "chicagolandspeedway": 4,
+  "legacymichiganinternationalspeedway2009": 4,
+  "centripetalcircuit": 1,
+  "canadiantiremotorsportspark": 10,
+  "phillipislandcircuit": 12,
+  "thompsonspeedwaymotorsportspark": 4,
+  "dovermotorspeedway": 4,
+  "circuitdespafrancorchamps": 21,
+  "legacykentuckyspeedway2011": 4,
+  "newsmyrnaspeedway": 4,
+  "circuitzolder": 10,
+  "langleyspeedway": 4,
+  "circuitgillesvilleneuve": 14,
+  "mountpanoramacircuit": 23,
+  "lucasoilindianapolisracewaypark": 4,
+  "fiveflagsspeedway": 4,
+  "nurburgringnordschleife": 154,
+  "southernnationalmotorsportspark": 4,
+  "thebullring": 4,
+  "eldoraspeedway": 4,
+  "williamsgrovespeedway": 4,
+  "michiganinternationalspeedway": 4,
+  "poconoraceway": 3,
+  "volusiaspeedwaypark": 4,
+  "myrtlebeachspeedway": 4,
+  "daytonarallycrossanddirtroad": 9,
+  "limalandmotorsportspark": 4,
+  "knoxvilleraceway": 4,
+  "sonomaraceway": 12,
+  "thedirttrackatcharlotte": 4,
+  "kokomospeedway": 4,
+  "chilibowl": 4,
+  "wildwestmotorsportspark": 4,
+  "firebirdmotorsportspark": 5,
+  "fairburyspeedway": 4,
+  "lernervillespeedway": 4,
+  "limerockpark": 11,
+  "texasmotorspeedway": 4,
+  "northwilkesborospeedway": 4,
+  "kentuckyspeedway": 4,
+  "weedsportspeedway": 4,
+  "nashvillefairgroundsspeedway": 4,
+  "crandoninternationalraceway": 8,
+  "iracingsuperspeedway": 4,
+  "cedarlakespeedway": 4,
+  "hockenheimringbadenwurttemberg": 21,
+  "barkriverinternationalraceway": 12,
+  "nashvillesuperspeedway": 4,
+  "redbullring": 10,
+  "chicagostreetcourse": 12,
+  "hungaroring": 14,
+  "hickorymotorspeedway": 4,
+  "phoenixraceway": 4,
+  "knockhillracingcircuit": 10,
+  "federatedautopartsracewayati55": 4,
+  "wintonmotorraceway": 12,
+  "sandowninternationalmotorraceway": 13,
+  "fujiinternationalspeedway": 16,
+  "portroyalspeedway": 4,
+  "motorsportarenaoschersleben": 14,
+  "rudskogenmotorsenter": 14,
+  "lucasoilspeedway": 10,
+  "lincolnspeedway": 4,
+  "circuitdeneversmagnycours": 17,
+  "circuitodejerezangelnieto": 15,
+  "motorlandaragon": 18,
+  "circuitdeledenon": 15,
+  "slingerspeedway": 4,
+  "misanoworldcircuitmarcosimoncelli": 16,
+  "millbridgespeedway": 4,
+  "oswegospeedway": 4,
+  "sachsenring": 13,
+  "thruxtoncircuit": 13,
+  "miamiinternationalautodrome": 19,
+  "portlandinternationalraceway": 12,
+  "shellvpowermotorsportparkatthebend": 35,
+  "richmondraceway": 4,
+  "adelaidestreetcircuit": 14,
+  "barbermotorsportspark": 16
+ },
+ "ranges": {
+  "homesteadmiamispeedway": [
+   4,
+   14
+  ],
+  "daytonainternationalspeedway": [
+   4,
+   14
+  ],
+  "legacysilverstonecircuit2008": [
+   6,
+   17
+  ],
+  "echoparkspeedwayatlanta": [
+   4,
+   12
+  ],
+  "sebringinternationalraceway": [
+   9,
+   17
+  ],
+  "lasvegasmotorspeedway": [
+   4,
+   12
+  ],
+  "legacyphoenixraceway2008": [
+   4,
+   13
+  ],
+  "legacytexasmotorspeedway2009": [
+   4,
+   10
+  ],
+  "roadatlanta": [
+   10,
+   14
+  ],
+  "newhampshiremotorspeedway": [
+   4,
+   14
+  ],
+  "indianapolismotorspeedway": [
+   4,
+   16
+  ],
+  "legacypoconoraceway2009": [
+   3,
+   13
+  ],
+  "brandshatchcircuit": [
+   6,
+   9
+  ],
+  "midohiosportscarcourse": [
+   2,
+   15
+  ],
+  "okayamainternationalcircuit": [
+   7,
+   11
+  ],
+  "suzukainternationalracingcourse": [
+   9,
+   17
+  ],
+  "iowaspeedway": [
+   4,
+   8
+  ],
+  "oultonparkcircuit": [
+   10,
+   17
+  ],
+  "mobilityresortmotegi": [
+   4,
+   14
+  ],
+  "oranparkraceway": [
+   6,
+   12
+  ],
+  "rockinghamspeedway": [
+   4,
+   10
+  ],
+  "autodromojosecarlospace": [
+   15,
+   16
+  ],
+  "kansasspeedway": [
+   4,
+   6
+  ],
+  "circuitoftheamericas": [
+   6,
+   20
+  ],
+  "doningtonparkracingcircuit": [
+   10,
+   12
+  ],
+  "worldwidetechnologyracewaygateway": [
+   4,
+   10
+  ],
+  "autodromonazionalemonza": [
+   4,
+   15
+  ],
+  "nurburgringgrandprixstrecke": [
+   7,
+   16
+  ],
+  "nurburgringcombined": [
+   164,
+   170
+  ],
+  "autodromointernazionaleenzoedinoferrari": [
+   17,
+   22
+  ],
+  "circuitdes24heuresdumans": [
+   31,
+   33
+  ],
+  "snettertoncircuit": [
+   6,
+   13
+  ],
+  "tsukubacircuit": [
+   4,
+   11
+  ],
+  "silverstonecircuit": [
+   6,
+   19
+  ],
+  "circuitdebarcelonacatalunya": [
+   7,
+   16
+  ],
+  "watkinsgleninternational": [
+   7,
+   11
+  ],
+  "virginiainternationalraceway": [
+   10,
+   23
+  ],
+  "circuitzandvoort": [
+   6,
+   14
+  ],
+  "autodromointernazionaledelmugello": [
+   7,
+   15
+  ],
+  "circuitodenavarra": [
+   5,
+   15
+  ],
+  "cadwellparkcircuit": [
+   8,
+   18
+  ],
+  "charlottemotorspeedway": [
+   4,
+   12
+  ]
+ }
+}
