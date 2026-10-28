@@ -110,7 +110,7 @@ class LayoutState {
   }
 
   snapshot() {
-    const { save, ...cfg } = this.cfg;
+    const { save, flush, ...cfg } = this.cfg;   // функции через IPC не передаются
     const r = this.resolve();
     return {
       cfg,
