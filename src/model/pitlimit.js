@@ -1,12 +1,16 @@
 // Модель Pit Limiter: подъезд к питлейну и скорость в боксах.
 // Показываем, пока вы на дороге к питлейну (iRacing: TrackSurface = AproachingPits) и на питлейне (но не в боксе).
 // После пересечения линии выезда ещё несколько секунд отдаём режим «exit» — «можно ехать».
+// Линия выезда (конусы, конец ограничения скорости) — это момент, когда OnPitRoad становится false.
+// Поверхность в этот момент ещё «подъезд к питлейну»: полоса выезда так числится до слияния с трассой
+// (по записям .ibt — до 3,7 с), поэтому на неё не смотрим, а полосу выезда не путаем с подъездом.
 
 const SURF_STALL = 1, SURF_APPROACH = 2, SURF_TRACK = 3;
 const LIMITER_BIT = 0x10;       // EngineWarnings: включён ограничитель скорости в боксах
 
 let wasOnPit = false;
 let exitAt = 0;
+let exitLane = false;           // после линии выезда, ещё на полосе выезда (до слияния с трассой)
 let key = '';
 
 // "60.00 kph" или "37.28 mph" → км/ч
@@ -22,18 +26,19 @@ function buildPit(race, now = Date.now()) {
   if (!ref || !ref.inWorld || ref.carIdx !== v.PlayerCarIdx) { wasOnPit = false; return { active: false }; }
 
   const k = `${race.kind}|${race.refIdx}`;
-  if (k !== key) { key = k; wasOnPit = false; exitAt = 0; }
+  if (k !== key) { key = k; wasOnPit = false; exitAt = 0; exitLane = false; }
 
   const surf = v.CarIdxTrackSurface?.[ref.carIdx];
   const onPit = !!ref.onPitRoad;
-  // пересекли линию выезда: были на питлейне, теперь на трассе
-  if (wasOnPit && !onPit && surf === SURF_TRACK) exitAt = now;
+  // пересекли линию выезда: были на питлейне и уехали с него своим ходом (не в бокс и не эвакуацией)
+  if (wasOnPit && !onPit && (surf === SURF_TRACK || surf === SURF_APPROACH)) { exitAt = now; exitLane = true; }
+  if (onPit || surf !== SURF_APPROACH) exitLane = false;
   wasOnPit = onPit;
 
   let mode = 'hidden';
   if (surf === SURF_STALL) mode = 'hidden';
-  else if (onPit || surf === SURF_APPROACH) mode = 'limit';
-  else if (exitAt && surf === SURF_TRACK && now - exitAt < 30000) mode = 'exit';
+  else if (onPit || (surf === SURF_APPROACH && !exitLane)) mode = 'limit';
+  else if (exitAt && (surf === SURF_TRACK || exitLane) && now - exitAt < 30000) mode = 'exit';
 
   return {
     active: true,
