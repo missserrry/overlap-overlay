@@ -12,6 +12,7 @@ const OVERLAY_TYPES = {
   radar: { title: 'Radar', width: 260, height: 260 },
   dash: { title: 'Dash', width: 560, height: 150 },
   pedals: { title: 'Pedals', width: 170, height: 220 },
+  abs: { title: 'ABS', width: 150, height: 100 },
   sectors: { title: 'Sectors', width: 640, height: 70 },
   laps: { title: 'Laps', width: 320, height: 200 },
   rejoin: { title: 'Rejoin', width: 320, height: 170 },
@@ -222,6 +223,17 @@ const PEDALS_SCHEMA = [
 const PEDALS_ITEMS = PEDALS_SCHEMA.flatMap((g) => g.items);
 const normalizePedals = (cur, patch) => normalizeSchema(PEDALS_ITEMS, cur, patch);
 
+// Настройки ABS — лампа «сработал ABS» (overlays/abs)
+const ABS_SCHEMA = [
+  { group: 'Лампа', items: [
+    select('look', 'Вид', 'icon', [['icon', 'Значок как на приборной панели'], ['text', 'Надпись ABS']]),
+    select('idle', 'Когда ABS не работает', 'dim', [['dim', 'Показывать тусклой'], ['hide', 'Прятать']]),
+    range('hold', 'Гореть после срабатывания', 300, 100, 1000, 50, ' мс'),
+  ] },
+];
+const ABS_ITEMS = ABS_SCHEMA.flatMap((g) => g.items);
+const normalizeAbs = (cur, patch) => normalizeSchema(ABS_ITEMS, cur, patch);
+
 // Привести настройки к актуальному виду: известные ключи, значения в границах; patch — плоские изменения поверх cur
 function normalizeSchema(items, cur, patch = {}) {
   const defaults = Object.fromEntries(items.map((i) => [i.key, i.def]));
@@ -398,7 +410,7 @@ const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
 // Игры: для каждой — какие оверлеи в ней работают (null — все)
 const GAMES = {
   iracing: { name: 'iRacing', types: null },
-  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'pedals', 'rejoin', 'traffic'] },
+  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'pedals', 'abs', 'rejoin', 'traffic'] },
 };
 const gameAllows = (game, type) => { const t = (GAMES[game] || GAMES.iracing).types; return !t || t.includes(type); };
 
@@ -421,6 +433,7 @@ function createOverlay(type, at = {}) {
     decimals: {},        // Relative и Standings: знаков после запятой у числовых колонок (id → 0…3), только отличное от умолчания
     dash: normalizeDash(),
     pedals: normalizePedals(),
+    abs: normalizeAbs(),
     sectors: normalizeSectors(),
     laps: normalizeLaps(),
     rejoin: normalizeRejoin(),
@@ -559,5 +572,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, PEDALS_SCHEMA, normalizePedals, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
+  DASH_SCHEMA, normalizeDash, PEDALS_SCHEMA, normalizePedals, ABS_SCHEMA, normalizeAbs, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
 };

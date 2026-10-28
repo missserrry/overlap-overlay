@@ -116,6 +116,7 @@ class LayoutState {
       weatherCards: L.WEATHER_CARDS,
       dashSchema: L.DASH_SCHEMA,
       pedalsSchema: L.PEDALS_SCHEMA,
+      absSchema: L.ABS_SCHEMA,
       sectorsSchema: L.SECTORS_SCHEMA,
       lapsSchema: L.LAPS_SCHEMA,
       rejoinSchema: L.REJOIN_SCHEMA,
@@ -282,6 +283,7 @@ class LayoutState {
         if (p.laps && typeof p.laps === 'object') o.laps = L.normalizeLaps(o.laps, p.laps);
         if (p.dash && typeof p.dash === 'object') o.dash = L.normalizeDash(o.dash, p.dash);
         if (p.pedals && typeof p.pedals === 'object') o.pedals = L.normalizePedals(o.pedals, p.pedals);
+        if (p.abs && typeof p.abs === 'object') o.abs = L.normalizeAbs(o.abs, p.abs);
         if (Array.isArray(p.cards)) o.cards = L.normalizeCards(o.type, p.cards);
         if (Array.isArray(p.header)) o.header = L.normalizeHf(o.type, 'header', p.header);
         if (Array.isArray(p.footer)) o.footer = L.normalizeHf(o.type, 'footer', p.footer);

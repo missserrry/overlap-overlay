@@ -149,11 +149,14 @@ class DemoSource {
     const dashRpm = Math.round(900 + rpmFrac * 6600);
     const slFirst = 5500, slLast = 7200;
     const shiftPct = Math.min(Math.max((dashRpm - slFirst) / (slLast - slFirst), 0), 1);
-    const braking = (t % 30) > 27;
+    // торможение 3 с: первую треть в пол — колёса на грани блокировки, ABS работает толчками;
+    // дальше давление плавно сбрасывается (трейл-брейкинг), и ABS отпускает
+    const braking = (t % 30) > 27, bp = ((t % 30) - 27) / 3;
+    const brake = !braking ? 0 : bp < 0.35 ? 1 : 1 - (bp - 0.35) / 0.65 * 0.7;
     const dash = {
       Gear: cyc > 0.9 && cyc < 0.97 ? 0 : gearNo, RPM: dashRpm, Speed: (60 + gearNo * 11 + cyc * 14) / 3.6,
-      Throttle: braking ? 0 : (cyc < 0.9 ? 1 : 0), Brake: braking ? 0.7 : 0, Clutch: cyc > 0.9 && cyc < 0.97 ? 0 : 1,
-      SteeringWheelAngle: Math.sin(t / 2.3) * 1.2, BrakeABSactive: braking && Math.sin(t * 40) > 0, ShiftIndicatorPct: shiftPct,
+      Throttle: braking ? 0 : (cyc < 0.9 ? 1 : 0), Brake: brake, Clutch: cyc > 0.9 && cyc < 0.97 ? 0 : 1,
+      SteeringWheelAngle: Math.sin(t / 2.3) * 1.2, BrakeABSactive: braking && bp < 0.3 && Math.sin(t * 40) > 0, ShiftIndicatorPct: shiftPct,
       EngineWarnings: (t % 40) > 37 ? 0x10 : 0,
     };
 

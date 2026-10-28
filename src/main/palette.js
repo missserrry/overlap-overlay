@@ -5,8 +5,8 @@
 const TABLE = ['relative', 'standings'];
 // Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
 const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'pedals', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'pedals', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
+const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -57,6 +57,7 @@ const GROUPS = [
       { key: 'dashThr', label: 'Газ', def: '#2EE34A', types: ['dash', 'pedals'] },
       { key: 'dashBrk', label: 'Тормоз', def: '#FF3B30', types: ['dash', 'pedals'] },
       { key: 'dashClu', label: 'Сцепление', def: '#F5C342', types: ['dash', 'pedals'] },
+      { key: 'absOn', label: 'Сработал ABS', def: '#FFB020', types: ['abs'] },
     ],
   },
   {
@@ -120,6 +121,7 @@ const CSS = {
   dashThr: (c) => ({ '--d-thr': c }),
   dashBrk: (c) => ({ '--d-brk': c }),
   dashClu: (c) => ({ '--d-clu': c }),
+  absOn: (c) => ({ '--abs-c': c }),
   secFast: (c) => ({ '--sec-fast': c, '--sec-fast-text': toHex(rgb(c).map((v) => v + (255 - v) * 0.5)) }),
   secSlow: (c) => ({ '--sec-slow': c, '--sec-slow-text': toHex(rgb(c).map((v) => v + (255 - v) * 0.5)) }),
 };
@@ -208,7 +210,7 @@ const SEL = {
   accent: ['.wet .bar2 i', '.compass .arrow', '.sec .fill', '.laps .ico'],
   text: ['.name', '.row .pos', '.row .gap', '.hf b', '.sec .val', '.laps .cur', '.laps .cell b', '.fuel .stat b', '.pl .spd b', '.srw .now', '.srw .st b', '.srw .irb b', '.fc .pct', '.fc .sky .ico'],
   textDim: ['.bar .label', '.chip', '.inc-icon', '.sc.int-v', '.sc.last-v', '.num', '.hf .k', '.hf .of', '.standings .cols', '.class-head span:not(.cname)', '.laps .cell small', '.fuel .top', '.fuel .stat small', '.rj .top', '.pl .top', '.sec .lbl', '.tr .t small', '.srw .top', '.srw .st small', '.srw .irb small', '.fc .top', '.fc .when', '.fc .clk', '.fc .tmp', '.fc .none'],
-  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.pd', '.radarbox', '.srw', '.fc'],
+  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.pd', '.absw', '.radarbox', '.srw', '.fc'],
   nameColor: ['.name'],
   ahead: ['.row.lap-ahead .gap'],
   behind: ['.row.lap-behind .gap'],
@@ -223,6 +225,7 @@ const SEL = {
   dashThr: ['.ring .path.thr', '.barcol[data-col=throttle] .pedal', 'canvas[data-graph]'],
   dashBrk: ['.ring .path.brk', '.barcol[data-col=brake] .pedal', 'canvas[data-graph]'],
   dashClu: ['.barcol[data-col=clutch] .pedal', 'canvas[data-graph]'],
+  absOn: ['.absw'],
   secFast: ['.sec.fast .val', '.sec.ul.fast .line', '.laps .d.fast'],
   secSlow: ['.sec.slow .val', '.sec.ul.slow .line', '.laps .d.slow'],
   rjSafe: ['.rj', '.fuel', '.pl', '.srw.up .delta', '.srw .st b.ok', '.srw .irb.up .idelta', '.fc.dry .head'], rjWarn: ['.rj', '.fuel', '.pl', '.fc.soon .head', '.fc .cell.mid .rain'], rjDanger: ['.rj', '.fuel', '.pl', '.tr', '.srw.down .delta', '.srw .st b.need', '.srw .irb.down .idelta', '.fc.wet .head', '.fc .cell.hi .rain'],
