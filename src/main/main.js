@@ -605,6 +605,7 @@ ipcMain.on('panel-action', (_e, action) => {
     else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
     else if (action?.type === 'telemetry.open') openTelemetry();
     else if (action?.type === 'training.pickRef') trainingRef.pick();
+    else if (action?.type === 'training.dropRef') trainingRef.load(action.paths, 'перетаскивание');
     else if (action?.type === 'training.clearRef') trainingRef.clear();
     else state.apply(action);
   } catch (e) {

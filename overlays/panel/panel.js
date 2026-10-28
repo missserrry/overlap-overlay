@@ -66,7 +66,7 @@ function setState(s) {
     pending = s;
     // цвет тянут пальцем: поля не пересоздаём, но превью обновляем сразу
     if (view === 'palette' && mounted === 'palette') { S = s; renderPalPreview(); }
-    else if (view === 'overlays' && mounted === 'overlays') {
+    else if (inOv() && mounted === view) {
       S = s;
       const cur = currentSet().list.find((x) => x.id === selOv);
       if (cur) $('pv')?.contentWindow?.postMessage({ svoyPalette: pvPalette(cur.type) }, location.origin);
@@ -93,6 +93,7 @@ document.addEventListener('focusout', () => {
 
 const layoutById = (id) => S.cfg.layouts.find((l) => l.id === id);
 function currentSet() {
+  if (view === 'training') return { layout: S.cfg.training, list: S.cfg.training.overlays, variation: 'base' };
   const l = layoutById(sel.layoutId);
   if (!l) return { layout: null, list: [] };
   const v = sel.variation;
@@ -116,8 +117,7 @@ function render() {
   renderStatus();
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
   syncTrainingSelection();
-  if (view === 'training') renderTraining();
-  else if (view === 'overlays') renderOverlays();
+  if (inOv()) renderOverlays();
   else if (view === 'layouts') renderLayouts();
   else if (view === 'palette') renderPalette();
   else if (view === 'game') renderGame();
@@ -159,8 +159,10 @@ function renderStatus() {
 }
 
 // ---------- Тренировка ----------
-// Отдельный раздел: свой набор оверлеев для практики и эталонный круг. В режиме редактирования окна на экране — именно этого набора.
+// Раздел устроен как «Оверлеи»: список, настройки и живое превью. Сверху слева — переключатель режима и эталон.
+// Эталон принимает файл перетаскиванием с рабочего стола (или кнопкой). Набор оверлеев тренировки — cfg.training.
 
+const TR_GROUPS = [['Подсказки', ['brakezone', 'braketrace']]];
 let inTraining = false;   // главный процесс сейчас показывает набор «Тренировки» для редактирования
 let beforeTraining = null;
 function syncTrainingSelection() {
@@ -171,78 +173,50 @@ function syncTrainingSelection() {
   else act(beforeTraining ? { type: 'panel.select', ...beforeTraining } : { type: 'panel.select', layoutId: null });
 }
 
+const inOv = () => view === 'overlays' || view === 'training';
+const curLayoutId = () => (view === 'training' ? 'training' : sel.layoutId);
 const fmtLap = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, '0')}`; };
 
-function renderTraining() {
-  mounted = 'training';
-  const t = S.cfg.training, tr = S.trainingRef || {};
-  const ref = t.ref;
-  const list = t.overlays.filter((o) => gameAllows(o.type));
-  const editing = !S.cfg.locked;
-  const refBlock = ref
-    ? `<div class="kv">
-        <span>Трасса</span><span>${esc(ref.track || '—')}</span>
-        <span>Машина</span><span>${esc(ref.car || '—')}</span>
-        <span>Круг</span><span class="mono">${fmtLap(ref.time)}</span>
-        <span>Зон торможения</span><span class="mono">${ref.zones}</span>
-        <span>Файл</span><span class="mono" title="${esc(ref.file)}">${esc(ref.file.split(/[\\/]/).pop())}</span>
+function trainingBlock() {
+  const t = S.cfg.training, tr = S.trainingRef || {}, ref = t.ref;
+  const body = tr.busy ? '<div class="dz-s">Читаю телеметрию…</div>'
+    : ref ? `<div class="tr-ref">
+        <b title="${esc(ref.track)}">${esc(ref.track || '—')}</b>
+        <span title="${esc(ref.car)}">${esc(ref.car || '—')}</span>
+        <span class="mono">${fmtLap(ref.time)}${ref.laps > 1 ? ` · лучший из ${ref.laps}` : ''}</span>
+        <span>Зон торможения: ${ref.zones}</span>
       </div>
-      <div class="diag-actions" style="margin-top:14px">
-        <button class="btn" data-tr-act="training.pickRef" ${tr.busy ? 'disabled' : ''}>${icon('file-up', 'sm')}Выбрать другой файл</button>
-        <button class="btn quiet" data-tr-act="training.clearRef" ${tr.busy ? 'disabled' : ''}>${icon('x', 'sm')}Убрать</button>
+      <div class="tr-actions">
+        <button class="btn quiet" data-tr-act="training.pickRef" title="Выбрать другой файл">Другой</button>
+        <button class="btn quiet" data-tr-act="training.clearRef" title="Убрать эталон">Убрать</button>
       </div>`
-    : `<p class="hint" style="margin-bottom:14px">Эталон — круг, по которому вы сравниваете себя: например телеметрия пилота или сетапера. Нужен файл телеметрии этой же трассы и класса машины: <span class="mono">.duckdb</span> (LMU), <span class="mono">.ibt</span> (iRacing) или архив с ними. Берётся быстрейший круг файла.</p>
-      <button class="btn primary" data-tr-act="training.pickRef" ${tr.busy ? 'disabled' : ''}>${icon('file-up', 'sm')}Выбрать файл телеметрии</button>`;
-  $('card').innerHTML = `
-    <div class="page fade"><div class="page-inner">
-      <div class="block">
-        <div class="label">Режим</div>
-        <div class="kv">
-          <span>Режим тренировки</span>
-          <span>${sw('data-training-on aria-label="Режим тренировки"', t.enabled)}</span>
-        </div>
-        <p class="hint" style="margin-top:10px">${t.enabled
-          ? 'Включён: основные оверлеи из раскладок скрыты, на экране только оверлеи этого раздела. Для соло и общих практик — в гонке выключите.'
-          : 'Выключен: работают обычные раскладки. Когда включите, основные оверлеи скроются, а на экране останутся только оверлеи этого раздела.'}</p>
-      </div>
-      <div class="sep"></div>
-      <div class="block">
-        <div class="label">Эталонный круг</div>
-        ${tr.busy ? '<p class="hint">Читаю телеметрию, это может занять несколько секунд…</p>' : refBlock}
-        ${tr.error ? `<p class="hint" style="margin-top:12px;color:var(--danger)">${esc(tr.error)}</p>` : ''}
-      </div>
-      <div class="sep"></div>
-      <div class="block">
-        <div class="label"><span>Оверлеи тренировки</span></div>
-        ${list.map((o) => `
-          <div class="kv" style="margin-bottom:6px">
-            <span>${esc(o.name)}</span>
-            <span>${sw(`data-tr-ov="${o.id}" aria-label="Показывать ${esc(o.name)}"`, o.enabled)}</span>
-          </div>
-          <p class="hint" style="margin:0 0 14px">${esc(TYPE_INFO[o.type] || '')}</p>
-          <div class="kv" style="margin-bottom:14px">
-            <span>Непрозрачность фона</span>
-            <span class="slider" style="max-width:240px"><input class="range" type="range" min="0" max="100" step="5" value="${Math.round((o.bgOpacity ?? 0.8) * 100)}" data-tr-bg="${o.id}" aria-label="Непрозрачность фона"><output>${Math.round((o.bgOpacity ?? 0.8) * 100)}%</output></span>
-          </div>`).join('')}
-        <p class="hint">${editing
-          ? 'Идёт редактирование: на экране окна оверлеев тренировки, их можно двигать и растягивать за края.'
-          : 'Чтобы расставить окна на экране, включите «Редактирование» сверху: появятся оверлеи этого раздела, их можно двигать и растягивать. Потом верните «Закреплены».'}</p>
-      </div>
-    </div></div>`;
+    : `${icon('file-up')}<div class="dz-t">Перетащите файл с телеметрией</div>
+      <div class="dz-s">.duckdb, .ibt или архив. Берётся быстрейший круг</div>
+      <button class="btn" data-tr-act="training.pickRef">Выбрать файл</button>`;
+  return `<div class="group tr-box">
+    <div class="label"><span>Тренировка</span></div>
+    <div class="row tr-mode" title="Пока включено, основные оверлеи из раскладок скрыты, на экране только оверлеи этого раздела"><span class="name">Режим</span>${sw('data-training-on aria-label="Режим тренировки"', t.enabled)}</div>
+    <p class="tr-note">${t.enabled ? 'Основные оверлеи скрыты. Для практики; в гонке выключите.' : 'Выключено: работают обычные раскладки.'}</p>
+    <div class="sublabel">Эталон</div>
+    <div class="dz tr-dz" id="trDrop" tabindex="0">${body}</div>
+    ${tr.error ? `<div class="tr-err">${esc(tr.error)}</div>` : ''}
+  </div>`;
 }
 
 // ---------- Оверлеи ----------
 
 function renderOverlays() {
   const card = $('card');
-  if (mounted !== 'overlays') {
+  const training = view === 'training';
+  const kind = training ? 'training' : 'overlays';
+  if (mounted !== kind) {
     card.innerHTML = `
       <div class="ov-screen${ovCollapsed ? ' collapsed' : ''}" id="ovScreen">
         <section class="col"><div class="list"><i class="list-ind" id="listInd"></i><div id="ovList"></div></div></section>
         <section class="col" id="ovSettings"></section>
         <section class="preview" id="ovPreview"><div class="stage" id="stage"></div><span class="state-pill" id="statePill"></span><span class="size-tag mono" id="sizeTag"></span><button class="fold" id="foldBtn" data-ov-fold></button></section>
       </div>`;
-    mounted = 'overlays';
+    mounted = kind;
     lastPreviewKey = null;
   }
   const fb = $('foldBtn');
@@ -255,9 +229,10 @@ function renderOverlays() {
   // список: все оверлеи набора по группам, у каждого переключатель «показывать» (добавлять и удалять нечего)
   const varNote = variation !== 'base' ? `, ${VAR_LABELS[variation].toLowerCase()}` : '';
   $('ovList').innerHTML = `
+    ${training ? trainingBlock() : ''}
     <div class="group">
-      <div class="label"><span>Раскладка</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>
-      ${list.length ? OV_GROUPS.map(([gt, types]) => {
+      ${training ? '' : `<div class="label"><span>Раскладка</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>`}
+      ${list.length ? (training ? TR_GROUPS : OV_GROUPS).map(([gt, types]) => {
         const items = list.filter((x) => types.includes(x.type));
         return items.length ? `<div class="sublabel">${gt}</div>${items.map((x) => `
         <div class="row ${x.id === selOv ? 'on' : ''} ${x.enabled ? '' : 'muted'}" data-ov="${x.id}" title="${x.enabled ? 'Показывается' : 'Скрыт — включите переключатель'}">
@@ -460,7 +435,9 @@ function renderOverlaySettings(o, layout, variation) {
   const colsOn = cols.filter((c) => c.on).map((c) => c.id);
   const scaleParam = o.autoScale ? 'auto' : (o.scale ?? 1);
   const sc = Math.round((o.scale ?? 1) * 100);
-  const url = o.type === 'radarbars'
+  const url = (o.type === 'brakezone' || o.type === 'braketrace')
+    ? `${location.origin}/${o.type}/`
+    : o.type === 'radarbars'
     ? `${location.origin}/radarbars/?radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}`
     : o.type === 'forecast'
     ? `${location.origin}/forecast/?forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}`
@@ -494,7 +471,7 @@ function renderOverlaySettings(o, layout, variation) {
   const fresh = lastSettingsId !== o.id;
   lastSettingsId = o.id;
   const where = (key, label, on, tip = '') => `<button class="chip ${on ? 'on' : ''}" data-vis="${key}" aria-pressed="${on}" title="${tip}">${on ? icon('check') : ''}${label}</button>`;
-  const NOSCALE = ['digiflag', 'radar', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars', 'pedals', 'abs'].includes(o.type);
+  const NOSCALE = ['digiflag', 'radar', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars', 'pedals', 'abs', 'brakezone', 'braketrace'].includes(o.type);
   const bWhere = `<div class="block">
         <div class="label">Где показывать</div>
         <div class="where">
@@ -540,7 +517,7 @@ function renderOverlaySettings(o, layout, variation) {
       </div>` : '';
   if (!OV_TABS.some(([k]) => k === ovTab)) ovTab = 'main';
   const pane = ovTab === 'main' ? bWhere + bScale + bBg + bSplit + bWin + bActions
-    : ovTab === 'view' ? (o.type === 'radarbars' ? radarbarsBlock(o) : o.type === 'pedals' ? pedalsBlock(o) : o.type === 'abs' ? absBlock(o) : o.type === 'forecast' ? forecastBlock(o) : o.type === 'sr' ? srBlock(o) : o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
+    : ovTab === 'view' ? (S.types?.[o.type]?.training ? trainingViewBlock(o) : o.type === 'radarbars' ? radarbarsBlock(o) : o.type === 'pedals' ? pedalsBlock(o) : o.type === 'abs' ? absBlock(o) : o.type === 'forecast' ? forecastBlock(o) : o.type === 'sr' ? srBlock(o) : o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
     : colorsBlock(o);
   box.innerHTML = `
     <div class="settings ${fresh ? 'fade' : ''}">
@@ -556,6 +533,9 @@ function renderOverlaySettings(o, layout, variation) {
     </div>`;
 }
 
+// У оверлеев тренировки своих настроек вида нет: окно подстраивается под размер, цвета — на вкладке «Цвета»
+const trainingViewBlock = () => '<div class="block"><p class="hint">Содержимое вписывается в окно само: растяните его в режиме редактирования. Цвета — на вкладке «Цвета».</p></div>';
+
 // Свернуть/развернуть настройки: ширина колонки анимируется, превью подстраивается под новое место
 function setOvCollapsed(v) {
   ovCollapsed = v;
@@ -563,7 +543,7 @@ function setOvCollapsed(v) {
   scr.classList.toggle('collapsed', v);
   const fb = $('foldBtn');
   if (fb) { fb.innerHTML = icon(v ? 'chevron-right' : 'chevron-left', 'sm'); fb.title = v ? 'Показать настройки' : 'Скрыть настройки'; fb.setAttribute('aria-label', fb.title); fb.setAttribute('aria-expanded', String(!v)); }
-  const redo = () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); };
+  const redo = () => { if (inOv() && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); };
   redo();
   clearInterval(setOvCollapsed.t);
   let n = 0;
@@ -581,7 +561,7 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}&pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}&abs=${encodeURIComponent(JSON.stringify(o.abs || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' || o.type === 'abs' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}&pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}&abs=${encodeURIComponent(JSON.stringify(o.abs || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' || o.type === 'abs' || o.type === 'brakezone' || o.type === 'braketrace' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key; pvContent = null;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
@@ -605,7 +585,7 @@ function renderPreview(o) {
   $('statePill').innerHTML = o.enabled ? '' : '<i></i>Выключен';
   tag.textContent = `Предпросмотр · ${o.width} × ${o.height}${Math.abs(k - 1) > 0.005 ? ` · ${Math.round(k * 100)}%` : ''}`;
 }
-window.addEventListener('resize', () => { if (view === 'overlays' && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
+window.addEventListener('resize', () => { if (inOv() && S) renderPreview(currentSet().list.find((x) => x.id === selOv)); });
 
 // ---------- Обновления и «Что нового» ----------
 // Описание релиза с GitHub (Markdown): заголовки, жирные строки-подзаголовки, списки, `код`
@@ -847,7 +827,7 @@ function zoomPreview(box) {
   wrap.style.transform = `translate(${(sw / 2 - wrap.offsetLeft - cx * z).toFixed(1)}px, ${(sh / 2 - wrap.offsetTop - cy * z).toFixed(1)}px) scale(${z.toFixed(3)})`;
 }
 window.addEventListener('message', (e) => {
-  if (e.origin !== location.origin || !e.data?.svoyContent || e.source !== $('pv')?.contentWindow || view !== 'overlays') return;
+  if (e.origin !== location.origin || !e.data?.svoyContent || e.source !== $('pv')?.contentWindow || !inOv()) return;
   pvContent = { ...e.data.svoyContent, key: lastPreviewKey };
   renderPreview(currentSet().list.find((x) => x.id === selOv));
 });
@@ -1184,15 +1164,20 @@ function dropSetups(files) {
 document.addEventListener('dragover', (e) => {
   if (!e.dataTransfer?.types?.includes('Files')) return;
   e.preventDefault();                    // иначе окно откроет брошенный файл вместо загрузки
-  const dz = document.getElementById('suDrop');
-  if (dz) dz.classList.toggle('over', view === 'setups');
+  document.getElementById('suDrop')?.classList.toggle('over', view === 'setups');
+  document.getElementById('trDrop')?.classList.toggle('over', view === 'training');
 });
-document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.getElementById('suDrop')?.classList.remove('over'); });
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.querySelectorAll('#suDrop, #trDrop').forEach((x) => x.classList.remove('over')); });
 document.addEventListener('drop', (e) => {
   if (!e.dataTransfer?.files?.length) return;
   e.preventDefault();
-  document.getElementById('suDrop')?.classList.remove('over');
+  document.querySelectorAll('#suDrop, #trDrop').forEach((x) => x.classList.remove('over'));
   if (view === 'setups') dropSetups(e.dataTransfer.files);
+  // эталон: достаточно бросить файл в любое место раздела «Тренировка»
+  else if (view === 'training') {
+    const paths = [...e.dataTransfer.files].map((f) => bridge.pathFor(f)).filter(Boolean);
+    if (paths.length) act({ type: 'training.dropRef', paths });
+  }
 });
 
 // ---------- Настройки ----------
@@ -1279,7 +1264,7 @@ function renderGame() {
 
 // ---------- события ----------
 
-const ovAction = (type, extra = {}) => act({ type, layoutId: sel.layoutId, variation: currentSet().variation, overlayId: selOv, ...extra });
+const ovAction = (type, extra = {}) => act({ type, layoutId: curLayoutId(), variation: currentSet().variation, overlayId: selOv, ...extra });
 
 // клик по самой карточке (не по крестику): открыть окно со списком нового
 document.addEventListener('click', (e) => {
@@ -1400,8 +1385,7 @@ document.addEventListener('change', (e) => {
     return render(); // неверный код — вернуть прежний
   }
   if ('trainingOn' in d) return act({ type: 'training.set', enabled: t.checked });
-  if (d.trOv) return act({ type: 'overlay.update', layoutId: 'training', variation: 'base', overlayId: d.trOv, patch: { enabled: t.checked } });
-  if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
+  if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: curLayoutId(), variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
   if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
   if (d.cfg) return ovAction('overlay.update', { patch: { [d.cfg]: { [d.k]: t.checked } } });
   if (d.cfgSelect) return ovAction('overlay.update', { patch: { [d.cfgSelect]: { [d.k]: t.value } } });
@@ -1433,10 +1417,6 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('input', (e) => {
   const t = e.target;
-  if (t.dataset.trBg) {
-    t.nextElementSibling.textContent = `${t.value}%`;
-    return act({ type: 'overlay.update', layoutId: 'training', variation: 'base', overlayId: t.dataset.trBg, patch: { bgOpacity: t.value / 100 } });
-  }
   if (t.dataset.sizeRange) {
     const n = Number(t.value);
     t.nextElementSibling.textContent = `${n}%`;

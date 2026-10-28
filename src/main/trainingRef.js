@@ -37,10 +37,18 @@ class TrainingRef {
       filters: [{ name: 'Телеметрия и архивы с ней', extensions: ['duckdb', 'ibt', 'zip', '7z', 'rar'] }],
     });
     if (r.canceled || !r.filePaths.length) return log('выбор эталона отменён');
-    log(`выбран файл: ${r.filePaths[0]}`);
+    return this.load(r.filePaths, 'диалог');
+  }
+
+  // Файлы из диалога или с рабочего стола (перетаскивание): в библиотеку эталонов, из первого подошедшего берём быстрейший круг
+  async load(paths, how) {
+    const lib = library();
+    paths = (paths || []).filter((p) => typeof p === 'string' && p);
+    if (!paths.length) return;
+    log(`выбран файл (${how}): ${paths.join(', ')}`);
     this.busy = true; this.error = ''; this.onChange();
     try {
-      const { added, skipped } = await lib.importFiles(r.filePaths);
+      const { added, skipped } = await lib.importFiles(paths);
       if (!added.length) throw new Error(skipped.length ? `в «${skipped[0]}» телеметрии не нашлось` : 'файл не подошёл');
       log(`в библиотеке эталонов: ${added.join(', ')}${skipped.length ? `; пропущено: ${skipped.join(', ')}` : ''}`);
       await this.useFile(added[0]);
@@ -66,7 +74,7 @@ class TrainingRef {
     resetBrakeZone();
     this.setRef(ref);
     log(`эталон готов за ${Date.now() - t0} мс: зон ${ref.zones.length}, точек в круге ${data.dist.length}`);
-    this.t.ref = { file, lapIndex: lap.index, time: lap.time, car: summary.car || '', track: summary.track || '', length: ref.length, zones: ref.zones.length };
+    this.t.ref = { file, lapIndex: lap.index, time: lap.time, car: summary.car || '', track: summary.track || '', length: ref.length, zones: ref.zones.length, laps: summary.laps.length };
   }
 
   // При запуске приложения: тот же файл, тот же круг
