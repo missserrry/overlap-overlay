@@ -18,6 +18,7 @@ const { TradingPaints, DEFAULT_SETTINGS: DEFAULT_LIVERY_SETTINGS } = require('..
 const setupsInstaller = require('../setups/installer');
 const { reloadCarTexture } = require('../telemetry/broadcast');
 const { initTelemetry, openTelemetry } = require('./telemetryWindow');
+const { TrainingRef } = require('./trainingRef');
 
 let liveries;
 
@@ -53,6 +54,7 @@ let diagNote = null; // сообщение под кнопками диагно�
 let cfg;
 let server;
 let state;
+let trainingRef;
 let tray;
 let panel = null;
 const windows = new Map(); // overlayId -> BrowserWindow
@@ -68,7 +70,7 @@ app.whenReady().then(async () => {
   logger.setVerbose(cfg.verboseLog);
   console.log(`Overlap ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${process.platform} ${process.arch})`);
   try {
-    server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json'), srLearnedFile: path.join(app.getPath('userData'), 'sr-corners-learned.json'), fuelStateFile: path.join(app.getPath('userData'), 'fuel-history.json') });
+    server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, log: (m) => logger.write('INFO', m), srStateFile: path.join(app.getPath('userData'), 'safety-rating.json'), srLearnedFile: path.join(app.getPath('userData'), 'sr-corners-learned.json'), fuelStateFile: path.join(app.getPath('userData'), 'fuel-history.json') });
   } catch (e) {
     console.error('Не удалось запустить сервер:', e);
     if (e && e.code === 'EADDRINUSE') {
@@ -84,6 +86,9 @@ ${e && e.message ? e.message : e}`);
   }
   state = new LayoutState(cfg, onStateChanged);
   initTelemetry({ port: server.port, cfg });
+  // эталон режима «Тренировка»: выбирается в панели, читается из файла телеметрии
+  trainingRef = new TrainingRef({ cfg, setRef: (ref) => server.setTrainingRef(ref), onChange: () => { cfg.save(); onStateChanged(); }, parent: () => panel });
+  trainingRef.restore();
   watchForeground();
   watchOverlayHealth();
   state.sim = server.status;
@@ -130,7 +135,7 @@ function onStateChanged() {
 }
 
 function panelState() {
-  return { ...state.snapshot(), liveries: { ...liveries.snapshot(), otherDownloader }, setups: setupsView(), update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
+  return { ...state.snapshot(), trainingRef: trainingRef?.snapshot() || { busy: false, error: '' }, liveries: { ...liveries.snapshot(), otherDownloader }, setups: setupsView(), update: updater.snapshot(), diag: { dir: logger.getDir() || '', note: diagNote, verbose: !!cfg.verboseLog } };
 }
 
 function sendPanelState() {
@@ -599,6 +604,8 @@ ipcMain.on('panel-action', (_e, action) => {
     else if (String(action?.type).startsWith('setups.')) applySetupsAction(action);
     else if (String(action?.type).startsWith('diag.')) applyDiagAction(action);
     else if (action?.type === 'telemetry.open') openTelemetry();
+    else if (action?.type === 'training.pickRef') trainingRef.pick();
+    else if (action?.type === 'training.clearRef') trainingRef.clear();
     else state.apply(action);
   } catch (e) {
     console.error('[panel] action failed:', action, e);

@@ -10,7 +10,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 const icon = (name, cls = '') => `<i class="ico ${cls}" style="--i:url(/vendor/icons/${name}.svg)"></i>`;
 const sw = (attrs, on) => `<label class="sw"><input type="checkbox" ${attrs} ${on ? 'checked' : ''}><i></i></label>`;
 
-const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', game: 'Игра', liveries: 'Ливреи', setups: 'Сетапы', settings: 'Настройки' };
+const TITLES = { overlays: 'Оверлеи', layouts: 'Раскладки', palette: 'Палитра', training: 'Тренировка', game: 'Игра', liveries: 'Ливреи', setups: 'Сетапы', settings: 'Настройки' };
 const VAR_LABELS = { base: 'Основной набор', practice: 'Практика', qualify: 'Квалификация', race: 'Гонка', spotting: 'Споттинг' };
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
@@ -34,6 +34,8 @@ const TYPE_INFO = {
   forecast: 'Прогноз погоды из описания сессии iRacing: через сколько минут ожидается дождь и с каким шансом, полоса ячеек вперёд с небом, шансом и температурой. Есть не во всех сессиях: при погоде Static и Realistic прогноза нет, и оверлей скажет об этом.',
   sr: 'Оценка Safety Rating по ходу сессии: SR сейчас, изменение и сколько чистых поворотов нужно, чтобы выйти в ноль. iRacing формулу не публикует, это оценка по открытой модели Nishizumi-SR (MIT), обычно с точностью до ±0.05.',
   weather: 'Температура трассы, её состояние, осадки и ветер с компасом, который вращается вместе с машиной.',
+  braketrace: 'График по дистанции круга: сверху тормоз, снизу руль. Кривая эталона нарисована заранее и залита цветом — вам нужно повторить её, как прописи: ваш след рисуется белой линией поверх. Окно показывает 100 м позади и 300 м впереди, серая полоса — зона торможения эталона. Масштаб руля — по самому большому углу эталона.',
+  brakezone: 'Подсказка по эталонному кругу: сколько метров до ближайшей точки торможения («3-2-1» — отметки на 300, 200 и 100 м), скорость эталона на входе и в апексе против вашей. После каждого поворота — где вы начали тормозить (раньше или позже эталона) и на сколько отличались скорости на входе и в апексе.',
 };
 
 let S = null;          // последнее состояние из главного процесса
@@ -113,7 +115,9 @@ function render() {
   $('title').textContent = firstGame && view === 'game' ? 'Выбор игры' : TITLES[view];
   renderStatus();
   document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
-  if (view === 'overlays') renderOverlays();
+  syncTrainingSelection();
+  if (view === 'training') renderTraining();
+  else if (view === 'overlays') renderOverlays();
   else if (view === 'layouts') renderLayouts();
   else if (view === 'palette') renderPalette();
   else if (view === 'game') renderGame();
@@ -152,6 +156,79 @@ function renderStatus() {
       <button class="${editing ? '' : 'on'}" data-mode="lock">${icon('lock', 'sm')}Закреплены</button>
       <button class="${editing ? 'on' : ''}" data-mode="edit">${icon('move', 'sm')}Редактирование</button>
     </span>`;
+}
+
+// ---------- Тренировка ----------
+// Отдельный раздел: свой набор оверлеев для практики и эталонный круг. В режиме редактирования окна на экране — именно этого набора.
+
+let inTraining = false;   // главный процесс сейчас показывает набор «Тренировки» для редактирования
+let beforeTraining = null;
+function syncTrainingSelection() {
+  const want = view === 'training';
+  if (want === inTraining) return;
+  inTraining = want;
+  if (want) { beforeTraining = S.panelSelection; act({ type: 'panel.select', layoutId: 'training' }); }
+  else act(beforeTraining ? { type: 'panel.select', ...beforeTraining } : { type: 'panel.select', layoutId: null });
+}
+
+const fmtLap = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, '0')}`; };
+
+function renderTraining() {
+  mounted = 'training';
+  const t = S.cfg.training, tr = S.trainingRef || {};
+  const ref = t.ref;
+  const list = t.overlays.filter((o) => gameAllows(o.type));
+  const editing = !S.cfg.locked;
+  const refBlock = ref
+    ? `<div class="kv">
+        <span>Трасса</span><span>${esc(ref.track || '—')}</span>
+        <span>Машина</span><span>${esc(ref.car || '—')}</span>
+        <span>Круг</span><span class="mono">${fmtLap(ref.time)}</span>
+        <span>Зон торможения</span><span class="mono">${ref.zones}</span>
+        <span>Файл</span><span class="mono" title="${esc(ref.file)}">${esc(ref.file.split(/[\\/]/).pop())}</span>
+      </div>
+      <div class="diag-actions" style="margin-top:14px">
+        <button class="btn" data-tr-act="training.pickRef" ${tr.busy ? 'disabled' : ''}>${icon('file-up', 'sm')}Выбрать другой файл</button>
+        <button class="btn quiet" data-tr-act="training.clearRef" ${tr.busy ? 'disabled' : ''}>${icon('x', 'sm')}Убрать</button>
+      </div>`
+    : `<p class="hint" style="margin-bottom:14px">Эталон — круг, по которому вы сравниваете себя: например телеметрия пилота или сетапера. Нужен файл телеметрии этой же трассы и класса машины: <span class="mono">.duckdb</span> (LMU), <span class="mono">.ibt</span> (iRacing) или архив с ними. Берётся быстрейший круг файла.</p>
+      <button class="btn primary" data-tr-act="training.pickRef" ${tr.busy ? 'disabled' : ''}>${icon('file-up', 'sm')}Выбрать файл телеметрии</button>`;
+  $('card').innerHTML = `
+    <div class="page fade"><div class="page-inner">
+      <div class="block">
+        <div class="label">Режим</div>
+        <div class="kv">
+          <span>Режим тренировки</span>
+          <span>${sw('data-training-on aria-label="Режим тренировки"', t.enabled)}</span>
+        </div>
+        <p class="hint" style="margin-top:10px">${t.enabled
+          ? 'Включён: основные оверлеи из раскладок скрыты, на экране только оверлеи этого раздела. Для соло и общих практик — в гонке выключите.'
+          : 'Выключен: работают обычные раскладки. Когда включите, основные оверлеи скроются, а на экране останутся только оверлеи этого раздела.'}</p>
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label">Эталонный круг</div>
+        ${tr.busy ? '<p class="hint">Читаю телеметрию, это может занять несколько секунд…</p>' : refBlock}
+        ${tr.error ? `<p class="hint" style="margin-top:12px;color:var(--danger)">${esc(tr.error)}</p>` : ''}
+      </div>
+      <div class="sep"></div>
+      <div class="block">
+        <div class="label"><span>Оверлеи тренировки</span></div>
+        ${list.map((o) => `
+          <div class="kv" style="margin-bottom:6px">
+            <span>${esc(o.name)}</span>
+            <span>${sw(`data-tr-ov="${o.id}" aria-label="Показывать ${esc(o.name)}"`, o.enabled)}</span>
+          </div>
+          <p class="hint" style="margin:0 0 14px">${esc(TYPE_INFO[o.type] || '')}</p>
+          <div class="kv" style="margin-bottom:14px">
+            <span>Непрозрачность фона</span>
+            <span class="slider" style="max-width:240px"><input class="range" type="range" min="0" max="100" step="5" value="${Math.round((o.bgOpacity ?? 0.8) * 100)}" data-tr-bg="${o.id}" aria-label="Непрозрачность фона"><output>${Math.round((o.bgOpacity ?? 0.8) * 100)}%</output></span>
+          </div>`).join('')}
+        <p class="hint">${editing
+          ? 'Идёт редактирование: на экране окна оверлеев тренировки, их можно двигать и растягивать за края.'
+          : 'Чтобы расставить окна на экране, включите «Редактирование» сверху: появятся оверлеи этого раздела, их можно двигать и растягивать. Потом верните «Закреплены».'}</p>
+      </div>
+    </div></div>`;
 }
 
 // ---------- Оверлеи ----------
@@ -1254,6 +1331,7 @@ document.addEventListener('click', (e) => {
   if (d.open === 'telemetry') return act({ type: 'telemetry.open' });
   if (d.goto) { skipWelcome(); view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
+  if (d.trAct) return act({ type: d.trAct });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
   if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });
   if (d.copy) { navigator.clipboard?.writeText(d.copy); t.innerHTML = `${icon('check', 'sm')}<span>Скопировано</span>`; setTimeout(() => render(), 1200); return; }
@@ -1321,6 +1399,8 @@ document.addEventListener('change', (e) => {
     if (/^#[0-9a-f]{6}$/i.test(v)) return act({ type: 'palette.set', scope: d.palSc || palScope, key: d.palHex, value: v.toUpperCase() });
     return render(); // неверный код — вернуть прежний
   }
+  if ('trainingOn' in d) return act({ type: 'training.set', enabled: t.checked });
+  if (d.trOv) return act({ type: 'overlay.update', layoutId: 'training', variation: 'base', overlayId: d.trOv, patch: { enabled: t.checked } });
   if (d.ovEnabled) return act({ type: 'overlay.update', layoutId: sel.layoutId, variation: currentSet().variation, overlayId: d.ovEnabled, patch: { enabled: t.checked } });
   if ('autoScale' in d) return ovAction('overlay.update', { patch: { autoScale: t.checked } });
   if (d.cfg) return ovAction('overlay.update', { patch: { [d.cfg]: { [d.k]: t.checked } } });
@@ -1353,6 +1433,10 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('input', (e) => {
   const t = e.target;
+  if (t.dataset.trBg) {
+    t.nextElementSibling.textContent = `${t.value}%`;
+    return act({ type: 'overlay.update', layoutId: 'training', variation: 'base', overlayId: t.dataset.trBg, patch: { bgOpacity: t.value / 100 } });
+  }
   if (t.dataset.sizeRange) {
     const n = Number(t.value);
     t.nextElementSibling.textContent = `${n}%`;

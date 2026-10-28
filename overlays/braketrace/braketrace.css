@@ -1,0 +1,10 @@
+/* Тормоз и руль: две дорожки по дистанции. Эталонная кривая нарисована заранее («прописи»), ваш след рисуется поверх по мере езды.
+   Окно вписывается во всё пространство, размер текста задаёт --scale. */
+html, body { height: 100%; }
+.bt { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 0.3em; padding: 0.7em 0.9em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-size: calc(14px * var(--scale, 1)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.bt .head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.65em; letter-spacing: 0.12em; color: var(--text-dim); line-height: 1; }
+.bt .vals { letter-spacing: 0; font-weight: 600; }
+.bt .vals b { color: var(--text); }
+.bt .vals .me { color: var(--text); }
+.bt canvas { flex: 1 1 0; min-height: 0; width: 100%; display: block; border-radius: 0.4em; background: rgba(255, 255, 255, 0.04); }
+.bt canvas:first-of-type { flex-grow: 1.15; }

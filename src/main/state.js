@@ -1,6 +1,7 @@
 // Состояние и действия над раскладками. Чистая логика без Electron — её вызывает панель управления через IPC.
 const L = require('./layouts');
 const P = require('./palette');
+const logger = require('./logger');
 
 class LayoutState {
   constructor(cfg, onChange) {
@@ -13,7 +14,9 @@ class LayoutState {
   }
 
   get layouts() { return this.cfg.layouts; }
-  layout(id) { return this.layouts.find((l) => l.id === id); }
+  // 'training' — набор режима «Тренировка»: не раскладка из списка, но правится теми же действиями
+  layout(id) { return id === 'training' ? this.cfg.training : this.layouts.find((l) => l.id === id); }
+  get trainingOn() { return !!this.cfg.training?.enabled; }
 
   simKey() {
     const s = this.sim;
@@ -37,6 +40,13 @@ class LayoutState {
     return { layout: chosen, reason: 'default' };
   }
 
+  // Какой набор действует: в режиме «Тренировка» основные раскладки игнорируются
+  activeSet() {
+    if (this.trainingOn) return { layout: this.cfg.training, variation: 'base', reason: 'training' };
+    const r = this.resolve();
+    return { layout: r.layout, variation: L.activeVariation(r.layout, this.sim), reason: r.reason, score: r.score };
+  }
+
   // Набор оверлеев, которые должны быть на экране сейчас
   desiredOverlays() {
     if (this.cfg.hiddenAll) return [];
@@ -46,8 +56,7 @@ class LayoutState {
       const l = this.layout(this.panelSelection.layoutId);
       return L.overlaysOf(l, this.panelSelection.variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type));
     }
-    const { layout } = this.resolve();
-    const variation = L.activeVariation(layout, this.sim);
+    const { layout, variation } = this.activeSet();
     // Не в режиме редактирования: прячем всё, пока игра не в фокусе (alt-tab, рабочий стол), если так включено
     if (!editing && this.cfg.onlyWhenFocused !== false && !this.gameFocused) return [];
     return L.overlaysOf(layout, variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type) && (editing || this.visibleNow(o, variation)));
@@ -56,8 +65,7 @@ class LayoutState {
   // Для диагностики: у каждого оверлея набора — на экране ли он и, если нет, почему
   overlayStatus() {
     const editing = !this.cfg.locked;
-    const { layout, reason } = this.resolve();
-    const variation = L.activeVariation(layout, this.sim);
+    const { layout, variation, reason } = this.activeSet();
     const shown = new Set(this.desiredOverlays().map((o) => o.id));
     const sim = this.sim.connected ? (this.sim.source === 'demo' ? 'демо' : (this.sim.inGarage ? 'в гараже' : this.sim.onTrack ? 'на трассе' : 'в меню или повторе')) : 'игры нет';
     const why = (o) => {
@@ -89,8 +97,8 @@ class LayoutState {
   // Где сейчас лежит оверлей с этим id (для сохранения позиции после перетаскивания)
   findOverlay(id) {
     const sel = !this.cfg.locked && this.panelSelection ? this.panelSelection : null;
-    const layout = sel ? this.layout(sel.layoutId) : this.resolve().layout;
-    const variation = sel ? sel.variation : L.activeVariation(layout, this.sim);
+    const layout = sel ? this.layout(sel.layoutId) : this.activeSet().layout;
+    const variation = sel ? sel.variation : this.activeSet().variation;
     return L.overlaysOf(layout, variation).find((o) => o.id === id) || null;
   }
 
@@ -107,7 +115,7 @@ class LayoutState {
     return {
       cfg,
       sim: this.sim,
-      active: { layoutId: r.layout?.id, reason: r.reason, score: r.score ?? null, variation: L.activeVariation(r.layout, this.sim) },
+      active: { layoutId: r.layout?.id, reason: r.reason, score: r.score ?? null, variation: L.activeVariation(r.layout, this.sim), training: this.trainingOn },
       panelSelection: this.panelSelection,
       types: L.OVERLAY_TYPES,
       columnCatalog: L.COLUMN_CATALOG,
@@ -156,6 +164,12 @@ class LayoutState {
       }
       case 'palette.set': case 'palette.preset': case 'palette.reset':
         if (!P.apply(this.cfg.palette ||= P.emptyPalette(), a)) return;
+        break;
+
+      case 'training.set':
+        if (typeof a.enabled !== 'boolean') return;
+        this.cfg.training.enabled = a.enabled;
+        logger.write('INFO', `[training] режим тренировки ${a.enabled ? 'включён' : 'выключен'}; эталон: ${this.cfg.training.ref ? this.cfg.training.ref.file : 'нет'}`);
         break;
 
       case 'panel.select':

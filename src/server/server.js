@@ -1,6 +1,6 @@
 // Сервер телеметрии: читает iRacing (или демо), считает модели и раздаёт их по WebSocket.
 //   HTTP:  http://127.0.0.1:<port>/relative/   /standings/   — страницы оверлеев (работают и в OBS/браузере)
-//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic   /ws/sr   /ws/forecast   /ws/radarbars
+//   WS:    ws://127.0.0.1:<port>/ws/relative   /ws/standings   /ws/weather   /ws/digiflag   /ws/radar   /ws/dash   /ws/sectors   /ws/laps   /ws/rejoin   /ws/fuel   /ws/pitlimit   /ws/traffic   /ws/sr   /ws/forecast   /ws/radarbars   /ws/brakezone   /ws/braketrace
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +23,7 @@ const { buildRejoin } = require('../model/rejoin');
 const { buildFuel, setFuelStore } = require('../model/fuel');
 const { buildPit } = require('../model/pitlimit');
 const { buildTraffic } = require('../model/traffic');
+const { buildBrakeZone, buildBrakeTrace, setLog: setTrainingLog } = require('../model/brakezone');
 const { SrTracker } = require('../model/sr');
 const { ForecastTracker } = require('../model/forecast');
 
@@ -54,6 +55,8 @@ const CHANNELS = {
   fuel: (race) => buildFuel(race),
   pitlimit: (race) => buildPit(race),
   traffic: (race) => buildTraffic(race),
+  brakezone: (race, opts) => buildBrakeZone(race, opts.trainingRef),
+  braketrace: (race, opts) => buildBrakeTrace(race, opts.trainingRef),
   // к оценке SR — прогноз iRating игрока: в оверлее их можно показать вместе
   forecast: (race, opts, sr, fc) => fc.frame(),
   sr: (race, opts, sr) => ({ ...sr.frame(), kind: race.kind, irDelta: race.kind === 'race' ? (playerCar(race)?.iratingDelta ?? null) : null, iratingNow: playerCar(race)?.irating ?? null }),
@@ -71,6 +74,7 @@ function startServer(options = {}) {
     ...options,
   };
 
+  setTrainingLog({ info: opts.log, debug: opts.debug });   // строки «[training]» в лог приложения
   const sdk = new IRacingSdk();
   const lmu = new LmuSdk();
   // оценка SR копит повороты на каждом тике, даже без открытого окна оверлея
@@ -256,6 +260,7 @@ function startServer(options = {}) {
           }]));
         },
         setDemo(mode) { opts.demo = mode; },
+        setTrainingRef(ref) { opts.trainingRef = ref; },   // эталон режима «Тренировка» (src/model/training.js)
         get demoMode() { return opts.demo; },
         close() { clearInterval(timer); wss.close(); server.close(); sdk.close(); },
       });

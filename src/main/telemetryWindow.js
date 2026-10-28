@@ -108,4 +108,4 @@ function initTelemetry({ port, cfg }) {
   });
 }
 
-module.exports = { initTelemetry, openTelemetry };
+module.exports = { initTelemetry, openTelemetry, library };

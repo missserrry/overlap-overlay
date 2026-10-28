@@ -22,6 +22,9 @@ const OVERLAY_TYPES = {
   sr: { title: 'Safety Rating', width: 300, height: 130 },
   forecast: { title: 'Forecast', width: 360, height: 190 },
   radarbars: { title: 'Radar Bars', width: 360, height: 220 },
+  // Оверлеи режима «Тренировка» (training: true): в обычные раскладки не попадают, живут в cfg.training
+  brakezone: { title: 'Торможение', width: 360, height: 220, training: true },
+  braketrace: { title: 'Тормоз и руль', width: 520, height: 240, training: true },
 };
 // Колонки таблиц. Порядок ключей = порядок по умолчанию, значение = включена ли.
 // Подписи, ширины и приоритет ухода при сужении окна — в overlays/common/columns.js (id должны совпадать).
@@ -410,7 +413,7 @@ const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
 // Игры: для каждой — какие оверлеи в ней работают (null — все)
 const GAMES = {
   iracing: { name: 'iRacing', types: null },
-  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'pedals', 'abs', 'rejoin', 'traffic'] },
+  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'pedals', 'abs', 'rejoin', 'traffic', 'brakezone', 'braketrace'] },
 };
 const gameAllows = (game, type) => { const t = (GAMES[game] || GAMES.iracing).types; return !t || t.includes(type); };
 
@@ -539,13 +542,14 @@ function findMatchingLayout(layouts, ctx) {
 // Какой вариант раскладки сейчас действует: споттинг важнее типа сессии
 // Каждый тип оверлея всегда есть в наборе раскладки: в панели его только включают и выключают.
 // Недостающие (новые типы после обновления, наборы из старых версий) добавляются выключенными.
-function ensureAllTypes(list) {
+function ensureAllTypes(list, training = false) {
   if (!Array.isArray(list)) return false;
   let n = list.length, added = false;
   for (const type of Object.keys(OVERLAY_TYPES)) {
+    if (!!OVERLAY_TYPES[type].training !== training) continue;   // оверлеи тренировки и обычные наборы не смешиваются
     if (list.some((o) => o.type === type)) continue;
     const o = createOverlay(type, { x: 80 + n * 30, y: 80 + n * 30 });
-    o.enabled = false;
+    o.enabled = training;   // в обычных наборах новые типы выключены, в тренировке — включены: набор нужен именно для них
     list.push(o);
     n++;
     added = true;
@@ -553,6 +557,15 @@ function ensureAllTypes(list) {
   return added;
 }
 const ensureLayoutTypes = (l) => [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)].map(ensureAllTypes).some(Boolean);
+
+// Режим «Тренировка»: свой набор оверлеев и эталонный круг. Выглядит как раскладка (id 'training'), чтобы панель
+// правила его теми же действиями, но в cfg.layouts его нет, и автопереключение его не выбирает.
+// enabled — режим включён: основные оверлеи скрыты, показываются только эти. ref — выбранный эталон (описание, сам круг читается из файла).
+function normalizeTraining(t) {
+  const out = { id: 'training', name: 'Тренировка', enabled: !!t?.enabled, ref: t?.ref && typeof t.ref.file === 'string' ? t.ref : null, overlays: Array.isArray(t?.overlays) ? t.overlays.filter((o) => OVERLAY_TYPES[o?.type]?.training) : [] };
+  ensureAllTypes(out.overlays, true);
+  return out;
+}
 
 function activeVariation(layout, { session, spotting }) {
   const v = layout?.variations || {};
@@ -569,7 +582,7 @@ function overlaysOf(layout, variation) {
 
 module.exports = {
   OVERLAY_TYPES, VARIATIONS, SESSION_TYPES, CATEGORIES, GAMES, gameAllows,
-  createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
+  createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes, normalizeTraining,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
   DASH_SCHEMA, normalizeDash, PEDALS_SCHEMA, normalizePedals, ABS_SCHEMA, normalizeAbs, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,

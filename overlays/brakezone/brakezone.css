@@ -1,0 +1,35 @@
+/* Торможение: подсказка до зоны торможения эталона («3-2-1»), скорости эталона и ваша, итог последней зоны.
+   Цвет рамки — состояние: обычный, близко (жёлтый), торможение сейчас (красный). Размер задаёт --scale. */
+html, body { height: 100%; }
+.bz { --c: var(--text-dim, #8a8a8f); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.6em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent); transition: box-shadow 160ms; }
+.bz.near { --c: var(--rj-warn, #ffb020); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent), inset 0 0 1.4em color-mix(in srgb, var(--c) 22%, transparent); }
+.bz.now, .bz.in { --c: var(--rj-danger, #ff3b30); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 85%, transparent), inset 0 0 2.4em color-mix(in srgb, var(--c) 50%, transparent); }
+.bz.now { animation: bzPulse 0.3s ease-in-out infinite alternate; }
+@keyframes bzPulse { from { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 1em color-mix(in srgb, var(--c) 20%, transparent); } to { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 85%, transparent), inset 0 0 2.6em color-mix(in srgb, var(--c) 60%, transparent); } }
+.bz .top { display: flex; align-items: center; justify-content: space-between; font-size: 0.65em; letter-spacing: 0.12em; color: var(--text-dim); line-height: 1; }
+.bz .top small { opacity: 0.6; letter-spacing: 0; }
+.bz .dots { display: flex; gap: 0.5em; }
+.bz .dots i { width: 1.1em; height: 1.1em; border-radius: 50%; background: rgba(255, 255, 255, 0.14); transition: background 120ms; }
+.bz .dots i.on { background: var(--rj-warn, #ffb020); box-shadow: 0 0 0.8em var(--rj-warn, #ffb020); }
+.bz.now .dots i.on, .bz.in .dots i.on { background: var(--rj-danger, #ff3b30); box-shadow: 0 0 0.8em var(--rj-danger, #ff3b30); }
+.bz .dist { display: flex; align-items: baseline; justify-content: center; gap: 0.4em; line-height: 1; color: var(--c); }
+.bz.near .dist, .bz .dist { text-shadow: 0 0 0.5em color-mix(in srgb, var(--c) 35%, transparent); }
+.bz:not(.near):not(.now):not(.in) .dist { color: var(--text, #fff); text-shadow: none; }
+.bz .dist b { font-size: 3.2em; min-width: 2.4ch; text-align: right; }
+.bz .dist b.word { font-size: 2.4em; min-width: 0; text-align: center; letter-spacing: 0.04em; }
+.bz .dist small { font-size: 1.2em; opacity: 0.8; }
+.bz .spd { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; text-align: center; }
+.bz .spd small { display: block; font-size: 0.6em; letter-spacing: 0.06em; color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
+.bz .spd b { font-size: 1.6em; color: var(--text, #fff); }
+.bz .spd b.warn { color: var(--rj-warn, #ffb020); }
+.bz .spd em { font-style: normal; font-size: 0.65em; margin-left: 0.25em; color: var(--text-dim); font-weight: 600; }
+.bz .res { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3em 0.8em; font-size: 0.85em; padding-top: 0.5em; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.bz .res b { color: var(--text-dim); }
+.bz .res .d { color: var(--text-dim); font-weight: 600; }
+.bz .res .ok { color: var(--rj-safe, #2ee34a); }
+.bz .res .info { color: var(--accent, #35d0e6); }
+.bz .res .warn { color: var(--rj-warn, #ffb020); }
+.bz .res.none { color: var(--text-dim); font-weight: 600; font-size: 0.75em; }
+.bz.idle { align-items: center; justify-content: center; text-align: center; }
+.bz.idle .top { align-self: stretch; }
+.bz .msg { color: var(--text-dim); font-size: 0.9em; line-height: 1.4; font-weight: 600; }

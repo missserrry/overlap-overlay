@@ -4,16 +4,16 @@
 
 const TABLE = ['relative', 'standings'];
 // Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
-const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
+const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'brakezone', 'braketrace'];
+const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'brakezone', 'braketrace'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'pedals', 'abs', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars', 'brakezone', 'braketrace'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
   {
     title: 'Основные', tokens: [
       { key: 'primary', label: 'Основной цвет', hint: 'Ваша строка в таблице и метка PIT', def: '#EABE11', types: TABLE },
-      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps'] },
+      { key: 'accent', label: 'Акцентный цвет', hint: 'Погода, сектора, график руля', def: '#35D0E6', types: ['weather', 'sectors', 'dash', 'laps', 'braketrace'] },
       { key: 'text', label: 'Текст', def: '#FFFFFF', types: WITH_TEXT },
       { key: 'textDim', label: 'Подписи', def: '#8A8A8F', types: WITH_TEXT },
       { key: 'bg', label: 'Фон оверлея', hint: 'Прозрачность — в настройках оверлея', def: '#0A0A0B', types: WITH_BG },
@@ -55,7 +55,7 @@ const GROUPS = [
   {
     title: 'Dash', tokens: [
       { key: 'dashThr', label: 'Газ', def: '#2EE34A', types: ['dash', 'pedals'] },
-      { key: 'dashBrk', label: 'Тормоз', def: '#FF3B30', types: ['dash', 'pedals'] },
+      { key: 'dashBrk', label: 'Тормоз', def: '#FF3B30', types: ['dash', 'pedals', 'braketrace'] },
       { key: 'dashClu', label: 'Сцепление', def: '#F5C342', types: ['dash', 'pedals'] },
       { key: 'absOn', label: 'Сработал ABS', def: '#FFB020', types: ['abs'] },
     ],
@@ -68,9 +68,9 @@ const GROUPS = [
   },
   {
     title: 'Rejoin, Fuel и Pit Limiter', tokens: [
-      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме / SR растёт / дождя нет', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'sr', 'forecast'] },
-      { key: 'rjWarn', label: 'Осторожно / впритык / дождь скоро', def: '#FFB020', types: ['rejoin', 'fuel', 'forecast'] },
-      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом / SR падает / дождь идёт', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'] },
+      { key: 'rjSafe', label: 'Можно выезжать / хватает / лимитер в норме / SR растёт / дождя нет', def: '#2EE34A', types: ['rejoin', 'fuel', 'pitlimit', 'sr', 'forecast', 'brakezone'] },
+      { key: 'rjWarn', label: 'Осторожно / впритык / дождь скоро', def: '#FFB020', types: ['rejoin', 'fuel', 'forecast', 'brakezone'] },
+      { key: 'rjDanger', label: 'Опасно / не хватит / нарушение лимита / быстрый класс рядом / SR падает / дождь идёт', def: '#FF3B30', types: ['rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'brakezone'] },
     ],
   },
   {

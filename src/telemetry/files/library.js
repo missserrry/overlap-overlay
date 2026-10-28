@@ -176,6 +176,14 @@ class TelemetryLibrary {
     return this.call({ op: 'track', file });
   }
 
+  // Быстрейший круг файла: засчитанный, а если таких нет — любой полный. Для эталона режима «Тренировка».
+  async bestLap(file) {
+    const s = await this.call({ op: 'summary', file });
+    const pool = (l) => s.laps.filter(l).sort((a, b) => a.time - b.time)[0];
+    const best = pool((l) => l.valid && l.time > 0) || pool((l) => l.complete && l.time > 0);
+    return best ? { summary: s, lap: best } : null;
+  }
+
   // Эталоны: копируем перетащенные файлы к себе, чтобы они не пропали вместе с папкой загрузок.
   // Из архивов (.zip, .7z, .rar — так телеметрию раздают сетаперы) забираем только файлы телеметрии.
   async importFiles(paths) {
