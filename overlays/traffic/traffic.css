@@ -1,7 +1,7 @@
 /* Traffic: одна тонкая плашка. Сзади — быстрый класс, который догоняет (стрелка вниз), впереди — медленный, которого вы догоняете (стрелка вверх).
    Только тег класса и секунды до встречи. Размер задаёт --scale. */
 html, body { height: 100%; }
-.tr { position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.9em; box-sizing: border-box; padding: 0.5em 1em; border-radius: 2em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px var(--border); transition: box-shadow 200ms; }
+.tr { position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.9em; box-sizing: border-box; padding: 0.5em 1em; border-radius: 2em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--border); transition: box-shadow 200ms; }
 .tr .seg { display: inline-flex; align-items: center; gap: 0.45em; line-height: 1; }
 .tr .seg + .seg { padding-left: 0.9em; border-left: 1px solid var(--border); }
 .tr .arr { width: 0.8em; height: 0.8em; color: var(--text-dim); flex: none; }
@@ -11,4 +11,4 @@ html, body { height: 100%; }
 .tr .no { font-size: 0.75em; color: var(--text-dim); }
 .tr .seg.warn .arr, .tr .seg.warn .t { color: var(--rj-danger, #ff3b30); }
 .tr.threat { animation: trPulse 0.7s ease-in-out infinite alternate; }
-@keyframes trPulse { from { box-shadow: 0 0 0 1px color-mix(in srgb, var(--rj-danger, #ff3b30) 50%, transparent); } to { box-shadow: 0 0 0 2px var(--rj-danger, #ff3b30), 0 0 1em color-mix(in srgb, var(--rj-danger, #ff3b30) 60%, transparent); } }
+@keyframes trPulse { from { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rj-danger, #ff3b30) 50%, transparent); } to { box-shadow: inset 0 0 0 2px var(--rj-danger, #ff3b30), inset 0 0 1em color-mix(in srgb, var(--rj-danger, #ff3b30) 60%, transparent); } }

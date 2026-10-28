@@ -1,7 +1,7 @@
 /* Forecast: прогноз погоды. Сверху строка «дождь через N мин · шанс» (цвет по ситуации), ниже полоса ячеек по времени вперёд:
    небо, шанс дождя столбиком и числом, температура. Размер задаёт --scale. */
 html, body { height: 100%; }
-.fc { --c: var(--text-dim); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.6em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px var(--border); }
+.fc { --c: var(--text-dim); position: fixed; left: 0; top: 0; font-size: calc(14px * var(--scale, 1)); font-weight: 700; display: flex; flex-direction: column; gap: 0.6em; padding: 0.8em 1em; box-sizing: border-box; border-radius: 0.9em; background: var(--bg); font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--border); }
 .fc.dry { --c: var(--rj-safe, #2ee34a); }
 .fc.soon { --c: var(--rj-warn, #ffb020); }
 .fc.wet { --c: var(--rj-danger, #ff3b30); }
