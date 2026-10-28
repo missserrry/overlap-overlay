@@ -15,12 +15,13 @@ const VAR_LABELS = { base: 'Основной набор', practice: 'Практ�
 const SESSION_LABELS = { practice: 'Практика', qualify: 'Квалификация', race: 'Гонка' };
 const CAT_LABELS = { sportscar: 'Sports car', formulacar: 'Formula', oval: 'Oval', dirtroad: 'Dirt road', dirtoval: 'Dirt oval' };
 // Оверлеи по назначению: так проще найти нужный (в группе не больше пяти)
-const OV_GROUPS = [['Таблицы', ['relative', 'standings']], ['Пилотирование', ['dash', 'laps', 'sectors', 'fuel', 'pitlimit']], ['Безопасность', ['radar', 'radarbars', 'traffic', 'rejoin', 'sr']], ['Окружение', ['weather', 'forecast', 'digiflag']]];
+const OV_GROUPS = [['Таблицы', ['relative', 'standings']], ['Пилотирование', ['dash', 'pedals', 'laps', 'sectors', 'fuel', 'pitlimit']], ['Безопасность', ['radar', 'radarbars', 'traffic', 'rejoin', 'sr']], ['Окружение', ['weather', 'forecast', 'digiflag']]];
 const TYPE_INFO = {
   relative: 'Машины рядом с вами на трассе и отрыв до них.',
   standings: 'Таблица по классам: позиции, отрыв, лучший круг.',
   digiflag: 'Светодиодная панель флагов: зелёный, жёлтый, SC, синий, белый, красный, клетчатый, чёрный и другие. Мигает, как настоящие.',
   dash: 'Передача в кольце, точки-лампы оборотов, скорость, график и столбики педалей и нижняя плашка. Все блоки настраиваются.',
+  pedals: 'Столбики сцепления, тормоза и газа отдельным окном: растяните окно — столбики и цифры вырастут вместе с ним. Пока Pedals включён, в Dash столбиков нет и он становится короче.',
   sectors: 'Полоса секторов: каждый сектор заполняется по мере проезда и показывает дельту к эталону. До 5 секторов на экране, остальные прокручиваются.',
   traffic: 'Мультикласс: тонкая плашка с ближайшей машиной быстрого класса сзади и медленного впереди и секундами до встречи. Появляется, только когда есть кого ждать.',
   pitlimit: 'Скорость в питлейне: появляется на въезде в питлейн. Зелёный — лимитер включён или скорость в норме, красный — лимитер выключен и скорость выше лимита. После линии выезда — «Можно ехать».',
@@ -267,6 +268,9 @@ function schemaBlock(o, field, schema) {
   </div>`).join('');
 }
 const dashBlock = (o) => schemaBlock(o, 'dash', S.dashSchema);
+const pedalsBlock = (o) => schemaBlock(o, 'pedals', S.pedalsSchema);
+// Dash без столбиков, когда в этом наборе включён Pedals (так же решает главный процесс)
+const dashCfg = (o) => ({ ...(o.dash || {}), 'bars.out': currentSet().list.some((x) => x.type === 'pedals' && x.enabled) });
 const sectorsBlock = (o) => schemaBlock(o, 'sectors', S.sectorsSchema);
 const lapsBlock = (o) => schemaBlock(o, 'laps', S.lapsSchema);
 const rejoinBlock = (o) => schemaBlock(o, 'rejoin', S.rejoinSchema);
@@ -390,7 +394,9 @@ function renderOverlaySettings(o, layout, variation) {
     : o.type === 'sectors'
     ? `${location.origin}/sectors/?sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}`
     : o.type === 'dash'
-    ? `${location.origin}/dash/?ftr=${hfOf(o, 'footer')}&scale=${scaleParam}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}`
+    ? `${location.origin}/dash/?ftr=${hfOf(o, 'footer')}&scale=${scaleParam}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}`
+    : o.type === 'pedals'
+    ? `${location.origin}/pedals/?pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}`
     : o.type === 'radar'
     ? `${location.origin}/radar/?range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}`
     : o.type === 'digiflag'
@@ -401,7 +407,7 @@ function renderOverlaySettings(o, layout, variation) {
   const fresh = lastSettingsId !== o.id;
   lastSettingsId = o.id;
   const where = (key, label, on, tip = '') => `<button class="chip ${on ? 'on' : ''}" data-vis="${key}" aria-pressed="${on}" title="${tip}">${on ? icon('check') : ''}${label}</button>`;
-  const NOSCALE = ['digiflag', 'radar', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'].includes(o.type);
+  const NOSCALE = ['digiflag', 'radar', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars', 'pedals'].includes(o.type);
   const bWhere = `<div class="block">
         <div class="label">Где показывать</div>
         <div class="where">
@@ -447,7 +453,7 @@ function renderOverlaySettings(o, layout, variation) {
       </div>` : '';
   if (!OV_TABS.some(([k]) => k === ovTab)) ovTab = 'main';
   const pane = ovTab === 'main' ? bWhere + bScale + bBg + bSplit + bWin + bActions
-    : ovTab === 'view' ? (o.type === 'radarbars' ? radarbarsBlock(o) : o.type === 'forecast' ? forecastBlock(o) : o.type === 'sr' ? srBlock(o) : o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
+    : ovTab === 'view' ? (o.type === 'radarbars' ? radarbarsBlock(o) : o.type === 'pedals' ? pedalsBlock(o) : o.type === 'forecast' ? forecastBlock(o) : o.type === 'sr' ? srBlock(o) : o.type === 'traffic' ? trafficBlock(o) : o.type === 'pitlimit' ? pitlimitBlock(o) : o.type === 'fuel' ? fuelBlock(o) : o.type === 'rejoin' ? rejoinBlock(o) : o.type === 'laps' ? lapsBlock(o) : o.type === 'sectors' ? sectorsBlock(o) : o.type === 'dash' ? dashBlock(o) + hfBlock(o, 'footer', 'Нижняя плашка') : o.type === 'radar' ? radarBlock(o) : o.type === 'digiflag' ? flagBlock(o) : o.type === 'weather' ? cardsBlock(o) : tableView(o))
     : colorsBlock(o);
   box.innerHTML = `
     <div class="settings ${fresh ? 'fade' : ''}">
@@ -488,13 +494,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(o.dash || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}&pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key; pvContent = null;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: o.dash, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyDecimals: o.decimals || {}, svoyLicMode: o.licMode || 'full', svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: dashCfg(o), svoyPedals: o.pedals || {}, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyDecimals: o.decimals || {}, svoyLicMode: o.licMode || 'full', svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -1358,7 +1364,7 @@ document.addEventListener('input', (e) => {
     t.nextElementSibling.textContent = `${t.value}${(t.nextElementSibling.textContent.match(/\D+$/) || [''])[0]}`;
     const field = t.dataset.cfgRange, key = t.dataset.k, num = Number(t.value);
     const o = currentSet().list.find((x) => x.id === selOv);
-    $('pv')?.contentWindow?.postMessage({ [{ dash: 'svoyDash', sectors: 'svoySectors', laps: 'svoyLaps', rejoin: 'svoyRejoin', fuel: 'svoyFuel', pitlimit: 'svoyPit', sr: 'svoySr', forecast: 'svoyForecast', radarbars: 'svoyRadarbars', rel: 'svoyRel', traffic: 'svoyTraffic' }[field]]: { ...(o?.[field] || {}), [key]: num } }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ [{ dash: 'svoyDash', sectors: 'svoySectors', laps: 'svoyLaps', rejoin: 'svoyRejoin', fuel: 'svoyFuel', pitlimit: 'svoyPit', pedals: 'svoyPedals', sr: 'svoySr', forecast: 'svoyForecast', radarbars: 'svoyRadarbars', rel: 'svoyRel', traffic: 'svoyTraffic' }[field]]: { ...(o?.[field] || {}), [key]: num } }, location.origin);
     return ovAction('overlay.update', { patch: { [field]: { [key]: num } } });
   }
   if (t.dataset.ovRange === 'radarRange' || t.dataset.ovRange === 'radarIdle') {

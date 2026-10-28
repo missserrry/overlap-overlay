@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const P = require('./palette');
-const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeForecast, normalizeRadarbars, normalizeSizes, normalizeDecimals, normalizeLicMode, normalizeRel, normalizeTraffic } = require('./layouts');
+const { createLayout, createOverlay, ensureLayoutTypes, normalizeColumns, normalizeHf, normalizeCards, normalizeDash, normalizePedals, normalizeSectors, normalizeLaps, normalizeRejoin, normalizeFuel, normalizePitlimit, normalizeSr, normalizeForecast, normalizeRadarbars, normalizeSizes, normalizeDecimals, normalizeLicMode, normalizeRel, normalizeTraffic } = require('./layouts');
 
 const DEFAULTS = {
   port: 8900,
@@ -64,6 +64,7 @@ function load(dir) {
       o.decimals = (o.type === 'relative' || o.type === 'standings') ? normalizeDecimals(o.decimals) : {};
       o.licMode = (o.type === 'relative' || o.type === 'standings') ? normalizeLicMode(o.licMode) : 'full';
       if (o.type === 'dash') o.dash = normalizeDash(o.dash);
+      if (o.type === 'pedals') o.pedals = normalizePedals(o.pedals);
       if (o.type === 'sectors') o.sectors = normalizeSectors(o.sectors);
       if (o.type === 'laps') o.laps = normalizeLaps(o.laps);
       if (o.type === 'rejoin') o.rejoin = normalizeRejoin(o.rejoin);

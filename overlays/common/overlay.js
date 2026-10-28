@@ -302,6 +302,11 @@ let forecastHook = null, lastForecast = null;
 const deliverForecast = (obj) => { lastForecast = obj; forecastHook?.(obj); };
 export const onForecastChange = (fn) => { forecastHook = fn; if (lastForecast) fn(lastForecast); };
 
+// Настройки Pedals (JSON): ?pedals=..., настройки приложения, панель
+let pedalsHook = null, lastPedals = null;
+const deliverPedals = (obj) => { lastPedals = obj; pedalsHook?.(obj); };
+export const onPedalsChange = (fn) => { pedalsHook = fn; if (lastPedals) fn(lastPedals); };
+
 // Настройки Radar Bars (JSON): ?radarbars=..., настройки приложения, панель
 let rbHook = null, lastRb = null;
 const deliverRb = (obj) => { lastRb = obj; rbHook?.(obj); };
@@ -354,6 +359,7 @@ export function setupPage() {
   if (params.has('lic')) deliverLicMode(params.get('lic'));
   if (params.has('dec')) { try { deliverDecimals(JSON.parse(params.get('dec'))); } catch { /* знаки по умолчанию */ } }
   if (params.has('sizes')) { try { deliverSizes(JSON.parse(params.get('sizes'))); } catch { /* размеры по умолчанию */ } }
+  if (params.has('pedals')) { try { deliverPedals(JSON.parse(params.get('pedals'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('radarbars')) { try { deliverRb(JSON.parse(params.get('radarbars'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('forecast')) { try { deliverForecast(JSON.parse(params.get('forecast'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('sr')) { try { deliverSr(JSON.parse(params.get('sr'))); } catch { /* настройки по умолчанию */ } }
@@ -384,6 +390,7 @@ export function setupPage() {
     if (e.data?.svoySr) deliverSr(e.data.svoySr);
     if (e.data?.svoyForecast) deliverForecast(e.data.svoyForecast);
     if (e.data?.svoyRadarbars) deliverRb(e.data.svoyRadarbars);
+    if (e.data?.svoyPedals) deliverPedals(e.data.svoyPedals);
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
     if (e.data?.svoyDecimals) deliverDecimals(e.data.svoyDecimals);
     if (typeof e.data?.svoyLicMode === 'string') deliverLicMode(e.data.svoyLicMode);
@@ -420,6 +427,7 @@ export function setupPage() {
       if (s.sr && !params.has('sr')) deliverSr(s.sr);
       if (s.forecast && !params.has('forecast')) deliverForecast(s.forecast);
       if (s.radarbars && !params.has('radarbars')) deliverRb(s.radarbars);
+      if (s.pedals && !params.has('pedals')) deliverPedals(s.pedals);
       if (s.fuel && !params.has('fuel')) deliverFuel(s.fuel);
       if (s.rejoin && !params.has('rejoin')) deliverRejoin(s.rejoin);
       if (s.laps && !params.has('laps')) deliverLaps(s.laps);

@@ -1,0 +1,9 @@
+/* Pedals: столбики сцепления, тормоза и газа отдельным окном. Занимают всё окно —
+   размер и пропорции задаются растягиванием окна. Шрифт — --fs, его считает pedals.js по размеру окна. */
+html, body { height: 100%; }
+.pd { position: fixed; inset: 0; display: flex; gap: calc(var(--fs, 12px) * 0.6); padding: calc(var(--fs, 12px) * 0.7); box-sizing: border-box; border-radius: calc(var(--fs, 12px) * 0.9); background: var(--bg); font-size: var(--fs, 12px); font-weight: 700; color: rgba(255, 255, 255, 0.75); font-variant-numeric: tabular-nums; }
+.pd .barcol { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0.35em; }
+.pd .pedal { flex: 1; border-radius: 0.45em; background: rgba(255, 255, 255, 0.08); position: relative; overflow: hidden; }
+.pd .pedal i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--c); }
+.pd .barcol.abs .pedal i { box-shadow: inset 0 0 0 0.3em #fff; }
+.pd b { text-align: center; line-height: 1; }

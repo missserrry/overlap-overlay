@@ -5,8 +5,8 @@
 const TABLE = ['relative', 'standings'];
 // Где цвет реально что-то красит (проверено на отрисовке): у DigiFlag и Radar нет ни текста, ни фона, у Sectors текст и подписи заданы жёстко
 const WITH_TEXT = ['relative', 'standings', 'weather', 'dash', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
-const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
+const WITH_BG = ['relative', 'standings', 'weather', 'dash', 'pedals', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast'];
+const ALL = ['relative', 'standings', 'weather', 'digiflag', 'radar', 'dash', 'pedals', 'sectors', 'laps', 'rejoin', 'fuel', 'pitlimit', 'traffic', 'sr', 'forecast', 'radarbars'];
 
 // key — идентификатор, def — стандартный цвет (он же показывается в панели), types — где токен действует
 const GROUPS = [
@@ -54,9 +54,9 @@ const GROUPS = [
   },
   {
     title: 'Dash', tokens: [
-      { key: 'dashThr', label: 'Газ', def: '#2EE34A', types: ['dash'] },
-      { key: 'dashBrk', label: 'Тормоз', def: '#FF3B30', types: ['dash'] },
-      { key: 'dashClu', label: 'Сцепление', def: '#F5C342', types: ['dash'] },
+      { key: 'dashThr', label: 'Газ', def: '#2EE34A', types: ['dash', 'pedals'] },
+      { key: 'dashBrk', label: 'Тормоз', def: '#FF3B30', types: ['dash', 'pedals'] },
+      { key: 'dashClu', label: 'Сцепление', def: '#F5C342', types: ['dash', 'pedals'] },
     ],
   },
   {
@@ -208,7 +208,7 @@ const SEL = {
   accent: ['.wet .bar2 i', '.compass .arrow', '.sec .fill', '.laps .ico'],
   text: ['.name', '.row .pos', '.row .gap', '.hf b', '.sec .val', '.laps .cur', '.laps .cell b', '.fuel .stat b', '.pl .spd b', '.srw .now', '.srw .st b', '.srw .irb b', '.fc .pct', '.fc .sky .ico'],
   textDim: ['.bar .label', '.chip', '.inc-icon', '.sc.int-v', '.sc.last-v', '.num', '.hf .k', '.hf .of', '.standings .cols', '.class-head span:not(.cname)', '.laps .cell small', '.fuel .top', '.fuel .stat small', '.rj .top', '.pl .top', '.sec .lbl', '.tr .t small', '.srw .top', '.srw .st small', '.srw .irb small', '.fc .top', '.fc .when', '.fc .clk', '.fc .tmp', '.fc .none'],
-  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.radarbox', '.srw', '.fc'],
+  bg: ['.panel', '.sectors', '.laps', '.fuel', '.rj', '.pl', '.tr', '.dash .main', '.pd', '.radarbox', '.srw', '.fc'],
   nameColor: ['.name'],
   ahead: ['.row.lap-ahead .gap'],
   behind: ['.row.lap-behind .gap'],

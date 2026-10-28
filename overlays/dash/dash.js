@@ -1,5 +1,6 @@
 import { connect, setupPage, getFixedScale, onScaleChange, onDashChange, cssVar } from '/common/overlay.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
+import { absLatch } from '/common/pedals.js';
 
 setupPage();
 const root = document.getElementById('dash');
@@ -51,7 +52,7 @@ function build() {
     parts.push('</div>');
   }
   if (c['blocks.graph']) parts.push('<div class="trace"><canvas data-graph></canvas></div>');
-  if (c['blocks.bars']) {
+  if (c['blocks.bars'] && !c['bars.out']) {   // bars.out: столбики вынесены в отдельный оверлей Pedals
     parts.push('<div class="bars-wrap">' + [['clutch', 'var(--d-clu, #f5c342)'], ['brake', 'var(--d-brk, #ff3b30)'], ['throttle', 'var(--d-thr, #2ee34a)']]
       .map(([k, col]) => `<div class="barcol" data-col="${k}"><div class="pedal"><i style="--c:${col}" data-bar="${k}"></i></div><b data-val="${k}">0</b></div>`).join('') + '</div>');
   }
@@ -95,6 +96,7 @@ function ledStates(m, n) {
 // ---------- обновление по данным ----------
 const samples = [];
 let lastGear = null;
+const absHeld = absLatch();
 
 function render() {
   const m = model;
@@ -132,7 +134,7 @@ function render() {
     if (refs.bars[k]) refs.bars[k].style.height = `${(v * 100).toFixed(0)}%`;
     if (refs.vals[k]) refs.vals[k].textContent = Math.round(v * 100);
   }
-  refs.cols.brake?.classList.toggle('abs', cfg['graph.abs'] && m.abs && (m.brake ?? 0) > 0.05);
+  refs.cols.brake?.classList.toggle('abs', cfg['graph.abs'] && absHeld(m));
   if (refs.foot) { renderBar(refs.foot, hf.ids('footer'), m.info); fitBar(refs.foot); }
   samples.push({ t: performance.now(), throttle: m.throttle ?? 0, brake: m.brake ?? 0, clutch: m.clutch ?? 0, steer: m.steer ?? 0, abs: m.abs });
 }

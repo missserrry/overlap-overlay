@@ -11,6 +11,7 @@ const OVERLAY_TYPES = {
   digiflag: { title: 'DigiFlag', width: 200, height: 200 },
   radar: { title: 'Radar', width: 260, height: 260 },
   dash: { title: 'Dash', width: 560, height: 150 },
+  pedals: { title: 'Pedals', width: 170, height: 220 },
   sectors: { title: 'Sectors', width: 640, height: 70 },
   laps: { title: 'Laps', width: 320, height: 200 },
   rejoin: { title: 'Rejoin', width: 320, height: 170 },
@@ -183,7 +184,7 @@ const DASH_SCHEMA = [
   { group: 'Что показывать', items: [
     bool('blocks.ring', 'Кольцо с передачей', true), bool('blocks.dots', 'Точки над числами', true),
     bool('blocks.speed', 'Скорость', true), bool('blocks.rpm', 'Обороты', true),
-    bool('blocks.graph', 'График педалей', true), bool('blocks.bars', 'Столбики педалей', true),
+    bool('blocks.graph', 'График педалей', true), bool('blocks.bars', 'Столбики педалей (пока не включён Pedals)', true),
     bool('blocks.pos', 'Позиция справа', false), bool('blocks.foot', 'Нижняя плашка', true),
   ] },
   { group: 'Точки', items: [
@@ -210,6 +211,16 @@ const DASH_SCHEMA = [
   ] },
 ];
 const DASH_ITEMS = DASH_SCHEMA.flatMap((g) => g.items);
+
+// Настройки Pedals — столбики педалей отдельным окном (overlays/pedals). Пока он включён, в Dash столбиков нет.
+const PEDALS_SCHEMA = [
+  { group: 'Что показывать', items: [
+    bool('clutch', 'Сцепление', true), bool('brake', 'Тормоз', true), bool('throttle', 'Газ', true),
+    bool('values', 'Проценты под столбиками', true), bool('abs', 'Подсветка ABS на тормозе', true),
+  ] },
+];
+const PEDALS_ITEMS = PEDALS_SCHEMA.flatMap((g) => g.items);
+const normalizePedals = (cur, patch) => normalizeSchema(PEDALS_ITEMS, cur, patch);
 
 // Привести настройки к актуальному виду: известные ключи, значения в границах; patch — плоские изменения поверх cur
 function normalizeSchema(items, cur, patch = {}) {
@@ -387,7 +398,7 @@ const CATEGORIES = ['sportscar', 'formulacar', 'oval', 'dirtroad', 'dirtoval'];
 // Игры: для каждой — какие оверлеи в ней работают (null — все)
 const GAMES = {
   iracing: { name: 'iRacing', types: null },
-  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'rejoin', 'traffic'] },
+  lmu: { name: 'Le Mans Ultimate', short: 'LMU', types: ['digiflag', 'dash', 'pedals', 'rejoin', 'traffic'] },
 };
 const gameAllows = (game, type) => { const t = (GAMES[game] || GAMES.iracing).types; return !t || t.includes(type); };
 
@@ -409,6 +420,7 @@ function createOverlay(type, at = {}) {
     licMode: 'full',     // Relative и Standings: вид плашки лицензии (full | num | letter)
     decimals: {},        // Relative и Standings: знаков после запятой у числовых колонок (id → 0…3), только отличное от умолчания
     dash: normalizeDash(),
+    pedals: normalizePedals(),
     sectors: normalizeSectors(),
     laps: normalizeLaps(),
     rejoin: normalizeRejoin(),
@@ -547,5 +559,5 @@ module.exports = {
   createOverlay, createLayout, clone, uid, ensureAllTypes, ensureLayoutTypes,
   matchScore, findMatchingLayout, activeVariation, overlaysOf, normalizeCarName,
   COLUMN_CATALOG, COLUMN_DEFAULTS, normalizeColumns, HF_CATALOG, normalizeHf, WEATHER_CARDS, normalizeCards,
-  DASH_SCHEMA, normalizeDash, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
+  DASH_SCHEMA, normalizeDash, PEDALS_SCHEMA, normalizePedals, SECTORS_SCHEMA, normalizeSectors, LAPS_SCHEMA, normalizeLaps, REJOIN_SCHEMA, normalizeRejoin, FUEL_SCHEMA, normalizeFuel, normalizeSizes, LIC_MODES, normalizeLicMode, DECIMAL_COLUMNS, normalizeDecimals, REL_SCHEMA, normalizeRel, TRAFFIC_SCHEMA, normalizeTraffic, PITLIMIT_SCHEMA, normalizePitlimit, SR_SCHEMA, normalizeSr, FORECAST_SCHEMA, normalizeForecast, RADARBARS_SCHEMA, normalizeRadarbars,
 };
