@@ -46,8 +46,9 @@
 .bars-wrap { display: flex; gap: 0.28em; margin-left: 0.67em; height: 3.9em; flex: none; }
 .barcol { display: flex; flex-direction: column; align-items: center; gap: 0.2em; height: 100%; font-size: 0.61em; color: rgba(255, 255, 255, 0.75); font-variant-numeric: tabular-nums; }
 .barcol .pedal { width: 1.8em; flex: 1; border-radius: 0.3em; background: rgba(255, 255, 255, 0.08); position: relative; overflow: hidden; }
-.barcol .pedal i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--c); }
-.barcol.abs .pedal i { box-shadow: inset 0 0 0 0.2em #fff; } /* ровная обводка: ABS дёргается десятки раз в секунду, мигание выглядело как мерцание */
+.barcol .pedal i { position: absolute; inset: 0; background: var(--c); transform-origin: 50% 100%; transform: scaleY(0); will-change: transform; } /* scaleY, а не высота — см. pedals.css */
+.barcol .pedal::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 0.2em #fff; opacity: 0; } /* рамка ABS слоем над заливкой; ровная, а не мигающая: ABS дёргается десятки раз в секунду */
+.barcol.abs .pedal::after { opacity: 1; }
 
 .dpos { margin-left: 1em; font-size: 1.45em; }
 

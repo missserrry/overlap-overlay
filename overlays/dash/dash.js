@@ -131,7 +131,7 @@ function render() {
   if (refs.pos) refs.pos.textContent = m.classPos ? `P${m.classPos}` : 'P–';
   for (const k of ['clutch', 'brake', 'throttle']) {
     const v = clamp(m[k] ?? 0, 0, 1);
-    if (refs.bars[k]) refs.bars[k].style.height = `${(v * 100).toFixed(0)}%`;
+    if (refs.bars[k]) refs.bars[k].style.transform = `scaleY(${v.toFixed(3)})`;
     if (refs.vals[k]) refs.vals[k].textContent = Math.round(v * 100);
   }
   refs.cols.brake?.classList.toggle('abs', cfg['graph.abs'] && absHeld(m));
