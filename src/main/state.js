@@ -40,12 +40,14 @@ class LayoutState {
     return { layout: chosen, reason: 'default' };
   }
 
-  // Какой набор действует: в режиме «Тренировка» основные раскладки игнорируются
-  activeSet() {
-    if (this.trainingOn) return { layout: this.cfg.training, variation: 'base', reason: 'training' };
+  // Какие наборы действуют: основная раскладка, а в режиме «Тренировка» к ней добавляются оверлеи тренировки
+  activeSets() {
     const r = this.resolve();
-    return { layout: r.layout, variation: L.activeVariation(r.layout, this.sim), reason: r.reason, score: r.score };
+    const sets = [{ layout: r.layout, variation: L.activeVariation(r.layout, this.sim), reason: r.reason, score: r.score }];
+    if (this.trainingOn) sets.push({ layout: this.cfg.training, variation: 'base', reason: 'training' });
+    return sets;
   }
+  activeSet() { return this.activeSets()[0]; }
 
   // Набор оверлеев, которые должны быть на экране сейчас
   desiredOverlays() {
@@ -56,19 +58,45 @@ class LayoutState {
       const l = this.layout(this.panelSelection.layoutId);
       return L.overlaysOf(l, this.panelSelection.variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type));
     }
-    const { layout, variation } = this.activeSet();
     // Не в режиме редактирования: прячем всё, пока игра не в фокусе (alt-tab, рабочий стол), если так включено
     if (!editing && this.cfg.onlyWhenFocused !== false && !this.gameFocused) return [];
-    return L.overlaysOf(layout, variation).filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type) && (editing || this.visibleNow(o, variation)));
+    return this.activeSets().flatMap(({ layout, variation }) => L.overlaysOf(layout, variation)
+      .filter((o) => o.enabled && L.gameAllows(this.cfg.game, o.type) && (editing || this.visibleNow(o, variation))));
+  }
+
+  // Первый выбор LMU: в текущей раскладке включаем оверлеи, которые для неё предназначены (остальное не трогаем)
+  enableLmuDefaults() {
+    this.cfg.lmuInit = true;
+    const want = ['dash', 'pedals', 'abs', 'rejoin', 'traffic', 'digiflag'];
+    const l = this.resolve().layout;
+    if (!l) return;
+    for (const list of [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)]) {
+      for (const o of list || []) if (want.includes(o.type)) o.enabled = true;
+    }
+    l.updatedAt = new Date().toISOString();
+  }
+
+  // Короткая подсказка для панели: почему на экране пусто, хотя игра подключена (пусто — всё в порядке или причин нет)
+  visibilityHint() {
+    if (this.cfg.locked === false || !this.sim.connected || this.sim.source === 'demo') return '';
+    if (this.cfg.hiddenAll) return 'Все оверлеи скрыты (Ctrl+Shift+H покажет их).';
+    const list = this.overlayStatus().list.filter((o) => L.gameAllows(this.cfg.game, o.type));
+    if (!list.length || list.some((o) => o.shown)) return '';
+    const on = list.filter((o) => o.enabled);
+    if (!on.length) return `В этой раскладке для ${L.GAMES[this.cfg.game]?.name || 'игры'} не включён ни один оверлей: включите нужные переключателем.`;
+    const why = new Set(on.map((o) => o.why));
+    if (why.size === 1 && [...why][0] === 'окно игры не в фокусе') return 'Оверлеи появятся, когда окно игры будет активным.';
+    return `Оверлеи сейчас скрыты: ${[...why].filter(Boolean).join('; ')}.`;
   }
 
   // Для диагностики: у каждого оверлея набора — на экране ли он и, если нет, почему
   overlayStatus() {
     const editing = !this.cfg.locked;
-    const { layout, variation, reason } = this.activeSet();
+    const sets = this.activeSets();
+    const { layout, variation, reason } = sets[0];
     const shown = new Set(this.desiredOverlays().map((o) => o.id));
     const sim = this.sim.connected ? (this.sim.source === 'demo' ? 'демо' : (this.sim.inGarage ? 'в гараже' : this.sim.onTrack ? 'на трассе' : 'в меню или повторе')) : 'игры нет';
-    const why = (o) => {
+    const why = (o, variation) => {
       if (!o.enabled) return 'выключен';
       if (!L.gameAllows(this.cfg.game, o.type)) return `недоступен в игре ${this.cfg.game}`;
       if (this.cfg.hiddenAll) return 'скрыты все оверлеи';
@@ -77,8 +105,8 @@ class LayoutState {
       return shown.has(o.id) ? '' : 'в режиме редактирования показывается набор, выбранный в панели';
     };
     return {
-      layout: layout?.name || '—', variation, reason, sim, editing,
-      list: L.overlaysOf(layout, variation).map((o) => ({ id: o.id, type: o.type, enabled: o.enabled, shown: shown.has(o.id), why: shown.has(o.id) ? '' : why(o) })),
+      layout: layout?.name || '—', variation, reason, sim, editing, training: this.trainingOn,
+      list: sets.flatMap((set) => L.overlaysOf(set.layout, set.variation).map((o) => ({ id: o.id, type: o.type, enabled: o.enabled, shown: shown.has(o.id), why: shown.has(o.id) ? '' : why(o, set.variation) }))),
     };
   }
 
@@ -97,9 +125,12 @@ class LayoutState {
   // Где сейчас лежит оверлей с этим id (для сохранения позиции после перетаскивания)
   findOverlay(id) {
     const sel = !this.cfg.locked && this.panelSelection ? this.panelSelection : null;
-    const layout = sel ? this.layout(sel.layoutId) : this.activeSet().layout;
-    const variation = sel ? sel.variation : this.activeSet().variation;
-    return L.overlaysOf(layout, variation).find((o) => o.id === id) || null;
+    if (sel) return L.overlaysOf(this.layout(sel.layoutId), sel.variation).find((o) => o.id === id) || null;
+    for (const { layout, variation } of this.activeSets()) {
+      const o = L.overlaysOf(layout, variation).find((x) => x.id === id);
+      if (o) return o;
+    }
+    return null;
   }
 
   overlayList(layoutId, variation) {
@@ -144,6 +175,7 @@ class LayoutState {
       paletteVars: Object.fromEntries(Object.keys(L.OVERLAY_TYPES).map((t) => [t, P.buildVars(this.cfg.palette, t)])),
       categories: L.CATEGORIES,
       games: L.GAMES,
+      visibilityHint: this.visibilityHint(),
     };
   }
 
@@ -158,7 +190,10 @@ class LayoutState {
     switch (a.type) {
       case 'app.set': {
         for (const k of ['autoSwitch', 'locked', 'hiddenAll', 'demo', 'onlyWhenFocused', 'autoUpdate', 'lastSeenVersion', 'gameChosen']) if (k in a) this.cfg[k] = a[k];
-        if ('game' in a && L.GAMES[a.game]) this.cfg.game = a.game;
+        if ('game' in a && L.GAMES[a.game]) {
+          this.cfg.game = a.game;
+          if (a.game === 'lmu' && !this.cfg.lmuInit) this.enableLmuDefaults();
+        }
         if ('autoSwitch' in a) this.manual = null;
         break;
       }
@@ -282,6 +317,12 @@ class LayoutState {
         if (typeof p.radarClass === 'boolean') o.radarClass = p.radarClass;
         if (p.sectors && typeof p.sectors === 'object') o.sectors = L.normalizeSectors(o.sectors, p.sectors);
         if (p.traffic && typeof p.traffic === 'object') o.traffic = L.normalizeTraffic(o.traffic, p.traffic);
+        if (p.standings && typeof p.standings === 'object') {
+          const old = o.standings || { min: 3, max: null };
+          const min = Number.isFinite(p.standings.min) ? Math.max(0, Math.floor(p.standings.min)) : old.min ?? 3;
+          const max = p.standings.max === null ? null : Number.isFinite(p.standings.max) ? Math.max(0, Math.floor(p.standings.max)) : old.max ?? null;
+          o.standings = { min: max == null ? min : Math.min(min, max), max };
+        }
         if (p.rel && typeof p.rel === 'object') o.rel = L.normalizeRel(o.rel, p.rel);
         if (typeof p.licMode === 'string') o.licMode = L.normalizeLicMode(p.licMode);
         if (p.decimals === null) o.decimals = {};

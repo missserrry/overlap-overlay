@@ -25,11 +25,11 @@ function render() {
 
   const cars = (m.cars || []).slice(0, cfg.count);
   const first = cars[0];
-  const level = !first ? 'safe' : first.time < cfg.danger ? 'danger' : first.time < cfg.warn ? 'warn' : 'safe';
-  const label = { safe: 'CLEAR', warn: 'CAUTION', danger: 'WAIT' }[level];
+  const level = m.close ? 'danger' : !first ? 'safe' : first.time < cfg.danger ? 'danger' : first.time < cfg.warn ? 'warn' : 'safe';
+  const label = m.close ? 'СТОЙ' : { safe: 'CLEAR', warn: 'CAUTION', danger: 'WAIT' }[level];
   root.className = `rj ${level}`;
 
-  const main = first
+  const main = m.close ? '<div class="main"><b>СТОЙ</b></div>' : first
     ? `<div class="main"><b>${first.time.toFixed(1)}</b><small>s</small></div>`
     : '<div class="main none"><b>Никого сзади</b></div>';
   const bar = cfg.bar ? `<div class="rbar"><i style="width:${first ? Math.max(0, Math.min(1, 1 - first.time / Math.max(cfg.warn * 1.6, 1))) * 100 : 0}%"></i></div>` : '';

@@ -88,7 +88,7 @@ function initTelemetry({ port, cfg }) {
   ipcMain.handle('tlm-pick', async () => {
     const r = await dialog.showOpenDialog(win, {
       title: 'Добавить телеметрию', properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Телеметрия и архивы с ней', extensions: ['ibt', 'duckdb', 'zip', '7z', 'rar'] }],
+      filters: [{ name: 'Телеметрия и архивы с ней', extensions: ['ibt', 'duckdb', 'ld', 'zip', '7z', 'rar'] }],
     });
     return r.canceled ? { added: [], skipped: [] } : library().importFiles(r.filePaths);
   });

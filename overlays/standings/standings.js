@@ -1,4 +1,4 @@
-import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, onLicModeChange, getSplit, deliverSplit, onSplit } from '/common/overlay.js';
+import { connect, setupPage, createFitter, esc, fmtIrating, fmtClock, fmtDuration, onColumnsChange, onSizesChange, onDecimalsChange, onLicModeChange, getSplit, deliverSplit, onSplit, onStandingsChange } from '/common/overlay.js';
 import { DEFS, buildLevels, cellHtml, currentColumns, headOf, secView, onColumns, rowScale, setColumns, setSizes, setDecimals, setLicMode, sizeOf, sizesKey } from '/common/columns.js';
 import { fitBar, initHf, renderBar } from '/common/hf.js';
 
@@ -16,6 +16,8 @@ function rebuildLevels() {
 rebuildLevels();
 
 let model = null;
+let windowCfg = { min: 3, max: null };
+onStandingsChange((cfg) => { windowCfg = { min: 3, max: null, ...cfg }; if (model?.classes?.length) { fitter.invalidate(); fitter.fit(); } });
 const hf = initHf('standings', () => { if (model?.classes?.length) { fitter.invalidate(); fitter.fit(); } });
 const fitter = createFitter({
   root: wrap, levels, render, minRows: 3,
@@ -97,15 +99,22 @@ function sliceClasses(m, budget) {
 }
 
 function aroundPlayer(rows, n) {
-  if (rows.length <= n) return rows;
   const p = rows.findIndex((r) => r.isPlayer);
-  if (p < n) return rows.slice(0, n); // вы и так в верхней части
-  const lead = n >= 8 ? 3 : n >= 2 ? 1 : 0; // лидер класса всегда на виду
+  if (p < 0) return rows.slice(0, n);
+  const below = Math.min(Math.max(0, Math.floor(windowCfg.min || 0)), n - 1, rows.length - p - 1);
+  const maxBelow = windowCfg.max == null ? n - 1 : Math.max(below, Math.floor(windowCfg.max));
+  const choose = (win) => {
+    const want = Math.min(maxBelow, Math.max(below, Math.floor((win - 1) / 2)), win - 1);
+    return Math.max(0, Math.min(p - (win - 1 - want), rows.length - win, p));
+  };
+  let start = choose(n);
+  const lead = start > 0 ? (n >= 8 ? 3 : n >= 2 ? 1 : 0) : 0;
+  if (!lead || p < lead) return rows.slice(start, Math.min(start + n, p + 1 + maxBelow));
   const win = n - lead;
-  const start = Math.min(Math.max(p - Math.floor((win - 1) / 2), lead), rows.length - win);
+  start = Math.max(lead, choose(win));
   const out = rows.slice(0, lead);
-  if (lead && start > lead) out.push({ separator: true });
-  return out.concat(rows.slice(start, start + win));
+  if (start > lead) out.push({ separator: true });
+  return out.concat(rows.slice(start, Math.min(start + win, p + 1 + maxBelow)));
 }
 
 function gapText(g) {

@@ -105,11 +105,12 @@ function buildFuel(race) {
   tank = tank != null ? tank * maxPct : (num(v.FuelLevelPct) > 0 ? fuel / v.FuelLevelPct : null);
 
   // --- учёт кругов
-  const key = `${race.kind}|${race.refIdx}`;
+  const key = JSON.stringify([race.fuelSessionKey, race.kind, race.refIdx, race.trackKey, me?.CarID, me?.CarScreenName]);
   if (key !== st.key) { st = fresh(); st.key = key; }
   const lap = ref.lap;
   const now = v.SessionTime;
   if (st.lap < 0 || lap < st.lap) {            // начало или сброс (перезапуск машины, новая сессия)
+    if (lap < st.lap) { st = fresh(); st.key = key; }
     st.lap = lap; st.fuelAtStart = fuel; st.timeAtStart = now; st.dirty = true; st.go = null; st.cur.fill(null);
   } else if (lap > st.lap) {
     const used = st.fuelAtStart - fuel;

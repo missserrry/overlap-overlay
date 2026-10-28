@@ -22,3 +22,6 @@ html, body { height: 100%; }
   background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--c) 45%, #fff), var(--c) 58%, color-mix(in srgb, var(--c) 65%, #000));
   box-shadow: 0 0 0.45em color-mix(in srgb, var(--c) 70%, transparent);
 }
+
+.led-panel.black-flag { outline: 2px solid #fff; outline-offset: -2px; }
+.led-panel i.black { background: #000; box-shadow: 0 0 0 1px #555; }

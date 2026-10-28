@@ -8,6 +8,8 @@ const COLOR = { Y: 'var(--flag-y, #ffe600)', W: 'var(--flag-w, #f4f4f4)', R: 'va
 
 // Буквы S и C: сетка 3×7 «пикселей», каждый — квадрат из k×k светодиодов
 const GLYPH = {
+  D: ['XX.', 'X.X', 'X.X', 'X.X', 'X.X', 'X.X', 'XX.'],
+  Q: ['XXX', 'X.X', 'X.X', 'X.X', 'X.X', 'XXX', '..X'],
   S: ['XXX', 'X..', 'X..', 'XXX', '..X', '..X', 'XXX'],
   C: ['XXX', 'X.X', 'X..', 'X..', 'X..', 'X.X', 'XXX'],
 };
@@ -56,8 +58,13 @@ const FLAGS = {
     const rx = w >= 8 ? w * 0.36 : w / 2, ry = w >= 8 ? w * 0.36 : h * 0.32;
     return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1 ? 'O' : null;
   }],
-  black: [() => null, (x, y, w, h) => (ring(x, y, w, h) ? 'W' : null)],
-  disqualify: [() => null, (x, y, w, h) => (ring(x, y, w, h) ? 'W' : null)],
+  black: [solid('K'), () => null],
+  disqualify: [(x, y, w, h) => {
+    const k = w >= 8 ? Math.max(1, Math.floor(w / 8)) : 1;
+    const ox = w >= 8 ? Math.floor((w - 7 * k) / 2) : 1;
+    const oy = w >= 8 ? Math.floor((h - 7 * k) / 2) : 2;
+    return glyphAt(x, y, 'D', ox, oy, k) || glyphAt(x, y, 'Q', w >= 8 ? ox + 4 * k : ox, w >= 8 ? oy : 14, k) ? 'W' : null;
+  }],
   checkered: [
     (x, y, w) => (((Math.floor(x / cell(w)) + Math.floor(y / cell(w))) % 2 === 0) ? 'W' : null),
     (x, y, w) => (((Math.floor(x / cell(w)) + Math.floor(y / cell(w))) % 2 === 1) ? 'W' : null),
@@ -113,8 +120,9 @@ function paint() {
     leds.forEach((led, i) => {
       const x = i % w, y = (i / w) | 0;
       const c = fn ? fn(x, y, w, h) : null;
-      if (c) { led.className = 'on'; led.style.setProperty('--c', COLOR[c]); glow ||= COLOR[c]; } else { led.className = ''; }
+      if (c === 'K') { led.className = 'black'; } else if (c) { led.className = 'on'; led.style.setProperty('--c', COLOR[c]); glow ||= COLOR[c]; } else { led.className = ''; }
     });
+    el.classList.toggle('black-flag', flag === 'black');
     el.style.setProperty('--glow', glow ? `color-mix(in srgb, ${glow} 45%, transparent)` : 'transparent');
   }
 }

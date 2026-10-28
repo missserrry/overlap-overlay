@@ -40,6 +40,7 @@ function render() {
 function layout() {
   root.style.setProperty('--scale', 1);
   root.style.width = 'auto';
+  root.style.height = 'auto';
   const w0 = root.offsetWidth, h0 = root.offsetHeight;
   if (!w0 || !h0) return;
   const k = Math.min(window.innerWidth / w0, window.innerHeight / h0);

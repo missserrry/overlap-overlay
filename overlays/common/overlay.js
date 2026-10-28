@@ -337,6 +337,10 @@ let relHook = null, lastRel = null;
 const deliverRel = (obj) => { lastRel = obj; relHook?.(obj); };
 export const onRelChange = (fn) => { relHook = fn; if (lastRel) fn(lastRel); };
 
+let standingsHook = null, lastStandings = null;
+const deliverStandings = (obj) => { lastStandings = obj; standingsHook?.(obj); };
+export const onStandingsChange = (fn) => { standingsHook = fn; if (lastStandings) fn(lastStandings); };
+
 // Настройки Traffic (JSON): ?traffic=..., настройки приложения, панель
 let trafficHook = null, lastTraffic = null;
 const deliverTraffic = (obj) => { lastTraffic = obj; trafficHook?.(obj); };
@@ -360,6 +364,7 @@ export function setupPage() {
   if (params.has('cls')) deliverFlagOpts({ cls: params.get('cls') === '1' });
   if (params.has('palette')) { try { deliverPalette(JSON.parse(params.get('palette'))); } catch { /* битый адрес — цвета по умолчанию */ } }
   if (params.has('traffic')) { try { deliverTraffic(JSON.parse(params.get('traffic'))); } catch { /* настройки по умолчанию */ } }
+  if (params.has('standings')) { try { deliverStandings(JSON.parse(params.get('standings'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('rel')) { try { deliverRel(JSON.parse(params.get('rel'))); } catch { /* настройки по умолчанию */ } }
   if (params.has('lic')) deliverLicMode(params.get('lic'));
   if (params.has('dec')) { try { deliverDecimals(JSON.parse(params.get('dec'))); } catch { /* знаки по умолчанию */ } }
@@ -401,6 +406,7 @@ export function setupPage() {
     if (e.data?.svoySizes) deliverSizes(e.data.svoySizes);
     if (e.data?.svoyDecimals) deliverDecimals(e.data.svoyDecimals);
     if (typeof e.data?.svoyLicMode === 'string') deliverLicMode(e.data.svoyLicMode);
+    if (e.data?.svoyStandings) deliverStandings(e.data.svoyStandings);
     if (e.data?.svoyRel) deliverRel(e.data.svoyRel);
     if (e.data?.svoyTraffic) deliverTraffic(e.data.svoyTraffic);
     if (e.data?.svoyPalette) deliverPalette(e.data.svoyPalette);
@@ -426,6 +432,7 @@ export function setupPage() {
       if (s.dash && !params.has('dash')) deliverDash(s.dash);
       if (s.palette && !params.has('palette')) deliverPalette(s.palette);
       if (s.traffic && !params.has('traffic')) deliverTraffic(s.traffic);
+      if (s.standings && !params.has('standings')) deliverStandings(s.standings);
       if (s.rel && !params.has('rel')) deliverRel(s.rel);
       if (s.sizes && !params.has('sizes')) deliverSizes(s.sizes);
       if (s.decimals && !params.has('dec')) deliverDecimals(s.decimals);
@@ -616,6 +623,7 @@ export function fmtLap(sec, dec = 3) {
     const t = Math.round(sec);
     return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
   }
+  sec = Math.round(sec * 10 ** dec) / 10 ** dec;
   const m = Math.floor(sec / 60);
   const s = sec - m * 60;
   return `${String(m).padStart(2, '0')}:${s.toFixed(dec).padStart(dec + 3, '0')}`;

@@ -556,11 +556,11 @@ function ensureAllTypes(list, training = false) {
   }
   return added;
 }
-const ensureLayoutTypes = (l) => [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)].map(ensureAllTypes).some(Boolean);
+const ensureLayoutTypes = (l) => [l.overlays, ...Object.values(l.variations || {}).map((v) => v?.overlays)].map((list) => ensureAllTypes(list)).some(Boolean);
 
 // Режим «Тренировка»: свой набор оверлеев и эталонный круг. Выглядит как раскладка (id 'training'), чтобы панель
 // правила его теми же действиями, но в cfg.layouts его нет, и автопереключение его не выбирает.
-// enabled — режим включён: основные оверлеи скрыты, показываются только эти. ref — выбранный эталон (описание, сам круг читается из файла).
+// enabled — режим включён: эти оверлеи показываются вместе с оверлеями текущей раскладки. ref — выбранный эталон (описание, сам круг читается из файла).
 function normalizeTraining(t) {
   const out = { id: 'training', name: 'Тренировка', enabled: !!t?.enabled, ref: t?.ref && typeof t.ref.file === 'string' ? t.ref : null, overlays: Array.isArray(t?.overlays) ? t.overlays.filter((o) => OVERLAY_TYPES[o?.type]?.training) : [] };
   ensureAllTypes(out.overlays, true);

@@ -18,6 +18,22 @@ export function prepareLap(raw, proj) {
     pos[i * 3 + 1] = raw.alt ? raw.alt[i] - proj.alt0 : 0;
     pos[i * 3 + 2] = proj.z(raw.lat[i]);
   }
+  // GPS LMU может колебаться между отсчётами. Сглаживаем только геометрию
+  // визуализации, оставляя исходную телеметрию и время круга без изменений.
+  if (raw.meta?.source === 'lmu') {
+    // Окно около 1,2 с убирает мелкие боковые зигзаги GPS; вес плавно
+    // уменьшается к краям, чтобы сохранить общую форму поворотов.
+    const w = Math.max(2, Math.round((raw.meta.hz || 50) * 0.6));
+    const original = pos.slice();
+    for (let i = 0; i < n; i++) {
+      let x = 0, z = 0, weight = 0;
+      for (let j = Math.max(0, i - w); j <= Math.min(n - 1, i + w); j++) {
+        const k = w + 1 - Math.abs(j - i);
+        x += original[j * 3] * k; z += original[j * 3 + 2] * k; weight += k;
+      }
+      pos[i * 3] = x / weight; pos[i * 3 + 2] = z / weight;
+    }
+  }
   // высота в iRacing записана ступеньками по 10 см — сглаживаем (±0,6 с), иначе машина и камера подпрыгивают
   if (raw.alt) {
     const w = Math.max(2, Math.round((raw.meta?.hz || 60) * 0.6));
@@ -36,7 +52,7 @@ export function prepareLap(raw, proj) {
   if (raw.yaw) {
     for (let i = 0; i < n; i++) head[i] = raw.yaw[i];
   } else {
-    const w = Math.max(3, Math.round((raw.meta?.hz || 60) * 0.2));
+    const w = Math.max(3, Math.round((raw.meta?.hz || 60) * 0.5));
     let last = 0;
     for (let i = 0; i < n; i++) {
       const a = Math.max(0, i - w), b = Math.min(n - 1, i + w);

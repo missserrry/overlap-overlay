@@ -32,6 +32,7 @@
 .compass .ring b.w { left: 0.5em; top: 50%; transform: translateY(-50%); }
 .compass svg.car { position: absolute; left: 50%; top: 50%; width: 3.4em; height: 5.6em; transform: translate(-50%, -50%); }
 .compass .arrow { position: absolute; inset: 0; transition: transform 280ms linear; }
+.compass .arrow[hidden] { display: none; }
 .compass .arrow svg { position: absolute; left: 50%; top: 0.9em; width: 2.4em; height: 3.2em; transform: translateX(-50%); filter: drop-shadow(0 0 0.4em color-mix(in srgb, var(--accent, #35d0e6) 60%, transparent)); }
 .wind-speed { display: flex; align-items: center; gap: 0.6em; }
 .wind-speed .ico { width: 1.7em; height: 1.7em; }

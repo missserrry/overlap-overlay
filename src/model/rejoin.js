@@ -39,15 +39,17 @@ function buildRejoin(race, now = Date.now()) {
   trackSpeeds(race, len, now);
 
   const cars = [];
+  let close = false;
   for (const c of race.cars) {
     if (c === ref || !c.inWorld || c.onPitRoad) continue;
     let d = ref.lapDistPct - c.lapDistPct;   // сколько трассы между ним и вами (он сзади — положительно)
     if (d < 0) d += 1;
     const dist = d * len;
-    if (dist < 1) continue;                  // уже рядом или чуть впереди
+    if (dist < 1) { close = true; continue; } // продольный интервал меньше метра
     const s = speeds.get(c.carIdx);
+    if (s && s.n > 3 && s.v < 0.5) continue;
     const pace = len / (c.classEstLap || c.bestLap || c.lastLap || 100);
-    const speed = Math.max(s && s.n > 3 && s.v > 0.5 ? s.v : pace, MIN_SPEED);
+    const speed = Math.max(s && s.n > 3 ? s.v : pace, MIN_SPEED);
     const time = dist / speed;
     if (time > MAX_BEHIND) continue;
     cars.push({ number: c.number, name: c.name, color: c.classColor, dist: Math.round(dist), time, speed: Math.round(speed * 3.6) });
@@ -56,6 +58,7 @@ function buildRejoin(race, now = Date.now()) {
 
   return {
     active: true,
+    close,
     speed: Number.isFinite(v.Speed) ? v.Speed * 3.6 : 0,     // км/ч
     onTrack: !!v.IsOnTrack && !ref.onPitRoad,
     cars: cars.slice(0, MAX_CARS),

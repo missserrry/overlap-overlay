@@ -1,4 +1,4 @@
-// Окно «Телеметрия»: слева библиотека кругов (iRacing .ibt, LMU .duckdb, эталоны) и галерея блоков,
+// Окно «Телеметрия»: слева библиотека кругов (iRacing .ibt, LMU .duckdb и MoTeC .ld, эталоны) и галерея блоков,
 // справа рабочая область: блоки («Трасса», «Графики», «Дельта», «Приборы», «Карта», «Сектора»…) стыкуются, как окна в Windows.
 // Проигрывание общее, полосой внизу.
 // Круг А — ваш (проигрывается), круг Б — эталон: едет рядом «призраком» по времени, дельта считается в той же точке трассы.
@@ -314,7 +314,7 @@ function emptyLibraryNote() {
   if (query) return '<div class="lib-note">Ничего не нашлось.</div>';
   if (game === 'lmu') return lib.dirs.lmu?.length
     ? '<div class="lib-note">Сессий LMU нет. Включите запись телеметрии в настройках игры (Settings → Gameplay), и после заезда они появятся здесь.</div>'
-    : '<div class="lib-note">Папка Le Mans Ultimate не найдена. Файлы <code>.duckdb</code> из <code>UserData\\Telemetry</code> можно перетащить в окно.</div>';
+    : '<div class="lib-note">Папка Le Mans Ultimate не найдена. Файлы <code>.duckdb</code> из <code>UserData\\Telemetry</code> и MoTeC <code>.ld</code> можно перетащить в окно.</div>';
   return `<div class="lib-note">Сессий нет. В iRacing запись включается в машине клавишами <code>Alt+L</code>
     или навсегда — строкой <code>irsdkAutoLogDisk=1</code> в <code>app.ini</code>. Файлы ложатся в <code>${esc(lib.dirs.iracing || 'Документы\\iRacing\\telemetry')}</code>.</div>`;
 }
@@ -806,7 +806,7 @@ function afterImport(r) {
     toast(`Читаю эталон: ${r.added.map(refName).join(', ')}…`);
     applyPendingRefs();
   }
-  if (r.skipped.length) toast(`Не телеметрия (нужны .ibt, .duckdb или архив с ними): ${r.skipped.join(', ')}`);
+  toast(`Импортировано ${r.added.length} из ${r.total ?? r.added.length + r.skipped.length}${r.skipped.length ? ` · пропущено: ${r.skipped.join(', ')}` : ''}`);
 }
 
 // ---------- запуск ----------

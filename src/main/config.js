@@ -9,6 +9,7 @@ const DEFAULTS = {
   demo: 'auto',            // auto | on | off
   gameChosen: false,       // пользователь уже выбирал игру (или был до этого экрана): стартовый выбор показываем один раз
   game: 'iracing',         // для какой игры оверлеи: iracing | lmu (см. GAMES в layouts.js)
+  lmuInit: false,          // набор оверлеев LMU уже включали (при первом выборе LMU) — второй раз чужие настройки не трогаем
   autoSwitch: true,        // выбирать раскладку по машине/сессии
   locked: true,            // оверлеи закреплены (клики проходят в игру)
   hiddenAll: false,
@@ -54,6 +55,7 @@ function load(dir) {
   const cfg = { ...DEFAULTS, ...saved };
   // чистая установка: настроек ещё нет — на первом запуске предложим выбрать игру; у тех, кто уже пользуется, не спрашиваем
   if (typeof saved.gameChosen !== 'boolean') cfg.gameChosen = Object.keys(saved).length > 0;
+  if (typeof saved.lmuInit !== 'boolean') cfg.lmuInit = saved.game === 'lmu';   // кто уже сидит на LMU, свои настройки сохраняет
   if (!Array.isArray(cfg.layouts) || !cfg.layouts.length) cfg.layouts = defaultLayouts(saved.overlays);
   delete cfg.overlays;
   cfg.palette = P.normalize(cfg.palette);

@@ -61,10 +61,11 @@ const CARDS = {
     update: (el, m) => {
       const speed = m.imperial ? m.windSpeed * 2.237 : m.windSpeed * 3.6;
       el.querySelector('[data-v]').innerHTML = `${Math.round(speed)}<small>${m.imperial ? 'MPH' : 'KPH'}</small>`;
-      const yaw = ((m.yawNorth ?? 0) * 180) / Math.PI;
-      const from = ((m.windDir ?? 0) * 180) / Math.PI;
-      turn(el.querySelector('[data-ring]'), -yaw);
-      turn(el.querySelector('[data-arrow]'), from - yaw);
+      const arrow = el.querySelector('[data-arrow]');
+      const known = Number.isFinite(m.yawNorth) && Number.isFinite(m.windDir);
+      arrow.hidden = !known;
+      if (Number.isFinite(m.yawNorth)) turn(el.querySelector('[data-ring]'), -m.yawNorth * 180 / Math.PI);
+      if (known) turn(arrow, (m.windDir - m.yawNorth) * 180 / Math.PI);
     },
     ok: (m) => m.windSpeed != null,
   },

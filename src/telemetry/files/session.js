@@ -7,8 +7,10 @@
 const path = require('path');
 const { readIbtInfo, readIbtChannels } = require('./ibt');
 const { readLmuInfo, readLmuChannels } = require('./lmu');
+const { readLd, readLdInfo } = require('./motec');
 
-const kindOf = (file) => (/\.ibt$/i.test(file) ? 'iracing' : /\.duckdb$/i.test(file) ? 'lmu' : null);
+// motec — файл MoTeC .ld (выгрузка из LMU, их же раздают сетаперы): для окна это та же игра, что и 'lmu'
+const kindOf = (file) => (/\.ibt$/i.test(file) ? 'iracing' : /\.duckdb$/i.test(file) ? 'lmu' : /\.ld$/i.test(file) ? 'motec' : null);
 const num = (s) => { const m = String(s ?? '').match(/-?[\d.]+/); return m ? Number(m[0]) : null; };
 
 // ---------- описание файла для библиотеки (быстро) ----------
@@ -38,6 +40,15 @@ async function describe(file) {
       trackId: `${meta.TrackName || ''}|${meta.TrackLayout || ''}`,
       driver: meta.DriverName || '', date: Number.isFinite(date) ? date : null, sessionType: meta.SessionType || '',
       duration: span ? span[1] - span[0] : 0, lapCount: laps.length,
+    };
+  }
+  if (kind === 'motec') {
+    const { head, ldx, duration, lapCount } = readLdInfo(file);
+    return {
+      source: 'lmu', file, name: path.basename(file),
+      car: head.vehicle || '', carId: head.vehicle || '', carClass: head.vehicleClass || '',
+      track: head.venue || '', trackConfig: '', trackId: `${head.venue || ''}|`,
+      driver: head.driver || '', date: head.date, sessionType: '', duration, lapCount, bestTime: ldx?.fastestTime ?? null,
     };
   }
   throw new Error('неизвестный формат файла');
@@ -142,6 +153,26 @@ function fixGear(g, hz) {
   return g;
 }
 
+// Постоянный канал ({ values, freq }) на сетку времени t (n отсчётов, старт t0); wrap — значения, которые перескакивают через ноль
+// на линии (дистанция круга); smooth — кривая Катмулла-Рома через соседние отсчёты (для GPS: линейно 10 Гц дали бы излом на каждом отсчёте)
+function resample(c, t, t0, n, k = 1, wrap = 0, T = Float32Array, smooth = false) {
+  const out = new T(n);
+  if (!c) return out;
+  const v = c.values, last = v.length - 1;
+  for (let j = 0; j < n; j++) {
+    const x = (t[j] - t0) * c.freq;
+    const i = Math.min(last, Math.max(0, Math.floor(x)));
+    const i2 = Math.min(last, i + 1), f = Math.min(1, Math.max(0, x - i));
+    const a = v[i], b = v[i2];
+    if (smooth) {
+      const p0 = v[Math.max(0, i - 1)], p3 = v[Math.min(last, i + 2)];
+      const f2 = f * f, f3 = f2 * f;
+      out[j] = (0.5 * (2 * a + (b - p0) * f + (2 * p0 - 5 * a + 4 * b - p3) * f2 + (3 * a - p0 - 3 * b + p3) * f3)) * k;
+    } else out[j] = (wrap && Math.abs(b - a) > wrap / 2 ? (f < 0.5 ? a : b) : a + (b - a) * f) * k;
+  }
+  return out;
+}
+
 async function loadLmu(file) {
   const { meta, ch, ev } = await readLmuChannels(file, LMU_CHANNELS, LMU_EVENTS);
   const gt = ch['GPS Time'];
@@ -154,24 +185,7 @@ async function loadLmu(file) {
   if (ch['Lap Dist']) for (const v of ch['Lap Dist'].values) if (v > trackLength) trackLength = v;
   // постоянный канал на сетку времени окна; wrap — значения, которые перескакивают через ноль на линии (дистанция круга)
   // smooth — кривая Катмулла-Рома через соседние отсчёты (для GPS: 10 Гц линейно дали бы излом на каждом отсчёте — машина дёргалась бы)
-  const sample = (name, k = 1, wrap = 0, T = Float32Array, smooth = false) => {
-    const c = ch[name];
-    const out = new T(n);
-    if (!c) return out;
-    const v = c.values, last = v.length - 1;
-    for (let j = 0; j < n; j++) {
-      const x = (t[j] - t0) * c.freq;
-      const i = Math.min(last, Math.max(0, Math.floor(x)));
-      const i2 = Math.min(last, i + 1), f = Math.min(1, Math.max(0, x - i));
-      const a = v[i], b = v[i2];
-      if (smooth) {
-        const p0 = v[Math.max(0, i - 1)], p3 = v[Math.min(last, i + 2)];
-        const f2 = f * f, f3 = f2 * f;
-        out[j] = (0.5 * (2 * a + (b - p0) * f + (2 * p0 - 5 * a + 4 * b - p3) * f2 + (3 * a - p0 - 3 * b + p3) * f3)) * k;
-      } else out[j] = (wrap && Math.abs(b - a) > wrap / 2 ? (f < 0.5 ? a : b) : a + (b - a) * f) * k;
-    }
-    return out;
-  };
+  const sample = (name, k = 1, wrap = 0, T = Float32Array, smooth = false) => resample(ch[name], t, t0, n, k, wrap, T, smooth);
   const step = (name) => {
     const out = new Float32Array(n), e = ev[name] || [];
     let k = 0, cur = e.length ? e[0][1] : 0;
@@ -250,10 +264,103 @@ function lmuSectors(s, ev) {
   return [med(at[2]), med(at[0])].filter((p) => p > 0 && p < 1);
 }
 
+// ---------- MoTeC .ld ----------
+
+// В .ld нет ни дистанции круга, ни краёв трассы: дистанцию считаем интегралом скорости от начала каждого круга (и выравниваем
+// полные круги на одну длину), траекторию берём из GPS. Номер круга — канал Lap Number, граница круга — его смена.
+function loadMotec(file) {
+  const { head, ldx, ch } = readLd(file);
+  const HZ = LMU_HZ;
+  const t0 = ch.time ? ch.time.values[0] : 0;
+  const dur = Math.max(...Object.values(ch).map((c) => c.values.length / c.freq));
+  const n = Math.max(0, Math.floor(dur * HZ));
+  const t = new Float64Array(n);
+  for (let j = 0; j < n; j++) t[j] = t0 + j / HZ;
+  const hold = (c) => {   // ступенчатый канал (передача, номер круга): значение держится до следующего отсчёта
+    const out = new Float32Array(n);
+    if (!c) return out;
+    for (let j = 0; j < n; j++) out[j] = c.values[Math.min(c.values.length - 1, Math.floor(j * c.freq / HZ))];
+    return out;
+  };
+  const range = (c) => { let lo = Infinity, hi = -Infinity; if (c) for (const v of c.values) { if (v < lo) lo = v; if (v > hi) hi = v; } return hi - lo; };
+  const unit = ch.speed?.unit?.toLowerCase();
+  const speed = resample(ch.speed, t, t0, n, unit === 'm/s' ? 1 : unit === 'mph' ? 0.44704 : 1 / 3.6);
+  const lapNum = hold(ch.lap);
+
+  // круги: полный — между двумя сменами номера (первый и последний куски записи — выезд и заезд, они неполные)
+  const edges = [0];
+  for (let i = 1; i < n; i++) if (lapNum[i] !== lapNum[i - 1]) edges.push(i);
+  edges.push(n);
+  const segs = [];
+  for (let k = 0; k + 1 < edges.length; k++) {
+    const i0 = edges[k], i1 = edges[k + 1] - 1;
+    if (i1 - i0 < 10) continue;
+    segs.push({ num: lapNum[i0], i0, i1, complete: k > 0 && k + 2 < edges.length });
+  }
+  const dist = new Float32Array(n);
+  for (const sg of segs) {
+    let d = 0;
+    for (let i = sg.i0; i <= sg.i1; i++) { dist[i] = d; d += speed[i] / HZ; }
+    sg.len = d;
+  }
+  const full = segs.filter((sg) => sg.complete);
+  const lens = full.map((sg) => sg.len).sort((a, b) => a - b);
+  const trackLength = lens.length ? lens[lens.length >> 1] : Math.max(0, ...segs.map((sg) => sg.len));
+  for (const sg of full) if (sg.len > 0) {
+    const k = trackLength / sg.len;
+    for (let i = sg.i0; i <= sg.i1; i++) dist[i] *= k;
+  }
+
+  // GPS: у некоторых выгрузок координаты смещены (в образце широта около нуля), и восток по долготе растягивается: длину градуса
+  // долготы подбираем так, чтобы длина круга по GPS совпала с длиной по скорости
+  const lat = resample(ch.lat, t, t0, n, 1, 0, Float64Array, true), lon = resample(ch.lon, t, t0, n, 1, 0, Float64Array, true);
+  if (ch.lat && ch.lon && full.length) {
+    const R = 6378137, RAD = Math.PI / 180;
+    const lat0 = lat[full[0].i0], lon0 = lon[full[0].i0];
+    const pathLen = (f) => {
+      let sum = 0;
+      for (const sg of full) for (let i = sg.i0 + 1; i <= sg.i1; i++) sum += Math.hypot((lon[i] - lon[i - 1]) * RAD * R * f, (lat[i] - lat[i - 1]) * RAD * R);
+      return sum;
+    };
+    const want = full.reduce((sum, sg) => sum + trackLength, 0);
+    let lo = 0.2, hi = 1.5, f = Math.cos(lat0 * RAD);
+    if (pathLen(lo) < want && pathLen(hi) > want) {
+      for (let it = 0; it < 40; it++) { f = (lo + hi) / 2; if (pathLen(f) < want) lo = f; else hi = f; }
+    }
+    const k = f / Math.cos(lat0 * RAD);   // окно переводит долготу в метры через cos(широты): подгоняем под найденный множитель
+    if (Math.abs(k - 1) > 0.02) for (let i = 0; i < n; i++) lon[i] = lon0 + (lon[i] - lon0) * k;
+  }
+
+  const useDeg = range(ch.steer) > 1;   // в образце канал углов руля не заполнен: тогда берём руль в процентах от полного поворота
+  const s = {
+    meta: {
+      source: 'lmu', file, car: head.vehicle || '', carId: head.vehicle || '', track: head.venue || '', trackConfig: '',
+      trackId: `${head.venue || ''}|`, driver: head.driver || '', date: head.date, trackLength, redline: null, sectors: [], hz: HZ,
+    },
+    n, t, lat, lon, alt: null, dist, speed,
+    thr: resample(ch.thr, t, t0, n, 0.01), brk: resample(ch.brk, t, t0, n, 0.01), clu: resample(ch.clu, t, t0, n, 0.01),
+    steer: useDeg ? resample(ch.steer, t, t0, n, -1) : resample(ch.steerPct, t, t0, n, -LMU_STEER_DEG / 100),
+    gear: fixGear(hold(ch.gear), HZ), rpm: resample(ch.rpm, t, t0, n), pathLat: null, edge: null,
+  };
+  // время круга — по границам номера (шаг 1/50 с); лучший круг сверяем со сводкой .ldx, она точнее
+  let fullIdx = 0;
+  s.laps = segs.map((sg) => {
+    const time = sg.complete ? (sg.i1 + 1 - sg.i0) / HZ : null;
+    const lap = { num: sg.num, i0: sg.i0, i1: sg.i1, start: t[sg.i0], time, complete: sg.complete, pit: false, off: false, inc: 0, valid: sg.complete };
+    if (sg.complete) {
+      fullIdx++;
+      if (ldx?.fastestLap === fullIdx && ldx.fastestTime && Math.abs(ldx.fastestTime - time) < 0.3) lap.time = ldx.fastestTime;
+    }
+    return lap;
+  });
+  return s;
+}
+
 async function load(file) {
   const kind = kindOf(file);
   if (kind === 'iracing') return loadIracing(file);
   if (kind === 'lmu') return loadLmu(file);
+  if (kind === 'motec') return loadMotec(file);
   throw new Error('неизвестный формат файла');
 }
 
@@ -354,7 +461,23 @@ function trackModel(s) {
       const l = nl[k] ? hl[k] / nl[k] : 0, r = nr[k] ? hr[k] / nr[k] : 0;
       hwL[k] = l || r || 6; hwR[k] = r || l || 6;
     }
-    const smooth = (a) => { const o = new Float32Array(N); for (let k = 0; k < N; k++) { let m = 0; for (let q = -4; q <= 4; q++) m += a[(k + q + N) % N]; o[k] = m / 9; } return o; };
+    // Плавный переход ширины на протяжении примерно 40 м. На незамкнутой
+    // трассе края не должны смешиваться с противоположным концом записи.
+    const closed = Math.hypot(cx[0] - cx[N - 1], cy[0] - cy[N - 1]) < 30;
+    const w = Math.max(1, Math.round(20 / step));
+    const smooth = (a) => {
+      const o = new Float32Array(N);
+      for (let k = 0; k < N; k++) {
+        let sum = 0, weights = 0;
+        for (let q = -w; q <= w; q++) {
+          const j = closed ? (k + q + N) % N : Math.max(0, Math.min(N - 1, k + q));
+          const weight = w + 1 - Math.abs(q);
+          sum += a[j] * weight; weights += weight;
+        }
+        o[k] = sum / weights;
+      }
+      return o;
+    };
     hwL = smooth(hwL); hwR = smooth(hwR);
   }
   const lat = new Float64Array(N), lon = new Float64Array(N);

@@ -219,6 +219,7 @@ function buildRaceState(snap) {
   return {
     kind,
     demo: snap.source === 'demo',
+    fuelSessionKey: JSON.stringify([snap.source, session?.WeekendInfo?.SessionID, session?.WeekendInfo?.SubSessionID, vars.SessionNum]),
     sessionName: String(sess?.SessionName || sess?.SessionType || '').toUpperCase(),
     cars, classes, ref, refIdx, vars,
     trackLength: session?.WeekendInfo?.TrackLength,

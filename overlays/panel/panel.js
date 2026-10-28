@@ -191,11 +191,11 @@ function trainingBlock() {
         <button class="btn quiet" data-tr-act="training.clearRef" title="Убрать эталон">Убрать</button>
       </div>`
     : `${icon('file-up')}<div class="dz-t">Перетащите файл с телеметрией</div>
-      <div class="dz-s">.duckdb, .ibt или архив. Берётся быстрейший круг</div>
+      <div class="dz-s">.duckdb, .ld, .ibt или архив. Берётся быстрейший круг</div>
       <button class="btn" data-tr-act="training.pickRef">Выбрать файл</button>`;
   return `<div class="group tr-box">
     <div class="label"><span>Тренировка</span></div>
-    <div class="row tr-mode" title="Пока включено, основные оверлеи из раскладок скрыты, на экране только оверлеи этого раздела"><span class="name">Режим</span>${sw('data-training-on aria-label="Режим тренировки"', t.enabled)}</div>
+    <div class="row tr-mode" title="Пока включено, оверлеи этого раздела показываются вместе с оверлеями текущей раскладки"><span class="name">Режим</span>${sw('data-training-on aria-label="Режим тренировки"', t.enabled)}</div>
     <p class="tr-note">${t.enabled ? 'Основные оверлеи скрыты. Для практики; в гонке выключите.' : 'Выключено: работают обычные раскладки.'}</p>
     <div class="sublabel">Эталон</div>
     <div class="dz tr-dz" id="trDrop" tabindex="0">${body}</div>
@@ -230,6 +230,7 @@ function renderOverlays() {
   const varNote = variation !== 'base' ? `, ${VAR_LABELS[variation].toLowerCase()}` : '';
   $('ovList').innerHTML = `
     ${training ? trainingBlock() : ''}
+    ${S.visibilityHint ? `<p class="hint" style="margin:0 0 10px">${esc(S.visibilityHint)}</p>` : ''}
     <div class="group">
       ${training ? '' : `<div class="label"><span>Раскладка</span><button class="btn quiet" style="height:20px;padding:0 4px;font-size:inherit;letter-spacing:inherit" data-goto="layouts" title="Набор раскладки — открыть раскладки">${esc(layout?.name || '—')}${esc(varNote)}</button></div>`}
       ${list.length ? (training ? TR_GROUPS : OV_GROUPS).map(([gt, types]) => {
@@ -261,6 +262,7 @@ function tableView(o) {
         <p class="hint" style="margin-top:8px">Порядок меняется перетаскиванием. В узком окне лишние колонки уходят сами.</p>
       </div>
       ${o.type === 'relative' ? relBlock(o) : ''}
+      ${o.type === 'standings' ? `<div class="block"><label>Минимум пилотов под вами <input class="field" type="number" min="0" step="1" data-standings="min" value="${o.standings?.min ?? 3}"></label><label>Максимум пилотов под вами (пусто — авто) <input class="field" type="number" min="0" step="1" data-standings="max" value="${o.standings?.max ?? ''}"></label></div>` : ''}
       ${hfBlock(o, 'header')}
       ${hfBlock(o, 'footer')}
       ${sizesBlock(o)}`;
@@ -317,7 +319,7 @@ function schemaBlock(o, field, schema) {
     const at = `data-k="${it.key}"`;
     if (it.type === 'bool') return `<label class="toggle" style="margin-top:10px"><span>${esc(it.label)}</span>${sw(`data-cfg="${field}" ${at}`, !!val)}</label>`;
     if (it.type === 'range') return `<div class="sub-label" style="margin-top:12px">${esc(it.label)}</div><div class="slider"><input class="range" type="range" min="${it.min}" max="${it.max}" step="${it.step}" value="${val}" data-cfg-range="${field}" ${at} aria-label="${esc(it.label)}"><output>${val}${esc(it.unit || '')}</output></div>`;
-    return `<div class="sub-label" style="margin-top:12px">${esc(it.label)}</div><select class="field" data-cfg-select="${field}" ${at}>${it.options.map(([id, t]) => `<option value="${id}" ${val === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+    return `<div class="sub-label" style="margin-top:12px">${esc(it.label)}</div><select class="field" aria-label="${esc(it.label)}" data-cfg-select="${field}" ${at}>${it.options.map(([id, t]) => `<option value="${id}" ${val === id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   };
   return (schema || []).map((g) => `<div class="block">
     <details class="hf-details" data-cfg-details="${field}:${esc(g.group)}" ${cfgOpen[`${field}:${g.group}`] ? 'open' : ''}>
@@ -561,13 +563,13 @@ function renderPreview(o) {
   if (!o) { stage.innerHTML = ''; tag.textContent = ''; $('statePill').innerHTML = ''; lastPreviewKey = null; return; }
   const key = `${o.id}|${o.type}`;
   if (key !== lastPreviewKey) {
-    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}&pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}&abs=${encodeURIComponent(JSON.stringify(o.abs || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' || o.type === 'abs' || o.type === 'brakezone' || o.type === 'braketrace' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
+    stage.innerHTML = `<div class="frame-wrap"><iframe id="pv" title="Превью" src="/${o.type}/?bg=${o.bgOpacity ?? 0.8}&dash=${encodeURIComponent(JSON.stringify(dashCfg(o)))}&pedals=${encodeURIComponent(JSON.stringify(o.pedals || {}))}&abs=${encodeURIComponent(JSON.stringify(o.abs || {}))}&sectors=${encodeURIComponent(JSON.stringify(o.sectors || {}))}&sizes=${encodeURIComponent(JSON.stringify(o.sizes || {}))}&dec=${encodeURIComponent(JSON.stringify(o.decimals || {}))}&lic=${o.licMode || 'full'}&standings=${encodeURIComponent(JSON.stringify(o.standings || {}))}&rel=${encodeURIComponent(JSON.stringify(o.rel || {}))}&traffic=${encodeURIComponent(JSON.stringify(o.traffic || {}))}&palette=${palVarsFor(o.type)}&laps=${encodeURIComponent(JSON.stringify(o.laps || {}))}&rejoin=${encodeURIComponent(JSON.stringify(o.rejoin || {}))}&fuel=${encodeURIComponent(JSON.stringify(o.fuel || {}))}&pitlimit=${encodeURIComponent(JSON.stringify(o.pitlimit || {}))}&sr=${encodeURIComponent(JSON.stringify(o.sr || {}))}&forecast=${encodeURIComponent(JSON.stringify(o.forecast || {}))}&radarbars=${encodeURIComponent(JSON.stringify(o.radarbars || {}))}${o.type === 'rejoin' || o.type === 'pitlimit' || o.type === 'traffic' || o.type === 'sr' || o.type === 'forecast' || o.type === 'radarbars' || o.type === 'abs' || o.type === 'brakezone' || o.type === 'braketrace' ? '&force=1' : ''}&layout=${o.flagLayout || 'big'}&hide=${o.hideEmpty ? 1 : 0}&range=${o.radarRange ?? 15}&idle=${o.radarIdle ?? 0.35}&dist=${o.radarDist !== false ? 1 : 0}&cls=${o.radarClass ? 1 : 0}&cols=${colsOf(o)}&cards=${cardsOf(o)}&hdr=${hfOf(o, 'header')}&ftr=${hfOf(o, 'footer')}&scale=${o.autoScale ? 'auto' : (o.scale ?? 1)}${o.split != null ? `&split=${o.split}` : ''}"></iframe></div>`;
     lastPreviewKey = key; pvContent = null;
   } else {
     // фон меняем без перезагрузки: оверлей читает --bg
     const doc = $('pv')?.contentDocument;
     doc?.documentElement?.style.setProperty('--bg-a', o.bgOpacity ?? 0.8);
-    $('pv')?.contentWindow?.postMessage({ svoyDash: dashCfg(o), svoyPedals: o.pedals || {}, svoyAbs: o.abs || {}, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyDecimals: o.decimals || {}, svoyLicMode: o.licMode || 'full', svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
+    $('pv')?.contentWindow?.postMessage({ svoyDash: dashCfg(o), svoyPedals: o.pedals || {}, svoyAbs: o.abs || {}, svoySectors: o.sectors, svoyLaps: o.laps, svoyRejoin: o.rejoin, svoyFuel: o.fuel, svoyPit: o.pitlimit, svoySr: o.sr || {}, svoyForecast: o.forecast || {}, svoyRadarbars: o.radarbars || {}, svoySizes: o.sizes || {}, svoyDecimals: o.decimals || {}, svoyLicMode: o.licMode || 'full', svoyStandings: o.standings || {}, svoyRel: o.rel || {}, svoyTraffic: o.traffic || {}, svoyPalette: pvPalette(o.type), svoyFlag: { layout: o.flagLayout || 'big', hide: !!o.hideEmpty, range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, svoyCards: cardsOf(o).split(',').filter(Boolean), svoyColumns: colsOf(o).split(',').filter(Boolean), svoyHdr: hfOf(o, 'header').split(',').filter(Boolean), svoyFtr: hfOf(o, 'footer').split(',').filter(Boolean), svoyScale: o.autoScale ? null : (o.scale ?? 1), svoySplit: o.split ?? null }, location.origin);
   }
   const pv = $('pv'), wrap = pv.parentElement;
   const box = $('ovPreview').getBoundingClientRect();
@@ -728,7 +730,7 @@ function updatesBlock() {
         <div class="label">Обновления</div>
         <div class="kv">
           <span>Установлена версия</span><span class="mono">${esc(u.current || '')}</span>
-          <span>Проверять автоматически</span><span>${sw('data-app="autoUpdate"', S.cfg.autoUpdate !== false)}</span>
+          <span>Проверять автоматически</span><span>${sw('data-app="autoUpdate" aria-label="Проверять обновления автоматически"', S.cfg.autoUpdate !== false)}</span>
         </div>
         <div class="actions" style="margin-top:14px;margin-left:0">${action}</div>
         <p class="hint" style="margin-top:12px">${esc(updateStatusText())}</p>
@@ -746,6 +748,13 @@ function updatesBlock() {
 }
 
 // Окно «Что нового» после обновления: один раз для каждой установленной версии
+let whatsNewFocus = null;
+function closeWhatsNew() {
+  document.getElementById('whatsNew')?.remove();
+  whatsNewFocus?.focus();
+  whatsNewFocus = null;
+  act({ type: 'app.set', lastSeenVersion: S.update?.current });
+}
 function maybeWhatsNew() {
   const u = S.update;
   if (!u || document.getElementById('whatsNew')) return;
@@ -754,10 +763,21 @@ function maybeWhatsNew() {
   const r = (u.releases || []).find((x) => x.version === u.current);
   if (!r) return; // описание ещё не загрузилось; попробуем при следующем обновлении состояния
   const el = document.createElement('div');
+  whatsNewFocus = document.activeElement;
   el.id = 'whatsNew';
   el.className = 'modal';
-  el.innerHTML = `<div class="modal-box" role="dialog" aria-label="Что нового"><div class="modal-head"><h2>Что нового в ${esc(u.current)}</h2><span class="rel-d">${esc(fmtDate(r.date))}</span></div><div class="rel-body">${mdHtml(r.body) || '<p class="hint">Без описания.</p>'}</div><div class="actions" style="margin:20px 0 0"><button class="btn primary" data-whats-new-ok>Понятно</button></div></div>`;
+  el.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-label="Что нового"><div class="modal-head"><h2>Что нового в ${esc(u.current)}</h2><span class="rel-d">${esc(fmtDate(r.date))}</span></div><div class="rel-body">${mdHtml(r.body) || '<p class="hint">Без описания.</p>'}</div><div class="actions" style="margin:20px 0 0"><button class="btn primary" data-whats-new-ok>Понятно</button></div></div>`;
   document.body.appendChild(el);
+  el.querySelector('[data-whats-new-ok]').focus();
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeWhatsNew(); }
+    if (e.key !== 'Tab') return;
+    const items = [...el.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    if (!items.length) { e.preventDefault(); return; }
+    const i = items.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (!e.shiftKey && (i < 0 || i === items.length - 1)) { e.preventDefault(); items[0].focus(); }
+  });
 }
 
 // ---------- Палитра ----------
@@ -1116,8 +1136,9 @@ function renderSetups() {
   const pend = (p) => {
     const opts = (p.candidates.length > 1 ? p.candidates : st.cars)
       .map((c) => `<option value="${esc(c.dir)}" ${(suPick[p.id] ?? p.guess?.dir) === c.dir ? 'selected' : ''}>${esc(c.name)}${c.name === c.dir ? '' : ` · ${esc(c.dir)}`}</option>`).join('');
-    const ask = p.guess
-      ? `По названию архива это <b>${esc(p.guess.name)}</b> <span class="su-tr">${esc(p.guess.dir)}</span>. Положить ${n(p.count, 'сетап', 'сетапа', 'сетапов')} в эту машину?`
+    const selected = st.cars.find((c) => c.dir === (suPick[p.id] ?? p.guess?.dir));
+    const ask = selected
+      ? `Выбрана машина <b>${esc(selected.name)}</b> <span class="su-tr">${esc(selected.dir)}</span>. Положить ${n(p.count, 'сетап', 'сетапа', 'сетапов')} в эту машину?`
       : p.candidates.length
         ? `По названию подходит несколько машин. Выберите, для какой эти ${n(p.count, 'сетап', 'сетапа', 'сетапов')}.`
         : `Не удалось понять по названию, для какой машины ${n(p.count, 'сетап', 'сетапа', 'сетапов')}. Выберите машину.`;
@@ -1125,7 +1146,7 @@ function renderSetups() {
       <div class="su-h"><b>${esc(p.archive)}</b></div>
       <div class="su-l">В архиве нет базовых кругов, по которым можно проверить машину. ${ask}</div>
       <div class="su-row">
-        <select class="field" data-su-car="${esc(p.id)}">${p.guess ? '' : '<option value="">— выберите машину —</option>'}${opts}</select>
+        <select class="field" aria-label="Машина для ${esc(p.archive)}" data-su-car="${esc(p.id)}">${p.guess ? '' : '<option value="">— выберите машину —</option>'}${opts}</select>
         <button class="btn primary" data-su-confirm="${esc(p.id)}">${p.guess ? 'Да, положить' : 'Положить'}</button>
         <button class="btn quiet" data-su-skip="${esc(p.id)}">Пропустить</button>
       </div>
@@ -1238,6 +1259,8 @@ function renderSettings() {
 
 // Две большие плитки: iRacing и LMU. Логотипы — overlays/common/games/<id>.svg или .png; если файла нет, пишем название.
 const GAME_NOTES = { iracing: 'Все оверлеи и ливреи Trading Paints' };
+// Оверлеи рисуются окнами поверх игры: в эксклюзивном полноэкранном режиме они не видны
+const LMU_WINDOW_NOTE = 'Оверлеи видны, если LMU запущена «Без рамки» или в полноэкранном режиме, который Windows оптимизирует сама. В настоящем эксклюзивном полноэкранном режиме обычные окна не рисуются. Если в режиме «Без рамки» падает FPS, включите в Windows «Параметры → Система → Дисплей → Графика → Оптимизация для оконных игр».'
 function renderGame() {
   mounted = 'game';
   const welcome = firstGame;
@@ -1252,6 +1275,7 @@ function renderGame() {
           <span class="game-note">${esc(GAME_NOTES[id] || (g.types || []).map((t) => S.types[t]?.title || t).join(', '))}</span>
           <span class="game-check">${icon('check', 'sm')}${id === cur ? 'Выбрана' : 'Выбрать'}</span>
         </button>`).join('')}
+      ${!welcome && cur === 'lmu' ? `<p class="hint" style="grid-column:1/-1;margin:4px 0 0">${esc(LMU_WINDOW_NOTE)}</p>` : ''}
     </div>`;
   document.querySelectorAll('img[data-logo]').forEach((img) => {
     const exts = ['svg', 'png'];
@@ -1285,7 +1309,7 @@ document.addEventListener('click', (e) => {
   if ('updClose' in d) { popOpen = false; return renderUpdateUi(); }
   if (d.update) return act({ type: d.update });
   if (d.updateUrl) return bridge.openUrl?.(d.updateUrl);
-  if ('whatsNewOk' in d) { document.getElementById('whatsNew')?.remove(); return act({ type: 'app.set', lastSeenVersion: S.update?.current }); }
+  if ('whatsNewOk' in d) return closeWhatsNew();
   if (d.ovTab) { ovTab = d.ovTab; save('ovTab', ovTab); return render(); }
   if ('sizesReset' in d) return ovAction('overlay.update', { patch: { sizes: null } });
   if (d.decToggle) { decOpen[d.decToggle] = !decOpen[d.decToggle]; return render(); }
@@ -1319,7 +1343,12 @@ document.addEventListener('click', (e) => {
   if (d.trAct) return act({ type: d.trAct });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
   if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });
-  if (d.copy) { navigator.clipboard?.writeText(d.copy); t.innerHTML = `${icon('check', 'sm')}<span>Скопировано</span>`; setTimeout(() => render(), 1200); return; }
+  if (d.copy) {
+    Promise.resolve().then(() => navigator.clipboard.writeText(d.copy)).then(() => {
+      t.innerHTML = `${icon('check', 'sm')}<span>Скопировано</span>`;
+    }).catch(() => { t.textContent = 'Не удалось скопировать'; }).finally(() => setTimeout(() => render(), 1200));
+    return;
+  }
   if (d.flagLayout) return ovAction('overlay.update', { patch: { flagLayout: d.flagLayout } });
   if ('splitAuto' in d) return ovAction('overlay.update', { patch: { split: null } });
   if ('enableOv' in d) return ovAction('overlay.update', { patch: { enabled: true } });
@@ -1354,6 +1383,7 @@ document.addEventListener('click', (e) => {
     const l = layoutById(selLayout);
     let types = l.sessionTypes.includes('all') ? [] : [...l.sessionTypes];
     types = d.session === 'all' ? ['all'] : types.includes(d.session) ? types.filter((x) => x !== d.session) : [...types, d.session];
+    if (!types.length) { alert('Выберите хотя бы одну сессию. Для всех сессий выберите «Все».'); return; }
     return act({ type: 'layout.update', id: l.id, patch: { sessionTypes: types } });
   }
   if (d.editVar) {
@@ -1409,7 +1439,15 @@ document.addEventListener('change', (e) => {
   if (d.ovField === 'name') return ovAction('overlay.update', { patch: { name: t.value } });
   if (d.layoutField === 'name') return act({ type: 'layout.update', id: selLayout, patch: { name: t.value } });
   if (t.matches('[data-default]') && t.checked) return act({ type: 'layout.update', id: selLayout, patch: { isDefault: true } });
-  if (d.suCar) { suPick[d.suCar] = t.value; return; }
+  if (d.standings) {
+    const o = currentSet().list.find((x) => x.id === selOv);
+    const cfg = { min: 3, max: null, ...o.standings };
+    cfg[d.standings] = d.standings === 'max' && t.value === '' ? null : Math.max(0, Math.floor(Number(t.value) || 0));
+    if (cfg.max != null && cfg.min > cfg.max) { if (d.standings === 'min') cfg.max = cfg.min; else cfg.min = cfg.max; }
+    $('pv')?.contentWindow?.postMessage({ svoyStandings: cfg }, location.origin);
+    return ovAction('overlay.update', { patch: { standings: cfg } });
+  }
+  if (d.suCar) { suPick[d.suCar] = t.value; renderSetups(); return; }
   if (d.lv) return act({ type: 'liveries.set', patch: { [d.lv]: t.checked } });
   if (d.lvNum) return act({ type: 'liveries.set', patch: { [d.lvNum]: Number(t.value) } });
   if (d.app) return act({ type: 'app.set', [d.app]: t.type === 'checkbox' ? t.checked : t.value });

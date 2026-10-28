@@ -126,6 +126,7 @@ class LmuSdk {
     if (!p) { k.CloseHandle(h); return false; }
     this.handle = h; this.ptr = p; this.base = BigInt(koffi.address(p));
     this.lastET = null; this.lastChange = Date.now();
+    this.diag = null; this.warnedBad = false;
     return true;
   }
 
@@ -284,6 +285,7 @@ class LmuSdk {
       vars.BrakeABSactive = tel.readUInt8(to + TE.absActive) !== 0;
       vars.EngineWarnings = tel.readUInt8(to + TE.limiterActive) !== 0 ? 0x10 : 0;
       vars.ShiftIndicatorPct = Math.min(Math.max((share - 0.8) / 0.17, 0), 1);
+      this.checkPlayerTelemetry({ gear: vars.Gear, rpm, speed: vars.Speed, throttle: vars.Throttle, brake: vars.Brake });
       vars.FuelLevel = tel.readDoubleLE(to + TE.fuel);
       vars.WaterTemp = tel.readDoubleLE(to + TE.water);
       vars.OilTemp = tel.readDoubleLE(to + TE.oil);
@@ -352,6 +354,20 @@ class LmuSdk {
         })),
       },
     };
+  }
+
+  // Блок телеметрии игрока читается по смещениям, проверенным на LMU 1.4 (gameVersion 14200): после обновления игры они могут сдвинуться.
+  // Копим последние значения для отчёта и один раз на подключение пишем в журнал, если значения выглядят неправдоподобно.
+  checkPlayerTelemetry(d) {
+    const nums = [d.gear, d.rpm, d.speed, d.throttle, d.brake];
+    const bad = nums.some((x) => !Number.isFinite(x))
+      || (d.rpm < 1 && d.speed > 5) || d.rpm > 30000 || Math.abs(d.gear) > 12
+      || d.throttle < -0.01 || d.throttle > 1.01 || d.brake < -0.01 || d.brake > 1.01;
+    this.diag = { ...d, suspect: bad };
+    if (bad && !this.warnedBad) {
+      this.warnedBad = true;
+      console.warn(`[lmu] блок телеметрии выглядит неправильно (передача ${d.gear}, обороты ${Math.round(d.rpm)}, скорость ${(d.speed * 3.6).toFixed(0)} км/ч, газ ${d.throttle}, тормоз ${d.brake}): возможно, сменилась версия игры и поменялись смещения`);
+    }
   }
 
   // Фазы игры LMU → SessionState iRacing (4 — гонка идёт, 5 — клетчатый, 6 — остывание)

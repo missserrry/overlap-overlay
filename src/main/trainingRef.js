@@ -1,4 +1,4 @@
-// Эталонный круг режима «Тренировка»: пользователь сам выбирает файл телеметрии (.duckdb LMU, .ibt iRacing или архив с ними),
+// Эталонный круг режима «Тренировка»: пользователь сам выбирает файл телеметрии (.duckdb LMU, MoTeC .ld, .ibt iRacing или архив с ними),
 // мы берём из него быстрейший круг, считаем зоны торможения и отдаём модели оверлея «Торможение».
 // В настройках хранится только описание (cfg.training.ref); сам круг при запуске читается из файла заново.
 const path = require('path');
@@ -34,7 +34,7 @@ class TrainingRef {
       title: 'Эталонный круг: файл телеметрии',
       defaultPath: lib.refsDir,
       properties: ['openFile'],
-      filters: [{ name: 'Телеметрия и архивы с ней', extensions: ['duckdb', 'ibt', 'zip', '7z', 'rar'] }],
+      filters: [{ name: 'Телеметрия и архивы с ней', extensions: ['duckdb', 'ibt', 'ld', 'zip', '7z', 'rar'] }],
     });
     if (r.canceled || !r.filePaths.length) return log('выбор эталона отменён');
     return this.load(r.filePaths, 'диалог');

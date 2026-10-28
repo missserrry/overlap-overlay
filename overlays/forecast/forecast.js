@@ -35,21 +35,23 @@ const fmtMin = (min) => {
 const fmtClock = (sec) => `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`;
 const fmtTemp = (c, imperial) => (c == null ? '–' : `${Math.round(imperial ? c * 1.8 + 32 : c)}°`);
 
-// Состояние погоды сейчас: идёт дождь или трасса уже мокрая (по живым данным), либо прогноз на «сейчас» выше порога
-const isRaining = (m, first) => (m.precipNow ?? 0) >= 0.05 || (m.wetness ?? 1) >= 3 || (first && first.rain >= cfg.threshold);
+// Осадки, состояние покрытия и вероятность в прогнозе — разные показатели
+const isRaining = (m) => (m.precipNow ?? 0) >= 0.05;
 
 function headline(m) {
   const list = m.entries;
   const first = list[0];
   const eta = m.multKnown === false ? '~' : '';
-  if (isRaining(m, first)) {
+  if (isRaining(m)) {
     const clear = list.find((e) => e.inMin > 0.5 && e.rain < cfg.threshold);
     return clear
       ? { kind: 'wet', text: `Дождь идёт · стихнет через ${eta}${fmtMin(clear.inMin)}` }
       : { kind: 'wet', text: 'Дождь идёт · конца в прогнозе не видно' };
   }
+  if ((m.wetness ?? 1) >= 3) return { kind: 'wet', text: 'Трасса мокрая' };
+  if (first.rain >= cfg.threshold) return { kind: 'soon', text: `Вероятность дождя сейчас · ${Math.round(first.rain)}%` };
   const rainy = list.find((e) => e.inMin > 0.5 && e.rain >= cfg.threshold);
-  if (rainy) return { kind: 'soon', text: `Дождь через ${eta}${fmtMin(rainy.inMin)} · ${Math.round(rainy.rain)}%` };
+  if (rainy) return { kind: 'soon', text: `Прогноз дождя через ${eta}${fmtMin(rainy.inMin)} · ${Math.round(rainy.rain)}%` };
   const horizon = list[list.length - 1].inMin;
   return { kind: 'dry', text: horizon > 1 ? `Дождя не ожидается · ${fmtMin(horizon)} вперёд` : 'Дождя не ожидается' };
 }

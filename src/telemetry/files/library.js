@@ -12,7 +12,7 @@ const { kindOf } = require('./session');
 const LMU_SUB = path.join('steamapps', 'common', 'Le Mans Ultimate', 'UserData', 'Telemetry');
 const INDEX_VERSION = 1;
 const ARCHIVES = new Set(['.zip', '.7z', '.rar']);
-const TELEMETRY_EXT = new Set(['.ibt', '.duckdb']);
+const TELEMETRY_EXT = new Set(['.ibt', '.duckdb', '.ld', '.ldx']);
 
 class TelemetryLibrary {
   /**
@@ -55,22 +55,25 @@ class TelemetryLibrary {
   call(msg) {
     if (!this.worker) {
       this.worker = utilityProcess.fork(path.join(__dirname, 'worker.js'), [], { serviceName: 'Overlap Telemetry' });
-      this.worker.on('message', (m) => {
+      const worker = this.worker;
+      worker.on('message', (m) => {
         const p = this.pending.get(m.id);
-        if (!p) return;
+        if (!p || p.worker !== worker) return;
         this.pending.delete(m.id);
         if (m.ok) p.resolve(m.data); else p.reject(new Error(m.error));
       });
-      this.worker.on('exit', (code) => {
+      worker.on('exit', (code) => {
         if (code) console.warn(`[telemetry] процесс чтения завершился с кодом ${code}`);
-        this.worker = null;
-        for (const p of this.pending.values()) p.reject(new Error('процесс чтения телеметрии остановился'));
-        this.pending.clear();
+        if (this.worker === worker) this.worker = null;
+        for (const [id, p] of this.pending) if (p.worker === worker) {
+          p.reject(new Error('процесс чтения телеметрии остановился'));
+          this.pending.delete(id);
+        }
       });
     }
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve, reject, worker: this.worker });
       this.worker.postMessage({ ...msg, id });
     });
   }
@@ -119,7 +122,7 @@ class TelemetryLibrary {
 
   // Найти все файлы и описать новые (по одному, в фоне). Описание приходит в окно по мере готовности.
   async scan() {
-    if (this.scanning) { this.again = true; return; }
+    if (this.scanning) { this.stopped = false; this.again = true; return; }
     this.scanning = true;
     this.again = false;
     this.stopped = false;
@@ -142,7 +145,7 @@ class TelemetryLibrary {
           const info = await this.call({ op: 'summary', file: f.file });
           this.index[key] = { size: f.size, mtime: f.mtime, info };
         } catch (e) {
-          if (this.stopped) break;
+          if (this.stopped || this.again) break;
           this.index[key] = { size: f.size, mtime: f.mtime, error: e.message };
         }
         this.saveIndex();
@@ -187,43 +190,9 @@ class TelemetryLibrary {
   // Эталоны: копируем перетащенные файлы к себе, чтобы они не пропали вместе с папкой загрузок.
   // Из архивов (.zip, .7z, .rar — так телеметрию раздают сетаперы) забираем только файлы телеметрии.
   async importFiles(paths) {
-    fs.mkdirSync(this.refsDir, { recursive: true });
-    const added = [], skipped = [];
-    const free = (name) => {
-      let dest = path.join(this.refsDir, name);
-      for (let k = 2; fs.existsSync(dest); k++) dest = path.join(this.refsDir, `${path.parse(name).name} (${k})${path.extname(name)}`);
-      return dest;
-    };
-    for (const p of paths) {
-      const ext = path.extname(p).toLowerCase();
-      if (ARCHIVES.has(ext)) {
-        try {
-          const { readZip, readWith7z } = require('../../setups/installer');
-          const buf = fs.readFileSync(p);
-          const entries = ext === '.zip' ? readZip(buf) : await readWith7z(buf, ext, TELEMETRY_EXT);
-          const found = entries.filter((e) => kindOf(e.name));
-          if (!found.length) { skipped.push(`${path.basename(p)} (в архиве нет телеметрии)`); continue; }
-          for (const e of found) {
-            const dest = free(path.basename(e.name.replace(/\\/g, '/')));
-            fs.writeFileSync(dest, e.read());
-            added.push(dest);
-          }
-        } catch (err) {
-          skipped.push(`${path.basename(p)} (${err.message})`);
-        }
-        continue;
-      }
-      if (!kindOf(p)) { skipped.push(path.basename(p)); continue; }
-      let dest = path.join(this.refsDir, path.basename(p));
-      if (path.resolve(p) !== path.resolve(dest)) {
-        dest = free(path.basename(p));
-        fs.copyFileSync(p, dest);
-        if (fs.existsSync(`${p}.wal`)) fs.copyFileSync(`${p}.wal`, `${dest}.wal`);
-      }
-      added.push(dest);
-    }
+    const result = await this.call({ op: 'import', paths, refsDir: this.refsDir });
     this.scan();
-    return { added, skipped };
+    return result;
   }
 
   removeRef(file) {

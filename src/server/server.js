@@ -184,7 +184,7 @@ function startServer(options = {}) {
 
   // Пролаг интернета: на мгновение пропадают и ваша машина, и остальные пилоты (или сим отдаёт пустое состояние). Чтобы оверлеи
   // не мигали, на HOLD_MS замираем на последнем нормальном кадре; если провал затянулся — показываем как есть.
-  const HOLD_MS = 6000;
+  const HOLD_MS = 3000;
   const goodMsgs = {};
   let goodStatus = null, goodAt = 0, lostSince = null;
 
@@ -220,16 +220,26 @@ function startServer(options = {}) {
     try { srTracker.update(rated); } catch (e) { console.error('[server] sr error:', e); }
     try { forecastTracker.update(rated); } catch (e) { console.error('[server] forecast error:', e); }
 
+    let fuelFrame, fuelError;
+    if (race) {
+      try { fuelFrame = buildFuel(race); } catch (e) { fuelError = e; }
+    }
     for (const [name, build] of Object.entries(CHANNELS)) {
       const subs = clients.get(name);
       if (!subs.size) { delete lastMessages[name]; continue; }
       let msg;
       try {
+        if (name === 'fuel' && fuelError) throw fuelError;
         msg = JSON.stringify(race
-          ? { type: 'model', source: snap.source, data: build(race, opts, srTracker, forecastTracker) }
+          ? { type: 'model', source: snap.source, data: name === 'fuel' ? (fuelFrame ?? null) : build(race, opts, srTracker, forecastTracker) }
           : { type: 'model', source: snap.source, data: null });
       } catch (e) {
-        markError(name, e);   // этот оверлей остаётся с прошлыми данными, остальные продолжают работать
+        markError(name, e);
+        if (!health.get(name).lastOkAt || now - health.get(name).lastOkAt >= HOLD_MS) {
+          msg = JSON.stringify({ type: 'model', source: snap.source, data: null });
+          lastMessages[name] = msg;
+          for (const ws of subs) if (ws.readyState === 1) ws.send(msg);
+        }
         continue;
       }
       markOk(name);
@@ -240,11 +250,10 @@ function startServer(options = {}) {
     }
   }
 
-  const timer = setInterval(tick, Math.round(1000 / opts.rateHz));
-
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(opts.port, '127.0.0.1', () => {
+      const timer = setInterval(tick, Math.round(1000 / opts.rateHz));
       console.log(`[server] http://127.0.0.1:${opts.port}/  (demo=${opts.demo})`);
       resolve({
         port: opts.port,
@@ -262,7 +271,8 @@ function startServer(options = {}) {
         setDemo(mode) { opts.demo = mode; },
         setTrainingRef(ref) { opts.trainingRef = ref; },   // эталон режима «Тренировка» (src/model/training.js)
         get demoMode() { return opts.demo; },
-        close() { clearInterval(timer); wss.close(); server.close(); sdk.close(); },
+        lmuDiag() { return lmu.diag || null; },
+        close() { clearInterval(timer); wss.close(); server.close(); sdk.close(); lmu.close(); },
       });
     });
   });

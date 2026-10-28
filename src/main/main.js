@@ -157,6 +157,12 @@ let setupsLast = null;                 // итог загрузки (для па
 let setupsPending = new Map();         // архивы, ждущие подтверждения машины: id → группа (с содержимым, только в главном процессе)
 let setupsCars = [];                   // список машин для выбора вручную
 let setupsBusy = false;
+let setupsSeq = 0;
+let setupsQueue = Promise.resolve();
+function queueSetups(fn) {
+  setupsQueue = setupsQueue.then(fn, fn).catch((e) => console.error('[setups] ошибка операции:', e)).finally(sendPanelState);
+  return setupsQueue;
+}
 
 const emptyLast = (problems = []) => ({ groups: [], created: [], total: { setups: 0, laps: 0, same: 0 }, problems });
 function addResult(out) {
@@ -171,31 +177,37 @@ async function installSetups(paths) {
   setupsBusy = true; sendPanelState();
   try {
     const a = await setupsInstaller.analyze(paths, { iracingDir: iracingDocs() });
-    setupsLast = emptyLast(a.problems);
-    setupsPending = new Map();
+    setupsLast = setupsLast || emptyLast();
+    setupsLast.problems.push(...a.problems);
     setupsCars = a.cars;
     for (const p of a.problems) console.warn(`[setups] ${p}`);
     for (const g of a.groups) {
       if (!g.setupsCount && !g.laps.length) { setupsLast.problems.push(`«${g.archive}»: сетапов и базовых кругов не нашлось`); continue; }
       // базовые круги надёжно называют и машину, и трассу: раскладываем сами; сетапы по одному имени архива — только после подтверждения
       if (g.how === 'laps' || !g.setupsCount) addResult(setupsInstaller.execute(g, g.car, { iracingDir: iracingDocs() }));
-      else setupsPending.set(g.id, g);
+      else { g.id = `${++setupsSeq}`; setupsPending.set(g.id, g); }
     }
   } catch (e) {
     console.error('[setups] ошибка:', e);
-    setupsLast = emptyLast([`Не удалось обработать файлы: ${e.message}`]);
+    setupsLast = setupsLast || emptyLast();
+    setupsLast.problems.push(`Не удалось обработать файлы: ${e.message}`);
   } finally { setupsBusy = false; }
 }
 
 function applySetupsAction(a) {
-  if (a.type === 'setups.drop' && Array.isArray(a.paths)) { installSetups(a.paths.filter((p) => typeof p === 'string')).then(sendPanelState); return; }
+  if (a.type === 'setups.drop' && Array.isArray(a.paths)) { queueSetups(() => installSetups(a.paths.filter((p) => typeof p === 'string'))); return; }
   if (a.type === 'setups.pick') {
     dialog.showOpenDialog(panel && !panel.isDestroyed() ? panel : undefined, { title: 'Сетапы и базовые круги', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Архивы, сетапы и круги', extensions: ['zip', '7z', 'rar', 'sto', 'blap', 'olap'] }] })
-      .then((r) => (!r.canceled && r.filePaths.length ? installSetups(r.filePaths) : null))
+      .then((r) => (!r.canceled && r.filePaths.length ? queueSetups(() => installSetups(r.filePaths)) : null))
       .then(sendPanelState)
       .catch((e) => console.warn('[setups] выбор файлов:', e.message));
     return;
   }
+  if (['setups.confirm', 'setups.skip', 'setups.undo'].includes(a.type)) { queueSetups(() => runSetupsAction(a)); return; }
+  runSetupsAction(a);
+}
+
+function runSetupsAction(a) {
   if (a.type === 'setups.confirm') {
     const g = setupsPending.get(a.id);
     const car = setupsCars.find((c) => c.dir === a.car)?.dir;
@@ -378,7 +390,7 @@ function applyOverlay(win, o, editing, force = false) {
   win.setFocusable(editing);
   if (!win.ready) return;
   win.webContents.setZoomFactor(1); // масштаб теперь задаётся размером окна
-  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.type === 'dash' ? { ...o.dash, 'bars.out': pedalsOut } : o.dash, pedals: o.pedals, abs: o.abs, sectors: o.sectors, laps: o.laps, rejoin: o.rejoin, fuel: o.fuel, pitlimit: o.pitlimit, sr: o.sr, forecast: o.forecast, radarbars: o.radarbars, sizes: o.sizes || {}, decimals: o.decimals || {}, licMode: o.licMode || 'full', rel: o.rel, traffic: o.traffic, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null, palette: P.buildVars(cfg.palette, o.type) });
+  win.webContents.send('overlay-settings', { editing, bgOpacity: o.bgOpacity ?? 0.8, name: o.name, columns: o.columns, header: o.header, footer: o.footer, cards: o.cards, dash: o.type === 'dash' ? { ...o.dash, 'bars.out': pedalsOut } : o.dash, pedals: o.pedals, abs: o.abs, sectors: o.sectors, laps: o.laps, rejoin: o.rejoin, fuel: o.fuel, pitlimit: o.pitlimit, sr: o.sr, forecast: o.forecast, radarbars: o.radarbars, sizes: o.sizes || {}, decimals: o.decimals || {}, licMode: o.licMode || 'full', rel: o.rel, standings: o.standings, traffic: o.traffic, flagLayout: o.flagLayout ?? 'big', hideEmpty: !!o.hideEmpty, radar: { range: o.radarRange ?? 15, idle: o.radarIdle ?? 0.35, dist: o.radarDist !== false, cls: !!o.radarClass }, scale: o.autoScale ? null : (o.scale ?? 1), split: o.split ?? null, palette: P.buildVars(cfg.palette, o.type) });
 }
 
 // Перемещение и растягивание (как в Laki Overlay): двигать — за любое место окна,
@@ -559,6 +571,8 @@ function overlayReportLines() {
     const dataText = win && !win.isDestroyed() ? `канал: подключено ${h.clients ?? 0}, данные ${h.okAgo == null ? 'не шли' : `${h.okAgo} с назад`}${h.errors ? `, ошибок модели ${h.errors}${h.failing ? ' (сейчас сбоит)' : ''}: ${h.lastError}` : ''}` : '';
     lines.push(`- ${o.type}: ${o.shown ? 'НА ЭКРАНЕ' : o.enabled ? `включён, скрыт — ${o.why}` : 'выключен'}${winText && o.shown ? `; ${winText}; ${dataText}` : ''}`);
   }
+  const d = server.lmuDiag?.();
+  if (d) lines.push(`LMU, данные Dash: передача ${d.gear}, обороты ${Math.round(d.rpm)}, скорость ${(d.speed * 3.6).toFixed(0)} км/ч, газ ${(d.throttle * 100).toFixed(0)}%, тормоз ${(d.brake * 100).toFixed(0)}%${d.suspect ? ' — ЗНАЧЕНИЯ ВЫГЛЯДЯТ НЕПРАВИЛЬНО (возможно, сменилась версия игры)' : ''}`);
   return lines;
 }
 
