@@ -20,7 +20,7 @@ function demoModel() {
   return {
     active: true, back: 100, fwd: 300, step: 2, steerMax: 180, zones: [[220 - d, 300 - d]],
     refBrk, refSteer,
-    myBrk: refBrk.map((v, k) => (k <= nowK ? +Math.max(0, v * 0.9 + (k % 7) * 0.01) : null)),
+    myBrk: refBrk.map((v, k) => (k <= nowK ? +(v * 0.9).toFixed(3) : null)),
     mySteer: refSteer.map((v, k) => (k <= nowK ? Math.round(v * 0.85) : null)),
     brake: 0.4, steer: -30, refBrakeNow: 0.5, refSteerNow: -35,
   };
