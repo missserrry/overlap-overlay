@@ -41,6 +41,12 @@ let pending = null;    // состояние, пришедшее во время
 let view = load('panelView', 'overlays');
 let firstGame = false;     // идёт стартовый выбор игры (первый запуск на этом компьютере)
 let welcomeShown = false;
+// ушли со стартового экрана выбора игры, ничего не выбрав: считаем, что выбор сделан (игра остаётся по умолчанию)
+function skipWelcome() {
+  if (!firstGame) return;
+  firstGame = false;
+  act({ type: 'app.set', gameChosen: true });
+}
 let sel = null;        // { layoutId, variation } — какой набор редактируем
 let ovCollapsed = false; // настройки оверлея свёрнуты: превью занимает всё место
 let selOv = null;      // выбранный оверлей
@@ -66,10 +72,10 @@ function setState(s) {
     return;
   }
   S = s;
-  // Первый запуск на компьютере: сразу предлагаем выбрать игру. Спрашиваем один раз — признак пишем сразу, как показали
+  // Первый запуск на компьютере: сразу предлагаем выбрать игру. Признак gameChosen пишем, когда игру выбрали
+  // или сами ушли с экрана на другой раздел; закрыли окно, не выбрав, — экран покажется и в следующий раз
   if (S.cfg.gameChosen === false && !welcomeShown) {
     welcomeShown = true; firstGame = true; view = 'game';
-    act({ type: 'app.set', gameChosen: true });
   }
   maybeWhatsNew();
   renderUpdateUi();
@@ -1243,10 +1249,10 @@ document.addEventListener('click', (e) => {
     act({ type: 'app.set', game: d.game, gameChosen: true });
     return render();
   }
-  if (d.view) { firstGame = false; view = d.view; save('panelView', view); mounted = null; return render(); }
+  if (d.view) { skipWelcome(); view = d.view; save('panelView', view); mounted = null; return render(); }
   // Телеметрия — не раздел панели, а своё окно
   if (d.open === 'telemetry') return act({ type: 'telemetry.open' });
-  if (d.goto) { firstGame = false; view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
+  if (d.goto) { skipWelcome(); view = d.goto; save('panelView', view); mounted = null; selLayout = sel.layoutId; return render(); }
   if (d.diag) return act({ type: d.diag });
   if (d.appToggle) return act({ type: 'app.set', [d.appToggle]: !S.cfg[d.appToggle] });
   if (d.mode) return act({ type: 'app.set', locked: d.mode === 'lock' });

@@ -310,6 +310,15 @@ class LmuSdk {
 
   describe(track, trackLen, sessionNum, endET, cars, byClass, estLap, playerIdx, sc) {
     const rpm = this.maxRpm || 8000;
+    // CarClassRelSpeed в iRacing — относительная скорость класса (по нему Standings ставит быстрый класс выше).
+    // У LMU такого поля нет: берём по темпу (самый быстрый класс = 100), а пока темпа нет — по старшинству из CLASSES
+    const fastest = Math.min(...[...estLap.values()].filter((x) => x > 0));
+    const relSpeed = (k) => {
+      const est = estLap.get(k.id);
+      if (est > 0 && Number.isFinite(fastest)) return Math.round(10000 * fastest / est) / 100;
+      const idx = CLASSES.findIndex((c) => c.id === k.id);
+      return idx >= 0 ? 90 - idx : 0;
+    };
     return {
       WeekendInfo: {
         TrackDisplayName: track,
@@ -336,7 +345,7 @@ class LmuSdk {
         Drivers: cars.map((c) => ({
           CarIdx: c.i, UserName: c.name, TeamName: c.team, CarNumber: c.number || String(c.i),
           CarClassID: c.klass.id, CarClassShortName: c.klass.short, CarClassColor: c.klass.color,
-          CarClassRelSpeed: 0, CarClassEstLapTime: estLap.get(c.klass.id) || 0,
+          CarClassRelSpeed: relSpeed(c.klass), CarClassEstLapTime: estLap.get(c.klass.id) || 0,
           IRating: 0, LicString: 'R 0.00',
           CarPath: c.vehicle, CarScreenName: c.vehicle, CarScreenNameShort: c.team,
           CarIsPaceCar: c.pace ? 1 : 0, IsSpectator: 0,

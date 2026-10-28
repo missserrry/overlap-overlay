@@ -43,7 +43,13 @@ function load(dir) {
   let saved = {};
   try {
     saved = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch { /* первый запуск */ }
+  } catch (e) {
+    // нет файла — первый запуск; файл есть, но не читается — сохраняем его рядом, чтобы первое же сохранение его не затёрло
+    if (e.code !== 'ENOENT') {
+      try { fs.copyFileSync(file, path.join(dir, 'config.bad.json')); } catch { /* копия не вышла — идём дальше */ }
+      console.error('[config] config.json не прочитан, взяты настройки по умолчанию; копия: config.bad.json:', e.message);
+    }
+  }
 
   const cfg = { ...DEFAULTS, ...saved };
   // чистая установка: настроек ещё нет — на первом запуске предложим выбрать игру; у тех, кто уже пользуется, не спрашиваем
@@ -80,16 +86,22 @@ function load(dir) {
   }
 
   let timer = null;
-  cfg.save = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      const { save, ...data } = cfg;
+  const write = () => {
+    timer = null;
+    try {
+      const { save, flush, ...data } = cfg;
       fs.mkdirSync(dir, { recursive: true });
       const tmp = file + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
       fs.renameSync(tmp, file);
-    }, 300);
+    } catch (e) { console.error('[config] не удалось сохранить настройки:', e.message); }
   };
+  cfg.save = () => {
+    clearTimeout(timer);
+    timer = setTimeout(write, 300);
+  };
+  // при выходе дописываем отложенное сохранение, иначе правка за 300 мс до закрытия теряется
+  cfg.flush = () => { if (timer) { clearTimeout(timer); write(); } };
   return cfg;
 }
 

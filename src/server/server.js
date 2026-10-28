@@ -84,14 +84,21 @@ function startServer(options = {}) {
   let lastSessionVersion = -1;
   let lastSession = null;
 
-  const server = http.createServer((req, res) => serveStatic(req, res));
-  const wss = new WebSocketServer({ noServer: true });
+  const server = http.createServer((req, res) => {
+    try { serveStatic(req, res); } catch (e) { console.error('[server] http:', e); if (!res.headersSent) res.writeHead(500); res.end(); }
+  });
+  // Клиенты только присылают подключение; кадры от них не нужны, поэтому лимит размера маленький
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   const clients = new Map(Object.keys(CHANNELS).map((k) => [k, new Set()]));
 
   server.on('upgrade', (req, socket, head) => {
     const name = (req.url || '').split('?')[0].replace(/^\/ws\//, '');
     if (!clients.has(name)) return socket.destroy();
+    // Чужая веб-страница не должна читать телеметрию через браузер: пускаем без Origin (OBS, скрипты),
+    // свои страницы (тот же хост, localhost, file://) и больше никого
+    if (!originAllowed(req)) return socket.destroy();
     wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.on('error', (e) => debug(`[server] канал ${name}: ошибка сокета: ${e.message}`));
       clients.get(name).add(ws);
       debug(`[server] канал ${name}: страница подключилась (${clients.get(name).size})`);
       if (lastMessages[name]) ws.send(lastMessages[name]);
@@ -154,8 +161,9 @@ function startServer(options = {}) {
       }
     }
     if (snap) {
-      if (snap.sessionVersion !== lastSessionVersion) {
-        lastSessionVersion = snap.sessionVersion;
+      const sKey = `${snap.source}:${snap.sessionVersion}`;
+      if (sKey !== lastSessionVersion) {
+        lastSessionVersion = sKey;
         lastSession = { session: snap.session, loadNumTextures: !!snap.vars.LoadNumTextures };
         for (const fn of sessionListeners) {
           try { fn(snap.session, !!snap.vars.LoadNumTextures); } catch (e) { console.error('[server] session listener:', e); }
@@ -255,8 +263,23 @@ function startServer(options = {}) {
   });
 }
 
+function originAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin || origin === 'null') return true;
+  try {
+    const u = new URL(origin);
+    if (u.protocol === 'file:') return true;
+    if (['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) return true;
+    return u.host === req.headers.host;
+  } catch { return false; }
+}
+
 function serveStatic(req, res) {
-  let url = decodeURIComponent((req.url || '/').split('?')[0]);
+  let url;
+  try {
+    url = decodeURIComponent((req.url || '/').split('?')[0]);
+  } catch { res.writeHead(400); return res.end('bad request'); }
+  if (url.includes('\0')) { res.writeHead(400); return res.end('bad request'); }
   if (url.endsWith('/')) url += 'index.html';
   for (const [prefix, dir] of Object.entries(STATIC_DIRS)) {
     if (!url.startsWith(prefix)) continue;

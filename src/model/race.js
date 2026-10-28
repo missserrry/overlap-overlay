@@ -123,8 +123,10 @@ function trackTiming(snap, cars, sectorsInfo) {
 
 function buildRaceState(snap) {
   const { vars, session } = snap;
-  if (driverCache.version !== snap.sessionVersion) {
-    driverCache = { version: snap.sessionVersion, drivers: driverIndex(session), tires: tireNames(session) };
+  // Ключ включает источник: у демо и у первого YAML живой игры sessionVersion одинаковый (1)
+  const dKey = `${snap.source || ''}:${snap.sessionVersion}`;
+  if (driverCache.version !== dKey) {
+    driverCache = { version: dKey, drivers: driverIndex(session), tires: tireNames(session) };
   }
   const drivers = driverCache.drivers;
   const sess = currentSession(session, vars.SessionNum);

@@ -38,7 +38,15 @@ function parseLicense(licString) {
   const [cls = 'R', sr = '0.00'] = String(licString || '').trim().split(/\s+/);
   const letter = cls === 'PWC' ? 'P' : cls.charAt(0).toUpperCase();
   const [bg, dark] = LICENSE_COLORS[letter] || LICENSE_COLORS.R;
-  return { name: letter, safetyRank: Number(sr).toFixed(1), bgColor: bg, darkBgColor: dark };
+  return { name: letter, safetyRank: (Math.floor((Number(sr) || 0) * 10 + 1e-6) / 10).toFixed(1), bgColor: bg, darkBgColor: dark };
+}
+
+// Длина трассы в метрах из WeekendInfo.TrackLength ("5.91 km" или "3.67 mi"); null, если не разобрать
+function trackLengthM(race) {
+  const text = String(race.trackLength || '');
+  const n = parseFloat(text);
+  if (!Number.isFinite(n)) return null;
+  return /mi/i.test(text) ? n * 1609.344 : n * 1000;
 }
 
 function formatIrating(ir) {
@@ -137,7 +145,7 @@ function strengthOfField(iratings) {
 
 module.exports = {
   TELEMETRY_VARS, driverIndex, currentSession, sessionKind, sessionLetter, parseSessionTime,
-  referenceCar, strengthOfField, formatIrating, hexColor, simContext, tireNames, tireInfo, LICENSE_COLORS,
+  referenceCar, strengthOfField, formatIrating, trackLengthM, hexColor, simContext, tireNames, tireInfo, LICENSE_COLORS,
 };
 
 // Шины: индекс состава из телеметрии (CarIdxTireCompound) + названия составов из YAML (DriverInfo.DriverTires)

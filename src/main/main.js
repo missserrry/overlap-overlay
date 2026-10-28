@@ -71,6 +71,14 @@ app.whenReady().then(async () => {
     server = await startServer({ port: cfg.port, demo: cfg.demo, game: () => cfg.game, debug: logger.debug, srStateFile: path.join(app.getPath('userData'), 'safety-rating.json'), srLearnedFile: path.join(app.getPath('userData'), 'sr-corners-learned.json'), fuelStateFile: path.join(app.getPath('userData'), 'fuel-history.json') });
   } catch (e) {
     console.error('Не удалось запустить сервер:', e);
+    if (e && e.code === 'EADDRINUSE') {
+      dialog.showErrorBox('Overlap не запустился', `Порт ${cfg.port} занят другой программой (возможно, второй экземпляр Overlap или другое приложение).
+
+Закройте её и запустите Overlap снова.`);
+    } else {
+      dialog.showErrorBox('Overlap не запустился', `Не удалось запустить сервер телеметрии:
+${e && e.message ? e.message : e}`);
+    }
     app.quit();
     return;
   }
@@ -109,6 +117,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', (e) => e.preventDefault()); // живём в трее
 app.on('will-quit', () => {
+  try { cfg?.flush?.(); } catch { /* не мешаем выходу */ }
   globalShortcut.unregisterAll();
   server?.close();
 });

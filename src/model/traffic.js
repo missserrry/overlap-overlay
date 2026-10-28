@@ -2,6 +2,8 @@
 // Время до встречи = расстояние (доля круга) / скорость сближения. Скорость каждой машины — по темпу её класса
 // (доля круга в секунду), поэтому сближение считается правильно и между классами, и на разных трассах.
 
+const { trackLengthM } = require('./common');
+
 const MAX_HALF = 0.5;      // дальше полкруга не смотрим: машина «впереди» через полкруга — это уже «сзади»
 
 function buildTraffic(race) {
@@ -37,7 +39,7 @@ function buildTraffic(race) {
 }
 
 function pack(c, eta, d, race) {
-  return { className: c.className, color: c.classColor, number: c.number, eta, gap: d * (race.trackLengthM || 0) };
+  return { className: c.className, color: c.classColor, number: c.number, eta, gap: d * (trackLengthM(race) || 0) };
 }
 
 module.exports = { buildTraffic };

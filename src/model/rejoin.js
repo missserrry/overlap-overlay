@@ -2,19 +2,14 @@
 // Нужна, когда вы стоите (развернуло, вынесло): видно, можно ли выезжать на трассу.
 // Скорость соперника берём из его реального движения (сглаженно), пока данных нет — из темпа его класса.
 
+const { trackLengthM } = require('./common');
+
 const MAX_BEHIND = 30;   // с: дальше не показываем
 const MIN_SPEED = 2;     // м/с: чтобы стоящая сзади машина не давала «бесконечность»
 const MAX_CARS = 3;
 
 let speeds = new Map();  // carIdx -> { pct, t, v, n }
 let speedsKey = '';
-
-function trackLengthM(race) {
-  const text = String(race.trackLength || '');
-  const n = parseFloat(text);
-  if (!Number.isFinite(n)) return null;
-  return /mi/i.test(text) ? n * 1609.344 : n * 1000;
-}
 
 function trackSpeeds(race, len, now) {
   const key = `${race.kind}|${race.refIdx}|${Math.round(len)}`;

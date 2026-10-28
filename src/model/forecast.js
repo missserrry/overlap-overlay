@@ -130,7 +130,7 @@ class ForecastTracker {
     const { vars = {}, session } = snap || {};
     if (!snap?.connected || !session) { this.out = { active: false }; return; }
 
-    if (snap.sessionVersion !== this.version) this.load(snap);
+    if (`${snap.source || ''}:${snap.sessionVersion}` !== this.version) this.load(snap);
     this.diagnose(snap);
 
     const tod = num(vars.SessionTimeOfDay);
@@ -193,7 +193,7 @@ class ForecastTracker {
 
   // Новая версия описания сессии: заново ищем прогноз и пишем в журнал, что нашли (чтобы по логу видеть структуру)
   load(snap) {
-    this.version = snap.sessionVersion;
+    this.version = `${snap.source || ''}:${snap.sessionVersion}`;
     this.anchor = null;
     const session = snap.session;
     const hit = findForecast(session);

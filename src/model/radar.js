@@ -4,6 +4,8 @@
 // Радар складывает одно с другим: машины «рядом» (±SIDE_ZONE м) встают на тот борт, о котором говорит споттер,
 // остальные ближайшие спереди и сзади дают дуги приближения.
 
+const { trackLengthM } = require('./common');
+
 const CAR_LENGTH = 4.6;      // м, средняя длина машины
 const SIDE_ZONE = 9;         // м: ближе этого машина считается «рядом»
 const MAX_RANGE = 45;        // м: дальше не отдаём
@@ -15,13 +17,6 @@ const RIGHT_COUNT = { 3: 1, 4: 1, 6: 2 };
 // Запоминаем, на каком борту машина была, чтобы при обгоне она не перепрыгивала
 let sticky = new Map();
 let stickyKey = '';
-
-function trackLengthM(race) {
-  const text = String(race.trackLength || '');
-  const n = parseFloat(text);
-  if (!Number.isFinite(n)) return null;
-  return /mi/i.test(text) ? n * 1609.344 : n * 1000;
-}
 
 function buildRadar(race) {
   const ref = race.ref;

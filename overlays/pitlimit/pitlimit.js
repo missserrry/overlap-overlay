@@ -39,7 +39,8 @@ function render() {
     return;
   }
 
-  const over = limit != null && speed > limit + cfg.tolerance * k;
+  // лимит неизвестен (LMU не отдаёт его): считаем «слишком быстро», если едем заметно быстрее шага, а лимитер выключен
+  const over = limit != null ? speed > limit + cfg.tolerance * k : speed > 5 * k;
   const bad = !m.limiter && over;                 // лимитер выключен, а скорость выше лимита
   root.className = `pl ${bad ? 'bad' : ''}`;
   const max = limit != null ? limit * 1.5 : Math.max(speed, 100);
